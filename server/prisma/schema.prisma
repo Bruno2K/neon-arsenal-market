@@ -1,0 +1,202 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("CUSTOMER") // ADMIN | SELLER | CUSTOMER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seller        Seller?
+  orders        Order[]         @relation("CustomerOrders")
+  reviews       Review[]
+}
+
+// Pending sign-up: user is created only after email verification (code confirmation)
+model PendingRegistration {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   // CUSTOMER | SELLER
+  storeName    String?  // required when role = SELLER
+  code         String
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+}
+
+model Seller {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  storeName       String
+  commissionRate Decimal  @default(0.1)
+  balance         Decimal  @default(0)
+  rating          Float    @default(0)
+  isApproved      Boolean  @default(false)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listings     Listing[]
+  orderItems   OrderItem[]
+  transactions SellerTransaction[]
+}
+
+// Catalog base - defines the skin model, not individual items
+model Product {
+  id          String   @id @default(cuid())
+  game        String   // CS2, CSGO, etc. - prepared for multi-game
+  weapon      String
+  skinName    String
+  rarity      String
+  exterior    String   // Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred
+  collection  String?
+  imageUrl    String?
+  isStattrak  Boolean  @default(false)
+  isSouvenir  Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  listings    Listing[]
+  reviews     Review[]
+
+  @@index([game])
+  @@index([weapon])
+  @@index([exterior])
+  @@index([rarity])
+  @@index([isStattrak])
+  @@index([game, weapon, exterior, isStattrak])
+}
+
+model Order {
+  id              String   @id @default(cuid())
+  customerId      String
+  totalAmount     Decimal
+  status          String   @default("PENDING") // PENDING | CONFIRMED | SHIPPED | DELIVERED | CANCELLED
+  paymentStatus   String   @default("PENDING") // PENDING | PAID | REFUNDED
+  paypalOrderId   String?  @unique
+  trackingCode    String?
+  trackingCarrier String?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  customer  User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
+  items     OrderItem[]
+  transactions SellerTransaction[]
+
+  @@index([customerId])
+  @@index([status])
+  @@index([paymentStatus])
+}
+
+// Individual skin item for sale
+model Listing {
+  id            String   @id @default(cuid())
+  productId     String
+  sellerId      String
+  floatValue    Decimal
+  pattern       Int?
+  price         Decimal
+  currency      String   @default("USD")
+  status        String   @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
+  tradeLockUntil DateTime?
+  steamAssetId  String?
+  createdAt     DateTime @default(now())
+  soldAt        DateTime?
+  updatedAt     DateTime @updatedAt
+
+  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  seller        Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  priceHistory  PriceHistory[]
+  orderItems    OrderItem[]
+
+  @@index([productId])
+  @@index([price])
+  @@index([floatValue])
+  @@index([status])
+  @@index([sellerId])
+  @@index([productId, status])
+}
+
+model PriceHistory {
+  id        String   @id @default(cuid())
+  listingId String
+  oldPrice  Decimal
+  newPrice  Decimal
+  changedAt DateTime @default(now())
+
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@index([listingId])
+  @@index([changedAt])
+}
+
+model OrderItem {
+  id            String   @id @default(cuid())
+  orderId       String
+  listingId     String
+  sellerId      String
+  priceSnapshot Decimal
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Restrict)
+  seller  Seller  @relation(fields: [sellerId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([listingId])
+  @@index([sellerId])
+}
+
+model SellerTransaction {
+  id               String                   @id @default(cuid())
+  sellerId         String
+  orderId          String
+  grossAmount      Decimal
+  commissionAmount Decimal
+  netAmount        Decimal
+  status           String   @default("PENDING") // PENDING | PAID | REFUNDED
+  createdAt        DateTime                 @default(now())
+
+  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+  @@index([orderId])
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  productId String   // Reviews are for the product catalog, not individual listings
+  userId    String
+  rating    Int
+  comment   String?
+  createdAt DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, userId])
+  @@index([productId])
+  @@index([userId])
+}
+
+// Refresh token blacklist — populated on logout to prevent token reuse
+model RevokedToken {
+  id        String   @id @default(cuid())
+  jti       String   @unique // JWT ID (jti claim) — unique per token
+  userId    String
+  expiresAt DateTime // Tokens can be pruned after expiry
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}

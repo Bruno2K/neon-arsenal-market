@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Neon Arsenal Market — Fluxograma do Sistema</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mermaid/10.6.1/mermaid.min.js"></script>
+  <style>
+    :root {
+      --bg: #0f1629;
+      --surface: #1a2744;
+      --surface2: #1e3058;
+      --accent: #2b5b9e;
+      --accent2: #3a6fbf;
+      --text: #e8edf5;
+      --text-muted: #8a9ab5;
+      --border: #2a3f6a;
+      --green: #22c55e;
+      --red: #ef4444;
+      --yellow: #f59e0b;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ─────────────────────────────────────────────────── */
+    .header {
+      background: var(--surface);
+      border-bottom: 2px solid var(--accent);
+      padding: 20px 40px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .header-logo {
+      width: 48px; height: 48px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 24px;
+    }
+    .header h1 { font-size: 1.5rem; color: var(--text); }
+    .header p { font-size: 0.85rem; color: var(--text-muted); }
+    .badge {
+      margin-left: auto;
+      background: var(--green);
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 4px 12px;
+      border-radius: 20px;
+    }
+
+    /* ── Nav Tabs ────────────────────────────────────────────────── */
+    .nav {
+      background: var(--surface2);
+      padding: 0 40px;
+      display: flex;
+      gap: 4px;
+      border-bottom: 1px solid var(--border);
+      overflow-x: auto;
+    }
+    .nav button {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 14px 18px;
+      cursor: pointer;
+      font-size: 0.875rem;
+      font-weight: 500;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .nav button:hover { color: var(--text); }
+    .nav button.active {
+      color: var(--text);
+      border-bottom-color: var(--accent2);
+    }
+
+    /* ── Content ─────────────────────────────────────────────────── */
+    .content { padding: 32px 40px; max-width: 1400px; margin: 0 auto; }
+
+    .diagram-section { display: none; }
+    .diagram-section.active { display: block; }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text);
+      margin-bottom: 8px;
+    }
+    .section-desc {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-bottom: 24px;
+      line-height: 1.6;
+    }
+
+    .diagram-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-bottom: 32px;
+      overflow-x: auto;
+    }
+    .diagram-card h3 {
+      font-size: 1rem;
+      color: var(--accent2);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .mermaid {
+      text-align: center;
+      overflow-x: auto;
+    }
+
+    /* ── Legend ──────────────────────────────────────────────────── */
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.8rem;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0;
+    }
+
+    /* ── Stack Grid ──────────────────────────────────────────────── */
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .stack-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 20px;
+    }
+    .stack-card h4 {
+      font-size: 0.875rem;
+      font-weight: 700;
+      color: var(--accent2);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 12px;
+    }
+    .stack-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.875rem;
+    }
+    .stack-item:last-child { border-bottom: none; }
+    .stack-item .name { font-weight: 600; color: var(--text); min-width: 140px; }
+    .stack-item .detail { color: var(--text-muted); font-size: 0.8rem; }
+
+    /* ── Sprint Table ────────────────────────────────────────────── */
+    .sprint-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.875rem;
+    }
+    .sprint-table th {
+      background: var(--accent);
+      color: #fff;
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+    }
+    .sprint-table td {
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    .sprint-table tr:nth-child(even) td { background: var(--surface2); }
+    .sprint-table tr:nth-child(odd) td { background: var(--surface); }
+    .status-done {
+      background: #166534;
+      color: #86efac;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-logo">🎯</div>
+  <div>
+    <h1>Neon Arsenal Market</h1>
+    <p>Fluxograma e Análise de Sistema · v4.0 · Março 2026</p>
+  </div>
+  <span class="badge">4 Sprints Concluídas</span>
+</div>
+
+<nav class="nav">
+  <button class="active" onclick="showTab('arquitetura')">Arquitetura</button>
+  <button onclick="showTab('auth')">Autenticação</button>
+  <button onclick="showTab('compra')">Fluxo de Compra</button>
+  <button onclick="showTab('pagamento')">Pagamento PayPal</button>
+  <button onclick="showTab('seller')">Fluxo Vendedor</button>
+  <button onclick="showTab('dados')">Modelo de Dados</button>
+  <button onclick="showTab('stack')">Tech Stack</button>
+  <button onclick="showTab('sprints')">Sprints</button>
+</nav>
+
+<div class="content">
+
+  <!-- ── 1. Arquitetura ─────────────────────────────────────────────── -->
+  <div id="arquitetura" class="diagram-section active">
+    <div class="section-title">Arquitetura do Sistema</div>
+    <div class="section-desc">Visão completa da arquitetura — frontend Clean Architecture (4 camadas), backend modular (Controller→Service→Repository), banco de dados SQLite via Prisma e integrações externas.</div>
+
+    <div class="diagram-card">
+      <h3>Diagrama de Arquitetura Geral</h3>
+      <div class="mermaid">
+graph TB
+    subgraph CLIENT["🌐 Frontend — React 18 + Vite + TypeScript"]
+        direction TB
+        PRES["Presentation Layer<br/>Pages + Components<br/>(React, Tailwind, shadcn/ui)"]
+        APP["Application Layer<br/>Custom Hooks<br/>(TanStack Query v5)"]
+        INFRA_F["Infrastructure Layer<br/>HttpClient + Repositories<br/>(silent refresh, JWT bearer)"]
+        DOM["Domain Layer<br/>Entities (TypeScript puro)<br/>Product, Order, Seller…"]
+        PRES --> APP --> INFRA_F --> DOM
+    end
+
+    subgraph SERVER["⚙️ Backend — Node.js + Express + TypeScript"]
+        direction TB
+        CTRL["Controllers<br/>(validate → delegate)"]
+        SVC["Services<br/>(business logic)"]
+        REPO["Repositories<br/>(Prisma ORM)"]
+        SHARED["Shared<br/>(middlewares, errors, utils)"]
+        CTRL --> SVC --> REPO
+        SHARED -.-> CTRL
+        SHARED -.-> SVC
+    end
+
+    subgraph DB["🗄️ Banco de Dados"]
+        SQLITE["SQLite<br/>via Prisma<br/>10 modelos"]
+    end
+
+    subgraph EXT["🔌 Serviços Externos"]
+        PAYPAL["PayPal<br/>Orders API v2"]
+        EMAIL["EmailService<br/>(Nodemailer-ready)"]
+    end
+
+    INFRA_F -->|"REST API<br/>JSON + JWT"| CTRL
+    REPO --> SQLITE
+    SVC -->|"create / capture"| PAYPAL
+    SVC -->|"confirmation<br/>shipping<br/>approval"| EMAIL
+
+    style CLIENT fill:#1e3058,stroke:#2b5b9e,color:#e8edf5
+    style SERVER fill:#1a2744,stroke:#2b5b9e,color:#e8edf5
+    style DB fill:#162035,stroke:#3a6fbf,color:#e8edf5
+    style EXT fill:#162035,stroke:#3a6fbf,color:#e8edf5
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Módulos do Backend</h3>
+      <div class="mermaid">
+graph LR
+    APP_ENTRY["app.ts<br/>Express App"]
+
+    APP_ENTRY --> HEALTH["/health"]
+    APP_ENTRY --> AUTH["/auth<br/>authLimiter"]
+    APP_ENTRY --> USERS["/users"]
+    APP_ENTRY --> SELLERS["/sellers"]
+    APP_ENTRY --> PRODUCTS["/products"]
+    APP_ENTRY --> LISTINGS["/listings"]
+    APP_ENTRY --> ORDERS["/orders"]
+    APP_ENTRY --> PAYMENTS["/payments"]
+    APP_ENTRY --> COMMISSIONS["/commissions"]
+    APP_ENTRY --> REVIEWS["/reviews"]
+    APP_ENTRY --> ADMIN["/admin"]
+
+    subgraph MIDDLEWARES["Middlewares Globais"]
+        RL["apiLimiter<br/>100 req/15min"]
+        RID["requestId<br/>UUID por request"]
+        CORS_M["cors()"]
+        ERR["errorHandler<br/>AppError → JSON"]
+    end
+
+    style APP_ENTRY fill:#2b5b9e,color:#fff
+    style MIDDLEWARES fill:#1e3058,stroke:#2b5b9e,color:#e8edf5
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Camadas do Frontend — Clean Architecture</h3>
+      <div class="mermaid">
+graph BT
+    subgraph L1["Camada de Domínio (src/domain)"]
+        E1["Product, Listing<br/>Order, Seller, User<br/>Review, Commission"]
+    end
+    subgraph L2["Camada de Infraestrutura (src/infrastructure)"]
+        E2["HttpClient (bearer + silent refresh)<br/>ProductRepository, OrderRepository<br/>SellerRepository, ListingRepository…"]
+    end
+    subgraph L3["Camada de Aplicação (src/application)"]
+        E3["useProducts, useProduct, useCreateProduct<br/>useOrders, useOrder, useSellerTransactions<br/>useAuth, useSeller, useReviews…"]
+    end
+    subgraph L4["Camada de Apresentação (src/pages + components)"]
+        E4["Index, Products, ProductDetail<br/>CartPage, Checkout, CustomerOrders<br/>SellerDashboard, AdminDashboard…"]
+    end
+
+    L1 --> L2 --> L3 --> L4
+
+    style L1 fill:#162035,stroke:#3a6fbf,color:#e8edf5
+    style L2 fill:#1a2744,stroke:#2b5b9e,color:#e8edf5
+    style L3 fill:#1e3058,stroke:#2b5b9e,color:#e8edf5
+    style L4 fill:#243566,stroke:#3a6fbf,color:#e8edf5
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 2. Autenticação ─────────────────────────────────────────────── -->
+  <div id="auth" class="diagram-section">
+    <div class="section-title">Fluxo de Autenticação</div>
+    <div class="section-desc">Registro em duas etapas com verificação por código, JWT com access + refresh tokens e silent refresh automático no cliente.</div>
+
+    <div class="diagram-card">
+      <h3>Fluxo de Registro em 2 Etapas</h3>
+      <div class="mermaid">
+sequenceDiagram
+    participant U as Usuário
+    participant FE as Frontend
+    participant BE as Backend
+    participant DB as SQLite
+    participant EM as EmailService
+
+    U->>FE: Preenche formulário (nome, email, senha, role)
+    FE->>BE: POST /auth/register/initiate
+    BE->>BE: Valida Zod DTO
+    BE->>BE: Gera código 6 dígitos + bcrypt(senha)
+    BE->>DB: Cria PendingRegistration (TTL 5min)
+    BE->>EM: sendVerificationCode(email, código)
+    BE-->>FE: 200 OK {message}
+    FE-->>U: "Verifique seu e-mail"
+
+    U->>FE: Digita código recebido
+    FE->>BE: POST /auth/register/confirm {email, code}
+    BE->>DB: Busca PendingRegistration (verifica expiração)
+    alt Código válido
+        BE->>DB: Cria User + Seller (se role=SELLER)
+        BE->>DB: Deleta PendingRegistration
+        BE-->>FE: 201 Created {accessToken, refreshToken}
+        FE-->>U: Login automático
+    else Código inválido/expirado
+        BE-->>FE: 400 Bad Request
+        FE-->>U: Erro — reenviar código
+    end
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Fluxo de Login e Silent Refresh</h3>
+      <div class="mermaid">
+sequenceDiagram
+    participant U as Usuário
+    participant FE as Frontend
+    participant HC as HttpClient
+    participant BE as Backend
+
+    U->>FE: POST /auth/login {email, senha}
+    FE->>BE: authLimiter (15 req/15min)
+    BE->>BE: bcrypt.compare(senha, hash)
+    alt Credenciais válidas
+        BE-->>FE: {accessToken, refreshToken, user}
+        FE->>FE: localStorage.setItem(neon_access_token)
+        FE->>FE: localStorage.setItem(neon_refresh_token)
+        FE-->>U: Dashboard
+    else Inválidas
+        BE-->>FE: 401 Unauthorized
+    end
+
+    Note over HC,BE: Requests subsequentes com token expirado
+    HC->>BE: GET /orders (Authorization: Bearer <expired>)
+    BE-->>HC: 401 Unauthorized
+    HC->>HC: Enfileira request pendente
+    HC->>BE: POST /auth/refresh {refreshToken}
+    alt Refresh válido
+        BE-->>HC: {accessToken novo}
+        HC->>HC: Salva novo token
+        HC->>BE: GET /orders (novo token) ← retry
+        BE-->>HC: 200 OK
+    else Refresh expirado
+        HC->>FE: Dispara auth:session-expired
+        FE->>FE: AuthContext.logout()
+        FE-->>U: Redireciona /login
+    end
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Roles e Controle de Acesso</h3>
+      <div class="mermaid">
+graph LR
+    subgraph ROLES["Papéis de Usuário"]
+        CUSTOMER["👤 CUSTOMER"]
+        SELLER["🏪 SELLER"]
+        ADMIN["👑 ADMIN"]
+    end
+
+    subgraph PUBLIC["Rotas Públicas"]
+        R1["/ · /products · /product/:id"]
+        R2["/listing/:id · /cart"]
+        R3["/login · /payment/*"]
+    end
+
+    subgraph AUTH_ROUTES["Rotas Autenticadas"]
+        R4["/checkout · /orders"]
+        R5["/orders/:id · /profile"]
+        R6["/seller/apply"]
+    end
+
+    subgraph SELLER_ROUTES["Rotas SELLER"]
+        R7["/seller (dashboard)"]
+        R8["PATCH /orders/:id/status"]
+        R9["CRUD /products · /listings"]
+    end
+
+    subgraph ADMIN_ROUTES["Rotas ADMIN"]
+        R10["/admin (dashboard)"]
+        R11["POST /admin/sellers/:id/approve"]
+        R12["GET /admin/users · /admin/orders"]
+    end
+
+    CUSTOMER --> PUBLIC
+    CUSTOMER --> AUTH_ROUTES
+    SELLER --> PUBLIC
+    SELLER --> AUTH_ROUTES
+    SELLER --> SELLER_ROUTES
+    ADMIN --> PUBLIC
+    ADMIN --> AUTH_ROUTES
+    ADMIN --> SELLER_ROUTES
+    ADMIN --> ADMIN_ROUTES
+
+    style ROLES fill:#1a2744,stroke:#2b5b9e
+    style PUBLIC fill:#162035,stroke:#3a6fbf
+    style AUTH_ROUTES fill:#1e3058,stroke:#2b5b9e
+    style SELLER_ROUTES fill:#163030,stroke:#22c55e
+    style ADMIN_ROUTES fill:#301616,stroke:#ef4444
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 3. Fluxo de Compra ──────────────────────────────────────────── -->
+  <div id="compra" class="diagram-section">
+    <div class="section-title">Fluxo de Compra do Cliente</div>
+    <div class="section-desc">Jornada completa do comprador: descoberta do produto, adição ao carrinho, checkout e acompanhamento do pedido.</div>
+
+    <div class="diagram-card">
+      <h3>Jornada do Comprador</h3>
+      <div class="mermaid">
+flowchart TD
+    A(["🏠 Home — Index"]) --> B["Navegar /products<br/>filtro: categoria, busca<br/>Skeleton loading"]
+    B --> C["Ver ProductCard<br/>imagem + categoria badge"]
+    C --> D["Abrir /product/:id<br/>detalhe + avaliações"]
+    D --> E{"Adicionar ao carrinho?"}
+    E -->|"Sim"| F["CartContext.addItem()<br/>toast.success()"]
+    E -->|"Não"| B
+    F --> G["Continuar comprando<br/>ou ir ao /cart"]
+    G --> H["/cart<br/>revisar itens, quantidades<br/>imagem real + fallback"]
+    H --> I{"Continuar?"}
+    I -->|"Remover item"| H
+    I -->|"Ir ao checkout"| J{"Está logado?"}
+    J -->|"Não"| K["Redireciona /login"]
+    K --> L["Login bem-sucedido"]
+    L --> J
+    J -->|"Sim"| M["/checkout<br/>Resumo do pedido"]
+    M --> N["POST /orders<br/>Order PENDING criado"]
+    N --> O["POST /payments/create<br/>PayPal Order criado"]
+    O --> P["Redireciona para PayPal"]
+
+    style A fill:#2b5b9e,color:#fff
+    style F fill:#166534,color:#86efac
+    style K fill:#92400e,color:#fde68a
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Pós-Compra: Acompanhamento do Pedido</h3>
+      <div class="mermaid">
+stateDiagram-v2
+    [*] --> PENDING : POST /orders
+    PENDING --> CONFIRMED : PayPal capturado
+    CONFIRMED --> SHIPPED : Vendedor envia
+    SHIPPED --> DELIVERED : Entrega confirmada
+    PENDING --> CANCELLED : Cancelamento
+    CONFIRMED --> CANCELLED : Admin cancela
+    state PENDING : aguardando pagamento
+    state CONFIRMED : email de confirmacao enviado
+    state SHIPPED : email com tracking enviado
+    state DELIVERED : pedido encerrado
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Páginas Envolvidas no Fluxo de Compra</h3>
+      <div class="mermaid">
+graph LR
+    IDX["/\nIndex\n🏠 Featured"] --> PROD["/products\nCatálogo\n🔍 Filtros"]
+    PROD --> DET["/product/:id\nDetalhe\n🖼️ Imagem + Reviews"]
+    DET --> CART["/cart\nCarrinho\n🛒 Controle Qty"]
+    CART --> CHK["/checkout\nCheckout\n💳 Resumo"]
+    CHK --> SUCC["/payment/success\nSucesso\n✅ Spinner 1.2s"]
+    CHK --> CANC["/payment/cancel\nCancelado\n↩️ Retry CTA"]
+    SUCC --> ORD["/orders/:id\nDetalhe Pedido\n📦 Tracking"]
+    ORD --> ORDS["/orders\nMeus Pedidos\n📋 Lista"]
+
+    style SUCC fill:#166534,color:#86efac
+    style CANC fill:#7f1d1d,color:#fca5a5
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 4. Pagamento ────────────────────────────────────────────────── -->
+  <div id="pagamento" class="diagram-section">
+    <div class="section-title">Fluxo de Pagamento PayPal</div>
+    <div class="section-desc">Integração completa com PayPal Orders API v2: criação da ordem, redirecionamento, captura e geração de transações financeiras por vendedor.</div>
+
+    <div class="diagram-card">
+      <h3>Sequência Completa de Pagamento</h3>
+      <div class="mermaid">
+sequenceDiagram
+    participant C as Cliente
+    participant FE as Frontend
+    participant BE as Backend
+    participant PP as PayPal API
+    participant DB as SQLite
+
+    C->>FE: Clica "Finalizar Compra"
+    FE->>BE: POST /orders {items[], addressId?}
+    BE->>DB: Cria Order (status=PENDING, paymentStatus=PENDING)
+    BE->>DB: Cria OrderItems (priceSnapshot)
+    BE-->>FE: {orderId}
+
+    FE->>BE: POST /payments/create {orderId}
+    BE->>PP: Create Order (application_context<br/>return_url, cancel_url, brand_name, user_action=PAY_NOW)
+    PP-->>BE: {id: paypalOrderId, status: CREATED, approvalUrl}
+    BE->>DB: Salva paypalOrderId no Order
+    BE-->>FE: {approvalUrl}
+
+    FE->>C: window.location = approvalUrl
+    C->>PP: Autentica e aprova pagamento
+    PP->>FE: Redireciona /payment/success?orderId=&token=
+
+    FE->>FE: Spinner 1.2s (ProcessingPayment)
+    FE->>BE: POST /payments/capture/:paypalOrderId
+
+    BE->>PP: Capture Order
+    PP-->>BE: {status: COMPLETED, payer{...}}
+    BE->>DB: Order.paymentStatus = PAID
+    BE->>DB: Order.status = CONFIRMED
+    BE->>DB: Cria SellerTransaction por OrderItem<br/>(gross, commission, net)
+    BE->>BE: emailService.sendOrderConfirmation()
+    BE-->>FE: {order}
+
+    FE->>C: Confirmação + link "Ver Pedido"
+
+    Note over C,PP: Em caso de cancelamento
+    PP->>FE: Redireciona /payment/cancel?orderId=
+    FE->>C: CTAs: Tentar Novamente / Voltar ao Carrinho
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Cálculo de Comissão por Transação</h3>
+      <div class="mermaid">
+graph LR
+    ORD["Order\ntotalAmount: $100"] --> ITEM1["OrderItem 1\npriceSnapshot: $60\nsellerId: A"]
+    ORD --> ITEM2["OrderItem 2\npriceSnapshot: $40\nsellerId: B"]
+
+    ITEM1 --> TX1["SellerTransaction A\ngrossAmount: $60\ncommissionAmount: $6 (10%)\nnetAmount: $54"]
+    ITEM2 --> TX2["SellerTransaction B\ngrossAmount: $40\ncommissionAmount: $4 (10%)\nnetAmount: $36"]
+
+    TX1 --> BAL_A["Seller A Balance\n+$54"]
+    TX2 --> BAL_B["Seller B Balance\n+$36"]
+
+    style TX1 fill:#163030,stroke:#22c55e,color:#e8edf5
+    style TX2 fill:#163030,stroke:#22c55e,color:#e8edf5
+    style BAL_A fill:#166534,color:#86efac
+    style BAL_B fill:#166534,color:#86efac
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 5. Vendedor ─────────────────────────────────────────────────── -->
+  <div id="seller" class="diagram-section">
+    <div class="section-title">Fluxo do Vendedor</div>
+    <div class="section-desc">Onboarding de vendedores (aprovação admin), gestão de produtos e listings, fulfillment de pedidos e controle financeiro.</div>
+
+    <div class="diagram-card">
+      <h3>Onboarding do Vendedor</h3>
+      <div class="mermaid">
+flowchart TD
+    A(["Usuário CUSTOMER"]) --> B["Acessa /seller/apply\n(requer auth)"]
+    B --> C["POST /sellers/apply\n{storeName, description}"]
+    C --> D["Seller criado\nisApproved = false"]
+    D --> E["Admin visualiza em\n/admin — Sellers Pendentes"]
+    E --> F{"Admin decide"}
+    F -->|"Aprovar"| G["POST /admin/sellers/:id/approve\nSeller.isApproved = true"]
+    F -->|"Rejeitar"| H["POST /admin/sellers/:id/reject"]
+    G --> I["E-mail: 'Sua loja foi aprovada'"]
+    H --> J["E-mail: 'Solicitação rejeitada'"]
+    I --> K(["Vendedor acessa /seller"])
+    G --> L["Admin → toast.success()"]
+    H --> M["Admin → toast.error()"]
+
+    style G fill:#166534,color:#86efac
+    style H fill:#7f1d1d,color:#fca5a5
+    style K fill:#2b5b9e,color:#fff
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Gestão de Produtos e Listings</h3>
+      <div class="mermaid">
+graph TD
+    DASH["SellerDashboard /seller\n4 abas: Visão Geral · Produtos · Pedidos · Financeiro"]
+
+    DASH --> ABA1["Visão Geral\nreceita bruta/líquida\núltimas 5 transações"]
+    DASH --> ABA2["Produtos\nCRUD de produtos\nimageUrl + category"]
+    DASH --> ABA3["Pedidos\nlista de pedidos\nmarcar como enviado + tracking"]
+    DASH --> ABA4["Financeiro\nbalance + transações\ntabela: pedido, data, bruto, comissão, líquido"]
+
+    ABA2 --> PROD_CREATE["POST /products\n{name, price, stock, imageUrl, category}"]
+    ABA2 --> LIST_CREATE["POST /listings\n{productId, floatValue, pattern, price}"]
+    ABA3 --> SHIP["PATCH /orders/:id/status\n{status: SHIPPED, trackingCode}"]
+    SHIP --> EMAIL_SHIP["emailService.sendOrderShipped()"]
+    SHIP --> TOAST["toast.success('Pedido marcado como enviado')"]
+
+    style DASH fill:#2b5b9e,color:#fff
+    style ABA4 fill:#163030,stroke:#22c55e,color:#e8edf5
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Dashboard Financeiro do Vendedor</h3>
+      <div class="mermaid">
+graph LR
+    subgraph METRICS["Cards de Resumo"]
+        M1["Saldo Disponível\nSeller.balance"]
+        M2["Receita Bruta Total\nΣ grossAmount"]
+        M3["Comissões Pagas\nΣ commissionAmount"]
+    end
+
+    subgraph TABLE["Tabela de Transações"]
+        T1["Pedido ID\n(link /orders/:id)"]
+        T2["Data"]
+        T3["Bruto ($)"]
+        T4["Comissão (%)"]
+        T5["Líquido ($)"]
+    end
+
+    API["GET /sellers/me/transactions\nuseSellerTransactions hook"] --> METRICS
+    API --> TABLE
+
+    style METRICS fill:#1e3058,stroke:#22c55e
+    style TABLE fill:#1e3058,stroke:#2b5b9e
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 6. Modelo de Dados ──────────────────────────────────────────── -->
+  <div id="dados" class="diagram-section">
+    <div class="section-title">Modelo Entidade-Relacionamento</div>
+    <div class="section-desc">10 modelos no banco de dados SQLite via Prisma. Todos os campos monetários usam Decimal para precisão financeira.</div>
+
+    <div class="diagram-card">
+      <h3>Diagrama ER Completo</h3>
+      <div class="mermaid">
+erDiagram
+    User {
+        string id PK
+        string name
+        string email UK
+        string password
+        string role "ADMIN|SELLER|CUSTOMER"
+    }
+    PendingRegistration {
+        string id PK
+        string email UK
+        string name
+        string passwordHash
+        string role
+        string storeName "optional"
+        string code
+        datetime expiresAt
+    }
+    Seller {
+        string id PK
+        string userId UK
+        string storeName
+        decimal commissionRate "0.1 default"
+        decimal balance
+        float rating
+        bool isApproved
+    }
+    Product {
+        string id PK
+        string game "CS2"
+        string weapon
+        string skinName
+        string rarity
+        string exterior
+        string collection "optional"
+        string imageUrl "optional"
+        bool isStatTrak
+        bool isSouvenir
+    }
+    Listing {
+        string id PK
+        string productId
+        string sellerId
+        decimal floatValue
+        int pattern "optional"
+        decimal price
+        string currency "USD"
+        string status "ACTIVE|SOLD|RESERVED|CANCELED"
+        datetime tradeLockUntil "optional"
+        string steamAssetId "optional"
+    }
+    PriceHistory {
+        string id PK
+        string listingId
+        decimal oldPrice
+        decimal newPrice
+        datetime changedAt
+    }
+    Order {
+        string id PK
+        string customerId
+        decimal totalAmount
+        string status "PENDING|CONFIRMED|SHIPPED|DELIVERED|CANCELLED"
+        string paymentStatus "PENDING|PAID|REFUNDED"
+        string paypalOrderId "optional UK"
+        string trackingCode "optional"
+        string trackingCarrier "optional"
+    }
+    OrderItem {
+        string id PK
+        string orderId
+        string listingId
+        string sellerId
+        decimal priceSnapshot
+    }
+    SellerTransaction {
+        string id PK
+        string sellerId
+        string orderId
+        decimal grossAmount
+        decimal commissionAmount
+        decimal netAmount
+        string status "PENDING|PAID|REFUNDED"
+    }
+    Review {
+        string id PK
+        string productId
+        string userId
+        int rating "1-5"
+        string comment "optional"
+    }
+
+    User ||--o| Seller : "tem"
+    User ||--o{ Order : "faz"
+    User ||--o{ Review : "escreve"
+    Seller ||--o{ Listing : "cria"
+    Seller ||--o{ OrderItem : "vende"
+    Seller ||--o{ SellerTransaction : "recebe"
+    Product ||--o{ Listing : "tem"
+    Product ||--o{ Review : "recebe"
+    Listing ||--o{ PriceHistory : "registra"
+    Listing ||--o{ OrderItem : "compõe"
+    Order ||--o{ OrderItem : "contém"
+    Order ||--o{ SellerTransaction : "gera"
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 7. Tech Stack ───────────────────────────────────────────────── -->
+  <div id="stack" class="diagram-section">
+    <div class="section-title">Stack Tecnológica Completa</div>
+    <div class="section-desc">Todas as tecnologias usadas no projeto, organizadas por camada.</div>
+
+    <div class="stack-grid">
+      <div class="stack-card">
+        <h4>⚙️ Backend</h4>
+        <div class="stack-item"><span class="name">Node.js + Express</span><span class="detail">ESM, TypeScript strict</span></div>
+        <div class="stack-item"><span class="name">Prisma ORM</span><span class="detail">SQLite, 10 modelos</span></div>
+        <div class="stack-item"><span class="name">Zod</span><span class="detail">DTOs + validação</span></div>
+        <div class="stack-item"><span class="name">JWT</span><span class="detail">access + refresh tokens</span></div>
+        <div class="stack-item"><span class="name">bcrypt</span><span class="detail">hashing de senhas</span></div>
+        <div class="stack-item"><span class="name">PayPal API v2</span><span class="detail">Orders + Capture</span></div>
+        <div class="stack-item"><span class="name">Nodemailer</span><span class="detail">EmailService (prod-ready)</span></div>
+        <div class="stack-item"><span class="name">express-rate-limit</span><span class="detail">api + auth limiters</span></div>
+        <div class="stack-item"><span class="name">Pino</span><span class="detail">logging estruturado</span></div>
+        <div class="stack-item"><span class="name">Vitest</span><span class="detail">testes unitários</span></div>
+      </div>
+      <div class="stack-card">
+        <h4>🌐 Frontend</h4>
+        <div class="stack-item"><span class="name">React 18</span><span class="detail">Vite + SWC</span></div>
+        <div class="stack-item"><span class="name">TypeScript</span><span class="detail">strict mode</span></div>
+        <div class="stack-item"><span class="name">React Router v6</span><span class="detail">PrivateRoute + roles</span></div>
+        <div class="stack-item"><span class="name">TanStack Query v5</span><span class="detail">server state, cache</span></div>
+        <div class="stack-item"><span class="name">React Hook Form</span><span class="detail">+ zodResolver</span></div>
+        <div class="stack-item"><span class="name">Tailwind CSS v3</span><span class="detail">dark-first theme</span></div>
+        <div class="stack-item"><span class="name">shadcn/ui + Radix</span><span class="detail">30+ componentes</span></div>
+        <div class="stack-item"><span class="name">Framer Motion</span><span class="detail">animações de página</span></div>
+        <div class="stack-item"><span class="name">Recharts</span><span class="detail">AreaChart receita</span></div>
+        <div class="stack-item"><span class="name">Sonner v1.7.4</span><span class="detail">toast notifications</span></div>
+      </div>
+      <div class="stack-card">
+        <h4>🏗️ Arquitetura</h4>
+        <div class="stack-item"><span class="name">Clean Architecture</span><span class="detail">4 camadas (DIP)</span></div>
+        <div class="stack-item"><span class="name">DDD</span><span class="detail">bounded contexts</span></div>
+        <div class="stack-item"><span class="name">Repository Pattern</span><span class="detail">abstração de dados</span></div>
+        <div class="stack-item"><span class="name">Module Pattern</span><span class="detail">Controller/Service/Repo</span></div>
+        <div class="stack-item"><span class="name">Silent Refresh</span><span class="detail">queue de requests</span></div>
+        <div class="stack-item"><span class="name">Skeleton Loading</span><span class="detail">ProductCardSkeleton</span></div>
+        <div class="stack-item"><span class="name">Error Boundary</span><span class="detail">React + AppError</span></div>
+      </div>
+      <div class="stack-card">
+        <h4>🗄️ Banco de Dados</h4>
+        <div class="stack-item"><span class="name">SQLite</span><span class="detail">via Prisma (dev)</span></div>
+        <div class="stack-item"><span class="name">User</span><span class="detail">auth + perfil</span></div>
+        <div class="stack-item"><span class="name">Seller</span><span class="detail">loja + comissão</span></div>
+        <div class="stack-item"><span class="name">Product</span><span class="detail">catálogo base</span></div>
+        <div class="stack-item"><span class="name">Listing</span><span class="detail">itens à venda</span></div>
+        <div class="stack-item"><span class="name">Order + OrderItem</span><span class="detail">pedidos</span></div>
+        <div class="stack-item"><span class="name">SellerTransaction</span><span class="detail">financeiro</span></div>
+        <div class="stack-item"><span class="name">Review</span><span class="detail">avaliações</span></div>
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Categorias de Produtos Suportadas</h3>
+      <div class="mermaid">
+graph LR
+    CAT["ProductCategory\n(7 tipos)"] --> R["🔫 rifles"]
+    CAT --> P["🔫 pistols"]
+    CAT --> K["🗡️ knives"]
+    CAT --> G["🧤 gloves"]
+    CAT --> A["👤 accounts"]
+    CAT --> S["⚙️ services"]
+    CAT --> O["📦 other"]
+
+    style CAT fill:#2b5b9e,color:#fff
+      </div>
+    </div>
+  </div>
+
+  <!-- ── 8. Sprints ──────────────────────────────────────────────────── -->
+  <div id="sprints" class="diagram-section">
+    <div class="section-title">Resumo das Sprints de Desenvolvimento</div>
+    <div class="section-desc">As 4 sprints planejadas foram concluídas com sucesso. O MVP está completo e funcional.</div>
+
+    <div class="diagram-card">
+      <h3>Progresso das Sprints</h3>
+      <table class="sprint-table">
+        <thead>
+          <tr><th>Sprint</th><th>Nome</th><th>Entregas Principais</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong>1</strong></td>
+            <td><strong>Clean Architecture</strong></td>
+            <td>4 camadas (Domain → Infra → Application → Presentation), HttpClient com silent refresh e fila de requests, todos os custom hooks TanStack Query, todas as 15+ páginas conectadas à API real, PrivateRoute com allowedRoles</td>
+            <td><span class="status-done">Concluída ✓</span></td>
+          </tr>
+          <tr>
+            <td><strong>2</strong></td>
+            <td><strong>User Flows Completos</strong></td>
+            <td>CustomerOrders (lista de pedidos), OrderDetail (detalhe + tracking), Profile (editar nome/email + alterar senha), SellerApply (formulário de candidatura), Header com contador de carrinho + avatar + logout dropdown</td>
+            <td><span class="status-done">Concluída ✓</span></td>
+          </tr>
+          <tr>
+            <td><strong>3</strong></td>
+            <td><strong>Conteúdo e Produtos</strong></td>
+            <td>imageUrl e category no modelo Product (Prisma + DTOs + services + frontend domain), 7 categorias tipadas, filtro por categoria na UI (chips com emoji), ProductCard e ProductDetail com imagem real e fallback, SellerDashboard form com imageUrl + category, EmailService com Nodemailer-ready (console log em dev)</td>
+            <td><span class="status-done">Concluída ✓</span></td>
+          </tr>
+          <tr>
+            <td><strong>4</strong></td>
+            <td><strong>UX · Pagamento · Admin/Financeiro</strong></td>
+            <td>CartPage fix (rarity → imagem real), PaymentSuccess e PaymentCancel (novos), PayPal application_context com return_url/cancel_url, Sonner toasts em toda a app, ProductCardSkeleton + ProductGridSkeleton, SellerDashboard com 4 abas (Visão Geral, Produtos, Pedidos, Financeiro com tabela de transações), AdminDashboard com Recharts AreaChart de receita 30 dias, server/.env.example atualizado</td>
+            <td><span class="status-done">Concluída ✓</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Timeline de Desenvolvimento</h3>
+      <div class="mermaid">
+gantt
+    title Neon Arsenal Market - Sprints de Desenvolvimento
+    dateFormat YYYY-MM-DD
+    section Sprint 1
+    Clean Architecture + Hooks + Pages    :done, s1, 2025-01-01, 14d
+    section Sprint 2
+    User Flows Completos                  :done, s2, 2025-01-15, 10d
+    section Sprint 3
+    Conteudo + Produtos + Email           :done, s3, 2025-01-25, 10d
+    section Sprint 4
+    UX + Pagamento + Admin               :done, s4, 2025-02-04, 12d
+    section Backlog v2
+    Testes E2E + Deploy + Features        :active, s5, 2025-02-16, 30d
+      </div>
+    </div>
+
+    <div class="diagram-card">
+      <h3>Backlog Pós-MVP (sugestões para v2)</h3>
+      <div class="mermaid">
+graph TD
+    ROOT(["Backlog v2"])
+
+    ROOT --> Q["Qualidade"]
+    Q --> Q1["Testes E2E com Playwright"]
+    Q --> Q2["CI/CD GitHub Actions"]
+    Q --> Q3["Cobertura unit tests"]
+
+    ROOT --> F["Features"]
+    F --> F1["Saque saldo vendedor"]
+    F --> F2["WebSockets tempo real"]
+    F --> F3["Autenticacao Steam"]
+    F --> F4["Filtros float/pattern"]
+    F --> F5["Wishlist e alertas de preco"]
+
+    ROOT --> I["Infraestrutura"]
+    I --> I1["Migrar para PostgreSQL"]
+    I --> I2["Docker + docker-compose"]
+    I --> I3["CDN para imagens"]
+    I --> I4["SMTP SendGrid/Resend"]
+    I --> I5["Sentry + Grafana"]
+
+    style ROOT fill:#2b5b9e,color:#fff
+    style Q fill:#1e3058,color:#e8edf5
+    style F fill:#1e3058,color:#e8edf5
+    style I fill:#1e3058,color:#e8edf5
+      </div>
+    </div>
+  </div>
+
+</div><!-- /content -->
+
+<script>
+  mermaid.initialize({
+    startOnLoad: true,
+    theme: 'dark',
+    themeVariables: {
+      primaryColor: '#2b5b9e',
+      primaryTextColor: '#e8edf5',
+      primaryBorderColor: '#3a6fbf',
+      lineColor: '#3a6fbf',
+      secondaryColor: '#1e3058',
+      tertiaryColor: '#1a2744',
+      background: '#0f1629',
+      mainBkg: '#1a2744',
+      nodeBorder: '#3a6fbf',
+      clusterBkg: '#1e3058',
+      titleColor: '#e8edf5',
+      edgeLabelBackground: '#1e3058',
+      actorBkg: '#1a2744',
+      actorBorder: '#3a6fbf',
+      actorTextColor: '#e8edf5',
+      actorLineColor: '#3a6fbf',
+      signalColor: '#e8edf5',
+      signalTextColor: '#e8edf5',
+      labelBoxBkgColor: '#1a2744',
+      labelBoxBorderColor: '#3a6fbf',
+      labelTextColor: '#e8edf5',
+      loopTextColor: '#e8edf5',
+      noteBorderColor: '#3a6fbf',
+      noteBkgColor: '#1e3058',
+      noteTextColor: '#e8edf5',
+      activationBorderColor: '#3a6fbf',
+      activationBkgColor: '#243566',
+      sequenceNumberColor: '#e8edf5',
+      sectionBkgColor: '#1e3058',
+      altSectionBkgColor: '#162035',
+      sectionBkgColor2: '#1a2744',
+      taskBorderColor: '#3a6fbf',
+      taskBkgColor: '#2b5b9e',
+      taskTextColor: '#e8edf5',
+      taskTextLightColor: '#e8edf5',
+      taskTextOutsideColor: '#e8edf5',
+      taskTextClickableColor: '#e8edf5',
+      activeTaskBorderColor: '#22c55e',
+      activeTaskBkgColor: '#166534',
+      gridColor: '#2a3f6a',
+      doneTaskBkgColor: '#1e3058',
+      doneTaskBorderColor: '#2b5b9e',
+      critBorderColor: '#ef4444',
+      critBkgColor: '#7f1d1d',
+      todayLineColor: '#f59e0b',
+      fillType0: '#2b5b9e',
+      fillType1: '#1e3058',
+      fillType2: '#163050',
+      fillType3: '#1a2744',
+    },
+    flowchart: { htmlLabels: true, curve: 'basis' },
+    sequence: { showSequenceNumbers: false },
+    er: { diagramPadding: 20 },
+  });
+
+  function showTab(id) {
+    document.querySelectorAll('.diagram-section').forEach(s => s.classList.remove('active'));
+    document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.target.classList.add('active');
+  }
+</script>
+</body>
+</html>

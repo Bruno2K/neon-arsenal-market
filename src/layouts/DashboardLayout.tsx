@@ -1,19 +1,18 @@
 import { Outlet, useLocation, Link } from 'react-router-dom';
 import { Header } from '@/components/Header';
-import { BarChart3, Package, ShoppingBag, DollarSign, Users, Shield, Settings } from 'lucide-react';
+import { BarChart3, Package, ShoppingBag, Users, Shield, Settings } from 'lucide-react';
 
 const sellerItems = [
   { icon: BarChart3, label: 'Visão Geral', href: '/seller' },
-  { icon: Package, label: 'Produtos', href: '/seller' },
-  { icon: ShoppingBag, label: 'Pedidos', href: '/seller' },
-  { icon: DollarSign, label: 'Saldo', href: '/seller' },
+  { icon: Package, label: 'Produtos', href: '/seller/products' },
+  { icon: ShoppingBag, label: 'Pedidos', href: '/seller/orders' },
 ];
 
 const adminItems = [
   { icon: BarChart3, label: 'Visão Geral', href: '/admin' },
-  { icon: Users, label: 'Vendedores', href: '/admin' },
-  { icon: ShoppingBag, label: 'Pedidos', href: '/admin' },
-  { icon: Shield, label: 'Usuários', href: '/admin' },
+  { icon: Users, label: 'Vendedores', href: '/admin/sellers' },
+  { icon: ShoppingBag, label: 'Pedidos', href: '/admin/orders' },
+  { icon: Shield, label: 'Usuários', href: '/admin/users' },
   { icon: Settings, label: 'Config', href: '/admin' },
 ];
 
@@ -28,12 +27,12 @@ export default function DashboardLayout() {
       <div className="flex">
         <aside className="hidden lg:flex w-56 flex-col border-r border-border sticky top-16 h-[calc(100vh-4rem)] p-4">
           <nav className="space-y-1">
-            {items.map((item, i) => (
+            {items.map((item) => (
               <Link
                 key={item.label}
                 to={item.href}
                 className={`flex items-center gap-3 px-3 py-2.5 rounded-md text-sm font-medium transition-colors ${
-                  i === 0 ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
+                  location.pathname === item.href ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:text-foreground hover:bg-muted'
                 }`}
               >
                 <item.icon className="h-4 w-4" />

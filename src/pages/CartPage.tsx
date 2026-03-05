@@ -1,11 +1,11 @@
 import { Link } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
+import { Trash2, ShoppingBag } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useCart } from '@/contexts/CartContext';
 import { Button } from '@/components/ui/button';
 
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, totalPrice, totalItems } = useCart();
+  const { items, removeItem, totalPrice, totalItems } = useCart();
 
   if (items.length === 0) {
     return (
@@ -24,38 +24,36 @@ export default function CartPage() {
 
       <div className="grid lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-4">
-          {items.map(({ product, quantity }) => (
-            <motion.div
-              key={product.id}
-              layout
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card"
-            >
-              <div className={`h-20 w-20 rounded-md rarity-bg-${product.rarity} flex items-center justify-center flex-shrink-0`}>
-                <span className="text-xs font-heading text-foreground/60">{product.name.split(' | ')[0]}</span>
-              </div>
-              <div className="flex-1 min-w-0">
-                <Link to={`/product/${product.id}`} className="font-heading text-sm text-foreground hover:text-primary transition-colors truncate block normal-case">
-                  {product.name}
-                </Link>
-                <span className="text-primary font-heading text-lg">${product.price.toFixed(2)}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, quantity - 1)}>
-                  <Minus className="h-3 w-3" />
+          {items.map(({ listing }) => {
+            const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
+            return (
+              <motion.div
+                key={listing.id}
+                layout
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card"
+              >
+                <div className="h-20 w-20 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
+                  <span className="text-xs font-heading text-foreground/60 line-clamp-2 px-1">{productName}</span>
+                </div>
+                <div className="flex-1 min-w-0">
+                  <Link to={`/listing/${listing.id}`} className="font-heading text-sm text-foreground hover:text-primary transition-colors truncate block normal-case">
+                    {productName}
+                  </Link>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    <span>Float: {listing.floatValue.toFixed(8)}</span>
+                    {listing.pattern && <span className="ml-2">Pattern: {listing.pattern}</span>}
+                  </div>
+                  <span className="text-primary font-heading text-lg">${Number(listing.price).toFixed(2)}</span>
+                </div>
+                <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(listing.id)}>
+                  <Trash2 className="h-4 w-4" />
                 </Button>
-                <span className="w-8 text-center text-sm font-medium text-foreground">{quantity}</span>
-                <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => updateQuantity(product.id, quantity + 1)}>
-                  <Plus className="h-3 w-3" />
-                </Button>
-              </div>
-              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive" onClick={() => removeItem(product.id)}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </motion.div>
-          ))}
+              </motion.div>
+            );
+          })}
         </div>
 
         {/* Summary */}

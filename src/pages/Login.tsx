@@ -1,23 +1,34 @@
-import { useNavigate } from 'react-router-dom';
-import { Crosshair, User, ShoppingBag, Shield } from 'lucide-react';
+import { useState } from 'react';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { Crosshair } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import type { UserRole } from '@/services/mock-data';
-
-const roles: { role: UserRole; label: string; desc: string; icon: React.ElementType; redirect: string }[] = [
-  { role: 'customer', label: 'Comprador', desc: 'Explore e compre skins', icon: User, redirect: '/products' },
-  { role: 'seller', label: 'Vendedor', desc: 'Gerencie sua loja', icon: ShoppingBag, redirect: '/seller' },
-  { role: 'admin', label: 'Administrador', desc: 'Painel administrativo', icon: Shield, redirect: '/admin' },
-];
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, error, clearError } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/';
 
-  const handleLogin = (role: UserRole, redirect: string) => {
-    login(role);
-    navigate(redirect);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    clearError();
+    setLoading(true);
+    try {
+      await login(email, password);
+      navigate(from, { replace: true });
+    } catch {
+      // error shown via context
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -33,36 +44,49 @@ export default function Login() {
         <div className="text-center mb-10">
           <Crosshair className="h-10 w-10 text-primary mx-auto mb-4" />
           <h1 className="text-3xl font-heading text-primary neon-text">SKINMARKET</h1>
-          <p className="text-muted-foreground text-sm mt-2">Selecione seu perfil para entrar</p>
+          <p className="text-muted-foreground text-sm mt-2">Entre com sua conta</p>
         </div>
 
-        <div className="space-y-4">
-          {roles.map((r, i) => (
-            <motion.div
-              key={r.role}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
-            >
-              <Button
-                variant="outline"
-                className="w-full h-auto py-4 px-6 justify-start gap-4"
-                onClick={() => handleLogin(r.role, r.redirect)}
-              >
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <r.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <div className="font-heading text-foreground">{r.label}</div>
-                  <div className="text-xs text-muted-foreground font-normal normal-case">{r.desc}</div>
-                </div>
-              </Button>
-            </motion.div>
-          ))}
-        </div>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mt-1"
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="mt-1"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error && (
+            <p className="text-sm text-destructive">{error}</p>
+          )}
+          <Button type="submit" className="w-full" disabled={loading}>
+            {loading ? 'Entrando...' : 'Entrar'}
+          </Button>
+        </form>
 
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Este é um ambiente de demonstração. Nenhuma autenticação real é necessária.
+          Não tem conta? <Link to="/register" className="text-primary hover:underline">Criar conta</Link>
+        </p>
+        <p className="text-center text-xs text-muted-foreground mt-2">
+          Contas de teste (seed): buyer@skinmarket.gg / buyer123 · seller@skinmarket.gg / seller123 · admin@skinmarket.gg / admin123
         </p>
       </motion.div>
     </div>
