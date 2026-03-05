@@ -33,14 +33,20 @@ COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY prisma ./prisma
 
+# Copy entrypoint script
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
+
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
- && adduser  --system --uid 1001 expressjs
+ && adduser  --system --uid 1001 expressjs \
+ && chown -R expressjs:nodejs /app
 USER expressjs
 
 EXPOSE 3001
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-CMD ["node", "dist/index.js"]
+# Runs migrations then starts the server
+ENTRYPOINT ["./entrypoint.sh"]

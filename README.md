@@ -75,7 +75,7 @@ server/src/
 | **Estado**     | Context API (Cart, Auth), TanStack Query (servidor)      |
 | **Roteamento** | React Router v6                                          |
 | **Backend**    | Node.js 18+, Express 4, TypeScript ESM                   |
-| **ORM**        | Prisma 5 (SQLite dev / PostgreSQL prod)                  |
+| **ORM**        | Prisma 5 + PostgreSQL 16 (SQLite opcional para dev)      |
 | **Auth**       | JWT (jsonwebtoken), bcrypt, refresh token blacklist      |
 | **Pagamento**  | PayPal Checkout SDK + Webhooks + verificação de assinatura|
 | **Email**      | Resend API                                               |
@@ -132,10 +132,21 @@ FRONTEND_URL=http://localhost:5173
 
 ### Banco de Dados
 
+O projeto usa **PostgreSQL** em produção. Para desenvolvimento local, use Docker:
+
 ```bash
+# Sobe apenas o PostgreSQL
+docker compose up db -d
+
+# Aplica as migrations e popula com dados de demo
 cd server
-npx prisma migrate deploy   # aplica as migrations
-npx prisma db seed          # popula com dados de demonstração
+npx prisma migrate deploy
+npx prisma db seed
+```
+
+Defina a variável `DATABASE_URL` em `server/.env` apontando para o banco local:
+```
+DATABASE_URL="postgresql://neon:changeme@localhost:5432/neon_arsenal"
 ```
 
 ### Desenvolvimento
@@ -167,15 +178,41 @@ Com o servidor rodando, acesse: [http://localhost:3001/api-docs](http://localhos
 
 ---
 
-## 🐳 Docker
+## 🐳 Docker (desenvolvimento local)
 
 ```bash
-# Build e execução via docker-compose
-docker-compose up --build
+# Copie o arquivo de variáveis de ambiente
+cp .env.example .env
+# Edite .env e defina POSTGRES_PASSWORD, JWT_SECRET e JWT_REFRESH_SECRET
 
-# Apenas build da imagem
-docker build -t neon-arsenal-market ./server
+# Sobe banco + API
+docker compose up --build
+
+# Inclui frontend com HMR
+docker compose --profile dev up --build
 ```
+
+O entrypoint do container executa `prisma migrate deploy` automaticamente antes de iniciar o servidor.
+
+## ☁️ Deploy em produção
+
+### Railway (recomendado)
+
+1. Crie um projeto no [Railway](https://railway.app) e conecte o repositório
+2. Adicione um serviço **PostgreSQL** ao projeto — o Railway provisiona automaticamente
+3. Na aba *Variables* do serviço API, defina:
+   ```
+   JWT_SECRET, JWT_REFRESH_SECRET, PAYPAL_CLIENT_ID, PAYPAL_SECRET,
+   PAYPAL_WEBHOOK_ID, FRONTEND_URL
+   ```
+4. O `railway.json` na raiz do projeto já configura o build e o healthcheck
+
+### Render
+
+1. Crie uma conta em [Render](https://render.com) e conecte o repositório
+2. Na dashboard, clique em **New > Blueprint** e aponte para o arquivo `render.yaml`
+3. Render provisionará o banco PostgreSQL e o web service automaticamente
+4. Preencha as variáveis marcadas como `sync: false` nas configurações do serviço
 
 ---
 
@@ -230,15 +267,16 @@ RevokedToken  (blacklist de refresh tokens por logout)
 
 ## 📁 Sprints
 
-| Sprint | Tema                                   | Status       |
-|--------|----------------------------------------|--------------|
-| 0      | Setup & Scaffolding                    | ✅ Concluído |
-| 1      | Auth + Sellers + Listings              | ✅ Concluído |
-| 2      | Orders + Payments (PayPal)             | ✅ Concluído |
-| 3      | Frontend + Commissions + Reviews       | ✅ Concluído |
-| 4      | Rate Limiting + Admin + Refinements    | ✅ Concluído |
-| 5      | Testes + README + CI/CD                | ✅ Concluído |
-| 6      | Segurança + Infra (CORS, Docker, Docs) | ✅ Concluído |
+| Sprint | Tema                                              | Status       |
+|--------|---------------------------------------------------|--------------|
+| 0      | Setup & Scaffolding                               | ✅ Concluído |
+| 1      | Auth + Sellers + Listings                         | ✅ Concluído |
+| 2      | Orders + Payments (PayPal)                        | ✅ Concluído |
+| 3      | Frontend + Commissions + Reviews                  | ✅ Concluído |
+| 4      | Rate Limiting + Admin + Refinements               | ✅ Concluído |
+| 5      | Testes + README + CI/CD                           | ✅ Concluído |
+| 6      | Segurança + Infra (CORS, Docker, Docs)            | ✅ Concluído |
+| 7      | PostgreSQL + Deploy (Railway / Render)            | ✅ Concluído |
 
 ---
 
