@@ -1,6 +1,7 @@
 import { prisma } from "../../shared/database/index.js";
 import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { emailService } from "../../shared/utils/email.js";
 import type { CreateOrderInput } from "./orders.dto.js";
 import type { Decimal } from "@prisma/client/runtime/library";
 
@@ -78,6 +79,17 @@ export const ordersService = {
     });
 
     const order = await ordersRepository.findById(result.id);
+
+    // Fire-and-forget: send confirmation email (non-blocking)
+    const customer = await prisma.user.findUnique({ where: { id: customerId }, select: { email: true } });
+    if (customer?.email) {
+      emailService.sendOrderConfirmation({
+        to: customer.email,
+        orderId: result.id,
+        totalAmount,
+      }).catch((err) => console.error("[EmailService] sendOrderConfirmation failed:", err));
+    }
+
     return { ...order!, totalAmount };
   },
 
@@ -117,7 +129,7 @@ export const ordersService = {
     if (role === "SELLER") throw new AppError(403, "Sellers cannot edit orders");
     if (role === "CUSTOMER" && order.customer.id !== userId)
       throw new AppError(403, "Not your order");
-    return prisma.order.update({
+    const updated = await prisma.order.update({
       where: { id: orderId },
       data: { status: status as "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED" },
       include: {
@@ -130,5 +142,15 @@ export const ordersService = {
         },
       },
     });
+
+    // Fire-and-forget: notify customer when shipped
+    if (status === "SHIPPED" && updated.customer.email) {
+      emailService.sendOrderShipped({
+        to: updated.customer.email,
+        orderId,
+      }).catch((err) => console.error("[EmailService] sendOrderShipped failed:", err));
+    }
+
+    return updated;
   },
 };

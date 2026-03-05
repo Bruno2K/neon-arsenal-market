@@ -46,6 +46,8 @@ model Product {
   price       Decimal
   stock       Int      @default(0)
   isActive    Boolean  @default(true)
+  imageUrl    String?  // Optional product image URL
+  category    String?  // e.g. rifles, pistols, knives, gloves, accounts, services
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -56,6 +58,7 @@ model Product {
 
   @@index([sellerId])
   @@index([isActive])
+  @@index([category])
 }
 
 model Order {

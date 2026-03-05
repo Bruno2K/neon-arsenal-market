@@ -13,9 +13,11 @@ function environment() {
 const client = new paypal.core.PayPalHttpClient(environment());
 
 export async function createPayPalOrder(amount: string, currency = "BRL", orderId: string) {
+  const frontendUrl = process.env.FRONTEND_URL ?? "http://localhost:5173";
   const request = new paypal.orders.OrdersCreateRequest();
   request.prefer("return=representation");
-  request.requestBody({
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  (request as any).requestBody({
     intent: "CAPTURE",
     purchase_units: [
       {
@@ -26,6 +28,12 @@ export async function createPayPalOrder(amount: string, currency = "BRL", orderI
         },
       },
     ],
+    application_context: {
+      return_url: `${frontendUrl}/payment/success?orderId=${orderId}`,
+      cancel_url: `${frontendUrl}/payment/cancel?orderId=${orderId}`,
+      brand_name: "Neon Arsenal Market",
+      user_action: "PAY_NOW",
+    },
   });
   const response = await client.execute(request);
   return response.result;

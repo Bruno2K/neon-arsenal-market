@@ -1,23 +1,61 @@
-import { useNavigate } from 'react-router-dom';
-import { Crosshair, User, ShoppingBag, Shield } from 'lucide-react';
+// ─── Page: Login / Register ───────────────────────────────────────────────────
+// Real JWT authentication replacing the mock role-picker.
+// - Tab-based UI: "Entrar" / "Criar Conta"
+// - On success, navigates to the page the user was trying to access (or /products)
+
+import { useState, type FormEvent } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Crosshair, Loader2, AlertCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import type { UserRole } from '@/services/mock-data';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 
-const roles: { role: UserRole; label: string; desc: string; icon: React.ElementType; redirect: string }[] = [
-  { role: 'customer', label: 'Comprador', desc: 'Explore e compre skins', icon: User, redirect: '/products' },
-  { role: 'seller', label: 'Vendedor', desc: 'Gerencie sua loja', icon: ShoppingBag, redirect: '/seller' },
-  { role: 'admin', label: 'Administrador', desc: 'Painel administrativo', icon: Shield, redirect: '/admin' },
-];
+type Tab = 'login' | 'register';
 
 export default function Login() {
-  const { login } = useAuth();
+  const { login, register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLogin = (role: UserRole, redirect: string) => {
-    login(role);
-    navigate(redirect);
+  // Where to send the user after logging in (PrivateRoute preserves this)
+  const from = (location.state as { from?: Location })?.from?.pathname ?? '/products';
+
+  const [tab, setTab] = useState<Tab>('login');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // Form fields
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setError(null);
+    setIsLoading(true);
+
+    try {
+      if (tab === 'login') {
+        await login({ email, password });
+      } else {
+        if (!name.trim()) {
+          setError('Por favor, insira seu nome.');
+          return;
+        }
+        await register({ name, email, password });
+      }
+      navigate(from, { replace: true });
+    } catch (err: unknown) {
+      const msg =
+        err instanceof Error
+          ? err.message
+          : 'Ocorreu um erro. Tente novamente.';
+      setError(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -30,39 +68,117 @@ export default function Login() {
         animate={{ opacity: 1, y: 0 }}
         className="relative z-10 w-full max-w-md p-8"
       >
+        {/* Brand */}
         <div className="text-center mb-10">
           <Crosshair className="h-10 w-10 text-primary mx-auto mb-4" />
           <h1 className="text-3xl font-heading text-primary neon-text">SKINMARKET</h1>
-          <p className="text-muted-foreground text-sm mt-2">Selecione seu perfil para entrar</p>
+          <p className="text-muted-foreground text-sm mt-2">
+            O marketplace definitivo para CS
+          </p>
         </div>
 
-        <div className="space-y-4">
-          {roles.map((r, i) => (
-            <motion.div
-              key={r.role}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
+        {/* Tabs */}
+        <div className="flex rounded-lg border border-border bg-muted p-1 mb-6">
+          {(['login', 'register'] as Tab[]).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => { setTab(t); setError(null); }}
+              className={`flex-1 py-2 text-sm font-heading rounded-md transition-all ${
+                tab === t
+                  ? 'bg-card text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
             >
-              <Button
-                variant="outline"
-                className="w-full h-auto py-4 px-6 justify-start gap-4"
-                onClick={() => handleLogin(r.role, r.redirect)}
-              >
-                <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                  <r.icon className="h-5 w-5 text-primary" />
-                </div>
-                <div className="text-left">
-                  <div className="font-heading text-foreground">{r.label}</div>
-                  <div className="text-xs text-muted-foreground font-normal normal-case">{r.desc}</div>
-                </div>
-              </Button>
-            </motion.div>
+              {t === 'login' ? 'Entrar' : 'Criar Conta'}
+            </button>
           ))}
         </div>
 
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {tab === 'register' && (
+            <div className="space-y-1.5">
+              <Label htmlFor="name">Nome</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Seu nome"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                autoComplete="name"
+                required
+              />
+            </div>
+          )}
+
+          <div className="space-y-1.5">
+            <Label htmlFor="email">E-mail</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="seu@email.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              autoComplete="email"
+              required
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label htmlFor="password">Senha</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              autoComplete={tab === 'login' ? 'current-password' : 'new-password'}
+              required
+              minLength={6}
+            />
+          </div>
+
+          {/* Error */}
+          {error && (
+            <div className="flex items-center gap-2 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
+              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <Button type="submit" className="w-full" size="lg" disabled={isLoading}>
+            {isLoading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : null}
+            {tab === 'login' ? 'Entrar' : 'Criar Conta'}
+          </Button>
+        </form>
+
         <p className="text-center text-xs text-muted-foreground mt-8">
-          Este é um ambiente de demonstração. Nenhuma autenticação real é necessária.
+          {tab === 'login' ? (
+            <>
+              Ainda não tem conta?{' '}
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => setTab('register')}
+              >
+                Criar agora
+              </button>
+            </>
+          ) : (
+            <>
+              Já tem conta?{' '}
+              <button
+                type="button"
+                className="text-primary hover:underline"
+                onClick={() => setTab('login')}
+              >
+                Entrar
+              </button>
+            </>
+          )}
         </p>
       </motion.div>
     </div>

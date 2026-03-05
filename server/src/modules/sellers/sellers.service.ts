@@ -1,6 +1,7 @@
 import { prisma } from "../../shared/database/index.js";
 import { sellersRepository } from "./sellers.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { emailService } from "../../shared/utils/email.js";
 import type { ApplySellerInput, UpdateSellerInput } from "./sellers.dto.js";
 
 export const sellersService = {
@@ -55,6 +56,18 @@ export const sellersService = {
   async approve(sellerId: string, isApproved: boolean) {
     const seller = await sellersRepository.findById(sellerId);
     if (!seller) throw new AppError(404, "Seller not found");
-    return sellersRepository.update(sellerId, { isApproved });
+    const updated = await sellersRepository.update(sellerId, { isApproved });
+
+    // Fire-and-forget: notify seller of approval/rejection
+    const user = await prisma.user.findUnique({ where: { id: seller.userId }, select: { email: true } });
+    if (user?.email) {
+      emailService.sendSellerApproved({
+        to: user.email,
+        storeName: seller.storeName,
+        approved: isApproved,
+      }).catch((err) => console.error("[EmailService] sendSellerApproved failed:", err));
+    }
+
+    return updated;
   },
 };

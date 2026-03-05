@@ -5,10 +5,16 @@ import type { CreateProductInput, UpdateProductInput, ListProductsQuery } from "
 
 export const productsService = {
   async list(query: ListProductsQuery) {
-    const where: { sellerId?: string; isActive?: boolean; name?: { contains: string; mode: "insensitive" } } = {};
+    const where: {
+      sellerId?: string;
+      isActive?: boolean;
+      category?: string;
+      name?: { contains: string; mode: "insensitive" };
+    } = {};
     if (query.sellerId) where.sellerId = query.sellerId;
     if (query.isActive !== undefined) where.isActive = query.isActive === "true";
     if (query.search) where.name = { contains: query.search, mode: "insensitive" };
+    if (query.category) where.category = query.category;
     const skip = (query.page - 1) * query.limit;
     const { items, total } = await productsRepository.findMany({
       skip,
@@ -35,6 +41,8 @@ export const productsService = {
       description: input.description,
       price: input.price,
       stock: input.stock,
+      ...(input.imageUrl !== undefined && { imageUrl: input.imageUrl }),
+      ...(input.category !== undefined && { category: input.category }),
     });
   },
 
