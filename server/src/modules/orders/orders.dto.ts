@@ -1,8 +1,8 @@
 import { z } from "zod";
+import { ORDER_STATUSES } from "../../shared/types/roles.js";
 
 export const createOrderItemDto = z.object({
-  productId: z.string().min(1, "Product ID is required"),
-  quantity: z.number().int().positive("Quantity must be positive"),
+  listingId: z.string().min(1, "Listing ID is required"),
 });
 
 export const createOrderDto = z.object({
@@ -10,7 +10,17 @@ export const createOrderDto = z.object({
 });
 
 export const updateOrderStatusDto = z.object({
-  status: z.enum(["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"]),
+  status: z.enum(ORDER_STATUSES),
+});
+
+export const orderIdParamsDto = z.object({
+  id: z.string().min(1, "Order ID is required"),
+});
+
+export const updateOrderTrackingDto = z.object({
+  trackingCode: z.string().optional(),
+  trackingCarrier: z.string().optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderDto>;
+export type UpdateOrderTrackingInput = z.infer<typeof updateOrderTrackingDto>;

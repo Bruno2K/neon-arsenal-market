@@ -1,0 +1,1329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Neon Arsenal Market — Fluxograma do Sistema</title>
+<style>
+  :root {
+    --primary: #1E3A5F;
+    --accent: #2E86AB;
+    --green: #27AE60;
+    --green-light: #D5F5E3;
+    --yellow: #F39C12;
+    --yellow-light: #FEF9E7;
+    --red: #E74C3C;
+    --red-light: #FDEDEC;
+    --gray: #95A5A6;
+    --gray-light: #F4F6F7;
+    --white: #ffffff;
+    --text: #2C3E50;
+    --text-light: #7F8C8D;
+    --border: #BDC3C7;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: #0D1B2A;
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* ─── HEADER ─── */
+  .header {
+    background: linear-gradient(135deg, #0D1B2A 0%, #1E3A5F 100%);
+    padding: 32px 40px 24px;
+    border-bottom: 2px solid #2E86AB;
+  }
+  .header h1 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: 1px;
+  }
+  .header h1 span { color: #2E86AB; }
+  .header p {
+    color: #7EC8E3;
+    margin-top: 6px;
+    font-size: 14px;
+  }
+
+  /* ─── LEGEND ─── */
+  .legend {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    padding: 16px 40px;
+    background: #152333;
+    border-bottom: 1px solid #1E3A5F;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #BDC3C7;
+    font-weight: 500;
+  }
+  .legend-dot {
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+  }
+  .legend-dot.implemented { background: var(--green); border-color: #1E8449; }
+  .legend-dot.partial     { background: var(--yellow); border-color: #D68910; }
+  .legend-dot.missing     { background: var(--red); border-color: #C0392B; }
+  .legend-dot.decision    { background: var(--accent); border-color: #1A6A8A; }
+
+  /* ─── TABS ─── */
+  .tabs {
+    display: flex;
+    background: #152333;
+    padding: 0 40px;
+    gap: 4px;
+    border-bottom: 2px solid #1E3A5F;
+  }
+  .tab {
+    padding: 14px 28px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: #7F8C8D;
+    border-bottom: 3px solid transparent;
+    transition: all .2s;
+    letter-spacing: .5px;
+  }
+  .tab:hover { color: #BDC3C7; }
+  .tab.active { color: #2E86AB; border-bottom-color: #2E86AB; }
+
+  /* ─── CONTENT ─── */
+  .content {
+    background: #F0F4F8;
+    min-height: calc(100vh - 200px);
+    padding: 36px 40px;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ─── FLOW CONTAINER ─── */
+  .flow-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 32px;
+  }
+  .flow-grid.single { grid-template-columns: 1fr; max-width: 700px; }
+  .flow-grid.triple { grid-template-columns: 1fr 1fr 1fr; }
+
+  .flow-section {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+  }
+  .flow-section-title {
+    background: var(--primary);
+    color: var(--white);
+    padding: 14px 20px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .flow-section-title .icon { font-size: 16px; }
+  .flow-body { padding: 20px; }
+
+  /* ─── NODES ─── */
+  .flow-node {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 4px;
+    position: relative;
+  }
+  .flow-node:last-child { margin-bottom: 0; }
+
+  .node-connector {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 20px;
+    padding-top: 2px;
+  }
+  .node-dot {
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    border: 2px solid transparent;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+  }
+  .node-dot.implemented { background: var(--green); border-color: #1E8449; color: white; }
+  .node-dot.partial     { background: var(--yellow); border-color: #D68910; color: white; }
+  .node-dot.missing     { background: var(--red); border-color: #C0392B; color: white; }
+  .node-dot.start       { background: var(--primary); border-color: #0D1B2A; color: white; }
+  .node-dot.decision    { background: var(--accent); border-color: #1A6A8A; color: white; width: 22px; height: 22px; transform: rotate(45deg); border-radius: 4px; }
+
+  .node-line {
+    width: 2px;
+    background: var(--border);
+    flex-grow: 1;
+    min-height: 24px;
+    margin-top: 2px;
+  }
+  .node-line.last { display: none; }
+
+  .node-content {
+    flex: 1;
+    padding-bottom: 20px;
+  }
+  .node-title {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text);
+    line-height: 1.4;
+    margin-top: 1px;
+  }
+  .node-desc {
+    font-size: 11px;
+    color: var(--text-light);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .node-tag {
+    display: inline-block;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 10px;
+    margin-top: 4px;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .node-tag.implemented { background: var(--green-light); color: #1E8449; }
+  .node-tag.partial     { background: var(--yellow-light); color: #B7770D; }
+  .node-tag.missing     { background: var(--red-light); color: #C0392B; }
+
+  /* ─── BRANCH ─── */
+  .branch-container {
+    margin-left: 32px;
+    border-left: 2px dashed var(--border);
+    padding-left: 16px;
+    margin-bottom: 4px;
+    margin-top: -4px;
+  }
+  .branch-label {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .5px;
+  }
+
+  /* ─── SUMMARY SECTION ─── */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+  }
+  .summary-card {
+    background: var(--white);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+  }
+  .summary-card .number {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+    margin-bottom: 6px;
+  }
+  .summary-card .label {
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+  }
+  .summary-card.green .number { color: var(--green); }
+  .summary-card.green .label { color: #1E8449; }
+  .summary-card.yellow .number { color: var(--yellow); }
+  .summary-card.yellow .label { color: #B7770D; }
+  .summary-card.red .number { color: var(--red); }
+  .summary-card.red .label { color: #C0392B; }
+
+  /* ─── PRIORITY TABLE ─── */
+  .priority-section {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+    overflow: hidden;
+    margin-bottom: 24px;
+  }
+  .priority-header {
+    background: var(--primary);
+    color: var(--white);
+    padding: 16px 24px;
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+  .priority-table { width: 100%; border-collapse: collapse; }
+  .priority-table th {
+    background: #EAF4FB;
+    padding: 10px 16px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .6px;
+    color: var(--text-light);
+    text-align: left;
+    border-bottom: 2px solid var(--border);
+  }
+  .priority-table td {
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text);
+    border-bottom: 1px solid #EAECEF;
+    vertical-align: top;
+  }
+  .priority-table tr:last-child td { border-bottom: none; }
+  .priority-table tr:hover td { background: #F8FAFC; }
+  .prio-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .4px;
+  }
+  .prio-badge.p1 { background: #FDEDEC; color: #C0392B; }
+  .prio-badge.p2 { background: #FEF9E7; color: #B7770D; }
+  .prio-badge.p3 { background: #EAF4FB; color: #1A6A8A; }
+  .module-badge {
+    display: inline-block;
+    background: #EAF4FB;
+    color: var(--accent);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    margin-right: 4px;
+  }
+
+  /* ─── SECTION TITLE ─── */
+  .section-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--primary);
+    margin-bottom: 20px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-subtitle {
+    font-size: 13px;
+    color: var(--text-light);
+    margin-top: -12px;
+    margin-bottom: 24px;
+  }
+
+  /* ─── PHASE DIVIDER ─── */
+  .phase-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 24px 0 16px;
+  }
+  .phase-divider span {
+    background: var(--primary);
+    color: white;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 4px 14px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    letter-spacing: .8px;
+    white-space: nowrap;
+  }
+  .phase-divider::after {
+    content: '';
+    height: 1px;
+    background: var(--border);
+    flex: 1;
+  }
+
+  .info-banner {
+    background: #EAF4FB;
+    border-left: 4px solid var(--accent);
+    border-radius: 0 8px 8px 0;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--text);
+    margin-bottom: 24px;
+  }
+  .info-banner strong { color: var(--accent); }
+
+  @media (max-width: 900px) {
+    .flow-grid, .flow-grid.triple { grid-template-columns: 1fr; }
+    .summary-grid { grid-template-columns: 1fr 1fr; }
+    .tabs { overflow-x: auto; }
+    .content, .header, .legend, .tabs { padding-left: 16px; padding-right: 16px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <h1>⚡ <span>Neon Arsenal Market</span> — Fluxograma do Sistema</h1>
+  <p>Mapeamento completo dos fluxos de usuário · Status de implementação · Roadmap de desenvolvimento</p>
+</div>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot implemented"></div> Implementado (backend + frontend)</div>
+  <div class="legend-item"><div class="legend-dot partial"></div> Parcial (backend OK · frontend mock/desconectado)</div>
+  <div class="legend-item"><div class="legend-dot missing"></div> Faltando (não implementado)</div>
+  <div class="legend-item"><div class="legend-dot decision"></div> Ponto de decisão / ramificação</div>
+</div>
+
+<!-- TABS -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('customer')">🛒 Customer (Comprador)</div>
+  <div class="tab" onclick="showTab('seller')">🏪 Seller (Vendedor)</div>
+  <div class="tab" onclick="showTab('admin')">⚙️ Admin</div>
+  <div class="tab" onclick="showTab('summary')">📊 Resumo & Roadmap</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- CUSTOMER TAB -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="content">
+<div class="tab-panel active" id="tab-customer">
+  <div class="section-title">🛒 Fluxo do Customer (Comprador)</div>
+  <p class="section-subtitle">Jornada completa do usuário — desde a descoberta do site até a avaliação do produto recebido</p>
+
+  <div class="info-banner">
+    <strong>Nota:</strong> O frontend atual opera com dados mockados. Os módulos com status <em>Parcial</em> já têm API funcional no backend mas o frontend não está conectado.
+  </div>
+
+  <div class="flow-grid">
+
+    <!-- COLUNA 1: Descoberta e Acesso -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">🌐</span> Fase 1 — Descoberta & Acesso</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot start">▶</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Landing Page / Home</div>
+            <div class="node-desc">Vitrine com produtos em destaque, categorias e banners</div>
+            <span class="node-tag implemented">✓ Implementado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot implemented">✓</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Listagem de Produtos</div>
+            <div class="node-desc">Browse com filtros de categoria, raridade, faixa de preço</div>
+            <span class="node-tag partial">⚠ Parcial — filtros com mock</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot implemented">✓</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Detalhe do Produto</div>
+            <div class="node-desc">Imagens, descrição, seller info, avaliações, estoque</div>
+            <span class="node-tag partial">⚠ Parcial — dados mock</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot decision" style="transform:rotate(45deg)"></div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">◆ Usuário está logado?</div>
+          </div>
+        </div>
+
+        <div class="branch-container">
+          <div class="branch-label">→ NÃO</div>
+          <div class="flow-node">
+            <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+            <div class="node-content">
+              <div class="node-title">Página de Login / Registro</div>
+              <div class="node-desc">Formulário com email e senha</div>
+              <span class="node-tag partial">⚠ Parcial — sem integração API</span>
+            </div>
+          </div>
+          <div class="flow-node">
+            <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+            <div class="node-content">
+              <div class="node-title">Verificação de E-mail</div>
+              <div class="node-desc">Email de confirmação de conta enviado após registro</div>
+              <span class="node-tag missing">✗ Faltando</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Recuperação de Senha</div>
+            <div class="node-desc">Fluxo "esqueci minha senha" via e-mail</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COLUNA 2: Compra -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">💳</span> Fase 2 — Compra & Pagamento</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot implemented">✓</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Adicionar ao Carrinho</div>
+            <div class="node-desc">Cart gerenciado por CartContext local</div>
+            <span class="node-tag implemented">✓ Implementado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot implemented">✓</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Página do Carrinho</div>
+            <div class="node-desc">Revisão dos itens, quantidades e total</div>
+            <span class="node-tag partial">⚠ Parcial — sem API</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Checkout</div>
+            <div class="node-desc">Resumo final, endereço (se físico), seleção de pagamento</div>
+            <span class="node-tag partial">⚠ Parcial — frontend mock</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Criação do Pedido (API)</div>
+            <div class="node-desc">Reserva de estoque, verificação concorrente, snapshot de preço</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Pagamento via PayPal</div>
+            <div class="node-desc">Redirecionamento ao PayPal → aprovação → retorno</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot decision" style="transform:rotate(45deg)"></div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">◆ Pagamento aprovado?</div>
+          </div>
+        </div>
+
+        <div class="branch-container">
+          <div class="branch-label">→ SIM</div>
+          <div class="flow-node">
+            <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+            <div class="node-content">
+              <div class="node-title">Webhook PayPal Confirma</div>
+              <div class="node-desc">Atualiza pedido, calcula comissões, credita seller</div>
+              <span class="node-tag partial">⚠ Backend OK · Webhook sem assinatura</span>
+            </div>
+          </div>
+          <div class="flow-node">
+            <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+            <div class="node-content">
+              <div class="node-title">E-mail de Confirmação do Pedido</div>
+              <div class="node-desc">Recibo, itens comprados, estimativa de entrega</div>
+              <span class="node-tag missing">✗ Faltando</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="branch-container">
+          <div class="branch-label">→ NÃO</div>
+          <div class="flow-node">
+            <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+            <div class="node-content">
+              <div class="node-title">Tela de Erro / Retry</div>
+              <div class="node-desc">Mensagem de falha com opção de tentar novamente</div>
+              <span class="node-tag missing">✗ Faltando</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- COLUNA 3: Pós-compra -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">📦</span> Fase 3 — Pós-Compra</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Página "Meus Pedidos"</div>
+            <div class="node-desc">Lista de pedidos do customer com status atualizado</div>
+            <span class="node-tag missing">✗ Faltando — API existe</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Rastreamento do Pedido</div>
+            <div class="node-desc">Timeline: PENDING → CONFIRMED → SHIPPED → DELIVERED</div>
+            <span class="node-tag missing">✗ Faltando — status existe no backend</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Notificação de Mudança de Status</div>
+            <div class="node-desc">Push notification ou email quando status do pedido muda</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Avaliar Produto</div>
+            <div class="node-desc">Rating 1–5 + comentário (1 review por produto por user)</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Solicitar Reembolso / Disputa</div>
+            <div class="node-desc">Fluxo de cancelamento e estorno via PayPal</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Conversa com Vendedor</div>
+            <div class="node-desc">Chat ou sistema de mensagens comprador ↔ vendedor</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Perfil do Usuário</div>
+            <div class="node-desc">Editar dados, ver histórico, trocar senha, preferências</div>
+            <span class="node-tag missing">✗ Faltando — API existe</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- COLUNA 4: Nice to have -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">✨</span> Fase 4 — Features Complementares</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Lista de Desejos (Wishlist)</div>
+            <div class="node-desc">Salvar produtos para comprar depois</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Busca Avançada</div>
+            <div class="node-desc">Filtros por seller, faixa de preço, raridade — conectada à API</div>
+            <span class="node-tag missing">✗ Faltando — API existe</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Perfil Público do Vendedor</div>
+            <div class="node-desc">Página do seller com produtos, rating, rank, tempo de resposta</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Notificações In-App</div>
+            <div class="node-desc">Sino de notificações com alertas de pedido, mensagens, etc.</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Comparação de Produtos</div>
+            <div class="node-desc">Comparar itens lado a lado (preço, seller, avaliação)</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div><!-- /flow-grid -->
+</div><!-- /tab-customer -->
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SELLER TAB -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-seller">
+  <div class="section-title">🏪 Fluxo do Seller (Vendedor)</div>
+  <p class="section-subtitle">Jornada do vendedor — desde o cadastro até o saque do saldo acumulado</p>
+
+  <div class="info-banner">
+    <strong>Nota:</strong> O seller não pode atualizar o status dos pedidos no sistema atual (apenas ADMIN e CUSTOMER podem). Isso precisa ser revisado — vendedores geralmente precisam marcar pedidos como "enviado".
+  </div>
+
+  <div class="flow-grid">
+
+    <!-- Onboarding -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">📋</span> Fase 1 — Onboarding do Seller</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">CTA "Torne-se um Vendedor"</div>
+            <div class="node-desc">Landing page ou seção explicando como funciona, comissões, requisitos</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Registro de Conta + Seller Profile</div>
+            <div class="node-desc">Nome da loja, dados de contato, aceite dos termos</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">E-mail: "Cadastro recebido"</div>
+            <div class="node-desc">Confirmação de que o pedido está em análise</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Admin analisa e aprova/rejeita</div>
+            <div class="node-desc">isApproved = true no banco. Lógica existe no backend.</div>
+            <span class="node-tag partial">⚠ Backend OK · Sem notificação</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">E-mail: "Aprovado / Rejeitado"</div>
+            <div class="node-desc">Notificação de aprovação com próximos passos ou motivo de rejeição</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Gestão de Produtos -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">📦</span> Fase 2 — Gestão de Produtos</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Login → Seller Dashboard</div>
+            <div class="node-desc">Visão geral: produtos ativos, vendas, saldo, pedidos recentes</div>
+            <span class="node-tag partial">⚠ Parcial — dados mock</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Criar Produto</div>
+            <div class="node-desc">Nome, descrição, preço, estoque, categoria, raridade</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend parcial</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Upload de Imagem(ns) do Produto</div>
+            <div class="node-desc">Galeria de fotos, imagem principal, thumbnails</div>
+            <span class="node-tag missing">✗ Faltando — sem campo no schema</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Editar / Deletar Produto</div>
+            <div class="node-desc">Atualizar preço, estoque, ativar/desativar</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Gestão de Estoque (InventoryLog)</div>
+            <div class="node-desc">Visualizar histórico de entradas/saídas, alertas de estoque baixo</div>
+            <span class="node-tag missing">✗ Faltando — modelo existe no banco</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Pedidos e Financeiro -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">📊</span> Fase 3 — Pedidos & Financeiro</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Ver Pedidos com Meus Itens</div>
+            <div class="node-desc">Lista de pedidos que contêm produtos do seller</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Marcar Pedido como "Enviado"</div>
+            <div class="node-desc">Seller atualiza status para SHIPPED após despacho</div>
+            <span class="node-tag missing">✗ Faltando — lógica proíbe seller de editar</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Notificação de Novo Pedido</div>
+            <div class="node-desc">Email ou push quando um item do seller é comprado</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Ver Saldo e Comissões</div>
+            <div class="node-desc">Balance acumulado, histórico de transações, taxa de comissão</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Solicitar Saque (Withdrawal)</div>
+            <div class="node-desc">Transferência do saldo para conta bancária/PayPal do seller</div>
+            <span class="node-tag missing">✗ Faltando — sem model nem endpoint</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Reputação -->
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">⭐</span> Fase 4 — Reputação & Crescimento</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Receber Avaliações dos Compradores</div>
+            <div class="node-desc">Reviews dos produtos impactam o rating do seller</div>
+            <span class="node-tag missing">✗ Faltando — cálculo de rating não automático</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Sistema de Rank</div>
+            <div class="node-desc">Bronze → Silver → Gold → Global Elite baseado em vendas/rating</div>
+            <span class="node-tag missing">✗ Faltando — campo rank não existe no schema</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Analytics do Seller</div>
+            <div class="node-desc">Gráficos de vendas, produtos mais vendidos, receita por período</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Perfil Público da Loja</div>
+            <div class="node-desc">Página pública /seller/:id com todos os produtos e histórico</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tab-seller -->
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- ADMIN TAB -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-admin">
+  <div class="section-title">⚙️ Fluxo do Admin</div>
+  <p class="section-subtitle">Painel de controle completo — moderação, gestão operacional e análise do marketplace</p>
+
+  <div class="flow-grid">
+
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">🔐</span> Acesso & Moderação</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Login Admin</div>
+            <div class="node-desc">Autenticação com role ADMIN verificada pelo backend</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend mock</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Admin Dashboard</div>
+            <div class="node-desc">Métricas gerais: usuários, pedidos, receita, sellers pendentes</div>
+            <span class="node-tag partial">⚠ Parcial — dados mock no frontend</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Aprovar / Rejeitar Sellers</div>
+            <div class="node-desc">Lista de sellers pendentes, aprovação individual</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Banir / Suspender Usuário ou Seller</div>
+            <div class="node-desc">Desativar conta por violação de termos</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Moderar Reviews</div>
+            <div class="node-desc">Remover avaliações impróprias ou spam</div>
+            <span class="node-tag missing">✗ Faltando</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flow-section">
+      <div class="flow-section-title"><span class="icon">🗂️</span> Gestão Operacional</div>
+      <div class="flow-body">
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Gerenciar Todos os Produtos</div>
+            <div class="node-desc">Listar, filtrar, editar, desativar qualquer produto do marketplace</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend parcial</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Gerenciar Todos os Pedidos</div>
+            <div class="node-desc">Visão global, atualizar status, resolver disputas</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot partial">!</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Ver Comissões e Transações</div>
+            <div class="node-desc">Receita da plataforma, pagamentos aos sellers, saldos</div>
+            <span class="node-tag partial">⚠ Backend OK · Frontend não conectado</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+          <div class="node-content">
+            <div class="node-title">Configurar Taxa de Comissão</div>
+            <div class="node-desc">Definir commissionRate padrão ou por seller/categoria</div>
+            <span class="node-tag missing">✗ Faltando — campo existe mas sem UI</span>
+          </div>
+        </div>
+
+        <div class="flow-node">
+          <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+          <div class="node-content">
+            <div class="node-title">Processar Saques dos Sellers</div>
+            <div class="node-desc">Aprovar e executar pedidos de withdrawal dos vendedores</div>
+            <span class="node-tag missing">✗ Faltando — sem model</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="flow-section" style="grid-column: 1 / -1;">
+      <div class="flow-section-title"><span class="icon">📈</span> Analytics & Relatórios</div>
+      <div class="flow-body">
+        <div class="flow-grid" style="gap:16px; margin:0;">
+
+          <div>
+            <div class="flow-node">
+              <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+              <div class="node-content">
+                <div class="node-title">Dashboard de Analytics</div>
+                <div class="node-desc">Gráficos de receita, pedidos, usuários ativos por período</div>
+                <span class="node-tag missing">✗ Faltando</span>
+              </div>
+            </div>
+            <div class="flow-node">
+              <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+              <div class="node-content">
+                <div class="node-title">Relatório de Pagamentos</div>
+                <div class="node-desc">Exportar CSV/PDF com transações do período</div>
+                <span class="node-tag missing">✗ Faltando</span>
+              </div>
+            </div>
+          </div>
+
+          <div>
+            <div class="flow-node">
+              <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line"></div></div>
+              <div class="node-content">
+                <div class="node-title">Ranking de Sellers</div>
+                <div class="node-desc">Top sellers por volume, rating, reclamações</div>
+                <span class="node-tag missing">✗ Faltando</span>
+              </div>
+            </div>
+            <div class="flow-node">
+              <div class="node-connector"><div class="node-dot missing">✗</div><div class="node-line last"></div></div>
+              <div class="node-content">
+                <div class="node-title">Produtos Mais Vendidos</div>
+                <div class="node-desc">Dashboard de performance dos produtos no marketplace</div>
+                <span class="node-tag missing">✗ Faltando</span>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /tab-admin -->
+
+
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- SUMMARY TAB -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<div class="tab-panel" id="tab-summary">
+  <div class="section-title">📊 Resumo do Status & Roadmap</div>
+  <p class="section-subtitle">Visão consolidada de todos os fluxos com prioridades de desenvolvimento</p>
+
+  <!-- COUNTERS -->
+  <div class="summary-grid">
+    <div class="summary-card green">
+      <div class="number">8</div>
+      <div class="label">✓ Implementados</div>
+    </div>
+    <div class="summary-card yellow">
+      <div class="number">18</div>
+      <div class="label">⚠ Parciais</div>
+    </div>
+    <div class="summary-card red">
+      <div class="number">31</div>
+      <div class="label">✗ Faltando</div>
+    </div>
+  </div>
+
+  <!-- PRIORITY TABLE -->
+  <div class="priority-section">
+    <div class="priority-header">🔴 Prioridade 1 — Crítico (necessário para o sistema funcionar end-to-end)</div>
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th style="width:100px">Prioridade</th>
+          <th style="width:200px">Feature</th>
+          <th style="width:120px">Módulo</th>
+          <th>Descrição / O que fazer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="prio-badge p1">P1 — Crítico</span></td>
+          <td><strong>Integrar Frontend com API</strong></td>
+          <td><span class="module-badge">Full-Stack</span></td>
+          <td>Criar camada de serviços HTTP, substituir mock-data.ts, conectar AuthContext ao endpoint /auth/login. Sem isso o projeto não é full-stack.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p1">P1 — Crítico</span></td>
+          <td><strong>Página "Meus Pedidos"</strong></td>
+          <td><span class="module-badge">Customer</span></td>
+          <td>Rota /orders/customer na API já existe. Criar a página frontend que lista os pedidos do usuário logado.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p1">P1 — Crítico</span></td>
+          <td><strong>Seller pode marcar pedido como Enviado</strong></td>
+          <td><span class="module-badge">Seller</span><span class="module-badge">Orders</span></td>
+          <td>Atualmente a lógica proíbe seller de editar pedidos. Criar endpoint específico para seller marcar SHIPPED seus próprios items.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p1">P1 — Crítico</span></td>
+          <td><strong>Upload de Imagem do Produto</strong></td>
+          <td><span class="module-badge">Produto</span></td>
+          <td>Sem imagem real, o marketplace não tem apelo visual. Adicionar campo imageUrl no schema, endpoint de upload (multer/cloudinary), exibir no frontend.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p1">P1 — Crítico</span></td>
+          <td><strong>Verificação de Assinatura do Webhook PayPal</strong></td>
+          <td><span class="module-badge">Payments</span></td>
+          <td>handleWebhook() aceita qualquer requisição POST. Adicionar verificação do header PAYPAL-TRANSMISSION-SIG para evitar fraudes.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="priority-section">
+    <div class="priority-header">🟡 Prioridade 2 — Alta (necessário para o produto ser utilizável)</div>
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th style="width:100px">Prioridade</th>
+          <th style="width:200px">Feature</th>
+          <th style="width:120px">Módulo</th>
+          <th>Descrição / O que fazer</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Recuperação de Senha</strong></td>
+          <td><span class="module-badge">Auth</span></td>
+          <td>Fluxo "esqueci minha senha": geração de token temporário, envio de email, reset via link.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Perfil do Usuário / Seller</strong></td>
+          <td><span class="module-badge">Users</span></td>
+          <td>Página /profile para editar dados. API de PATCH /users/:id já existe. Criar página frontend.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Rastreamento de Status do Pedido</strong></td>
+          <td><span class="module-badge">Orders</span></td>
+          <td>Timeline visual na página do pedido mostrando PENDING → CONFIRMED → SHIPPED → DELIVERED.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>E-mails Transacionais</strong></td>
+          <td><span class="module-badge">Notifications</span></td>
+          <td>Confirmação de pedido, aprovação de seller, mudança de status. Usar Nodemailer + Resend/SendGrid.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Solicitar Saque (Seller)</strong></td>
+          <td><span class="module-badge">Seller</span></td>
+          <td>Criar model Withdrawal no schema. Endpoint para seller solicitar saque. Admin processa.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Sistema de Rank dos Sellers</strong></td>
+          <td><span class="module-badge">Seller</span></td>
+          <td>Adicionar campo rank ao model Seller. Cálculo automático baseado em totalSales e rating.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>Rate Limiting no Auth</strong></td>
+          <td><span class="module-badge">Segurança</span></td>
+          <td>Adicionar express-rate-limit nos endpoints /auth/login e /auth/register.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p2">P2 — Alta</span></td>
+          <td><strong>CORS configurado</strong></td>
+          <td><span class="module-badge">Segurança</span></td>
+          <td>Substituir cors() aberto por cors({ origin: process.env.ALLOWED_ORIGIN }).</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="priority-section">
+    <div class="priority-header">🔵 Prioridade 3 — Média/Baixa (eleva a qualidade do produto)</div>
+    <table class="priority-table">
+      <thead>
+        <tr>
+          <th style="width:100px">Prioridade</th>
+          <th style="width:200px">Feature</th>
+          <th style="width:120px">Módulo</th>
+          <th>Descrição</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Wishlist / Favoritos</td>
+          <td><span class="module-badge">Customer</span></td>
+          <td>Salvar produtos para comprar depois. Novo model no schema.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Perfil Público do Seller</td>
+          <td><span class="module-badge">Seller</span></td>
+          <td>Rota /seller/:id pública mostrando loja, produtos e avaliações.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Conversa Comprador ↔ Seller</td>
+          <td><span class="module-badge">Mensagens</span></td>
+          <td>Sistema de mensagens assíncrono dentro da plataforma.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Cálculo Automático de Rating</td>
+          <td><span class="module-badge">Reviews</span></td>
+          <td>Atualizar seller.rating e product.rating via trigger/query ao criar review.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Analytics Dashboard (Admin)</td>
+          <td><span class="module-badge">Admin</span></td>
+          <td>Gráficos de receita, pedidos e usuários ativos. Recharts já está instalado no frontend.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>Testes no Backend</td>
+          <td><span class="module-badge">Qualidade</span></td>
+          <td>Unit tests nos serviços de auth, orders e payments. Usar Vitest ou Jest.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Média</span></td>
+          <td>README Profissional</td>
+          <td><span class="module-badge">Portfólio</span></td>
+          <td>Substituir template do Lovable por README real com arquitetura, screenshots e como rodar.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Baixa</span></td>
+          <td>Notificações In-App</td>
+          <td><span class="module-badge">UX</span></td>
+          <td>Sino de notificações para alertas de pedidos, mensagens e aprovações.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Baixa</span></td>
+          <td>Role como Enum no Prisma</td>
+          <td><span class="module-badge">DB</span></td>
+          <td>Migrar campo role de String para enum Role { CUSTOMER SELLER ADMIN }.</td>
+        </tr>
+        <tr>
+          <td><span class="prio-badge p3">P3 — Baixa</span></td>
+          <td>Docker Compose</td>
+          <td><span class="module-badge">DevOps</span></td>
+          <td>Arquivo docker-compose.yml para subir o projeto com um comando.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div style="background:#1E3A5F;color:white;border-radius:12px;padding:24px;font-size:13px;line-height:1.6;">
+    <strong style="font-size:15px;display:block;margin-bottom:8px;">💡 Ordem de Desenvolvimento Recomendada</strong>
+    Começar pelo <strong style="color:#7EC8E3">P1 — Integração frontend ↔ API</strong> é o passo mais impactante: ele faz o projeto virar full-stack de verdade e desbloqueia testar todas as outras features visualmente.
+    Após isso, o fluxo <strong style="color:#7EC8E3">upload de imagem → email transacional → recuperação de senha</strong> torna o produto utilizável por usuários reais.
+    As features de P3 como analytics, chat e wishlist podem ser desenvolvidas em sprints posteriores sem bloquear o core do sistema.
+  </div>
+
+</div><!-- /tab-summary -->
+</div><!-- /content -->
+
+<script>
+function showTab(name) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  event.target.classList.add('active');
+}
+</script>
+</body>
+</html>

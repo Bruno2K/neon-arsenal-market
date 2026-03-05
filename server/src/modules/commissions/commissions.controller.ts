@@ -1,14 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { commissionsService } from "./commissions.service.js";
+import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 
 export const commissionsController = {
   async listTransactions(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const list = await commissionsService.listTransactions(req.user.id, req.user.role);
+      const user = getAuthUser(req);
+      const list = await commissionsService.listTransactions(user.id, user.role);
       res.json(list);
     } catch (e) {
       next(e);
@@ -17,11 +15,8 @@ export const commissionsController = {
 
   async getBalance(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const result = await commissionsService.getBalance(req.user.id);
+      const user = getAuthUser(req);
+      const result = await commissionsService.getBalance(user.id);
       res.json(result);
     } catch (e) {
       next(e);

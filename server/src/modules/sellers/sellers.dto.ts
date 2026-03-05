@@ -14,5 +14,9 @@ export const approveSellerDto = z.object({
   isApproved: z.boolean(),
 });
 
+export const sellerIdParamsDto = z.object({
+  id: z.string().min(1, "Seller ID is required"),
+});
+
 export type ApplySellerInput = z.infer<typeof applySellerDto>;
 export type UpdateSellerInput = z.infer<typeof updateSellerDto>;

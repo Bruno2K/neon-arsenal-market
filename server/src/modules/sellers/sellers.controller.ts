@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { sellersService } from "./sellers.service.js";
+import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 
 export const sellersController = {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -25,11 +26,8 @@ export const sellersController = {
 
   async getMe(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const seller = await sellersService.getByUserId(req.user.id);
+      const user = getAuthUser(req);
+      const seller = await sellersService.getByUserId(user.id);
       res.json(seller);
     } catch (e) {
       next(e);
@@ -38,11 +36,8 @@ export const sellersController = {
 
   async apply(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const seller = await sellersService.apply(req.user.id, req.body);
+      const user = getAuthUser(req);
+      const seller = await sellersService.apply(user.id, req.body);
       res.status(201).json(seller);
     } catch (e) {
       next(e);
@@ -51,16 +46,8 @@ export const sellersController = {
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const seller = await sellersService.update(
-        req.params.id,
-        req.user.id,
-        req.user.role,
-        req.body
-      );
+      const user = getAuthUser(req);
+      const seller = await sellersService.update(req.params.id, user.id, user.role, req.body);
       res.json(seller);
     } catch (e) {
       next(e);

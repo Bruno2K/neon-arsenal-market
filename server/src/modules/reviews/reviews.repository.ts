@@ -17,7 +17,7 @@ export const reviewsRepository = {
       where: { id },
       include: {
         user: { select: { id: true, name: true } },
-        product: { select: { id: true, name: true } },
+        product: { select: { id: true, skinName: true } },
       },
     });
   },
@@ -27,7 +27,7 @@ export const reviewsRepository = {
       data,
       include: {
         user: { select: { id: true, name: true } },
-        product: { select: { id: true, name: true } },
+        product: { select: { id: true, skinName: true } },
       },
     });
   },
@@ -38,7 +38,7 @@ export const reviewsRepository = {
       data,
       include: {
         user: { select: { id: true, name: true } },
-        product: { select: { id: true, name: true } },
+        product: { select: { id: true, skinName: true } },
       },
     });
   },

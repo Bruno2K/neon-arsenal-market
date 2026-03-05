@@ -1,38 +1,51 @@
 import { prisma } from "../../shared/database/index.js";
 import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
-import type { CreateOrderInput } from "./orders.dto.js";
+import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
 import type { Decimal } from "@prisma/client/runtime/library";
 
 export const ordersService = {
   async create(customerId: string, input: CreateOrderInput) {
-    const productIds = input.items.map((i) => i.productId);
-    const products = await prisma.product.findMany({
-      where: { id: { in: productIds }, isActive: true },
-      select: { id: true, sellerId: true, price: true, stock: true, name: true },
+    const listingIds = input.items.map((i) => i.listingId);
+    const listings = await prisma.listing.findMany({
+      where: { id: { in: listingIds } },
+      select: {
+        id: true,
+        sellerId: true,
+        price: true,
+        status: true,
+        tradeLockUntil: true,
+        product: { select: { weapon: true, skinName: true } },
+      },
     });
-    const productMap = new Map(products.map((p) => [p.id, p]));
+    const listingMap = new Map(listings.map((l) => [l.id, l]));
 
     const orderItems: Array<{
-      productId: string;
+      listingId: string;
       sellerId: string;
-      quantity: number;
       priceSnapshot: Decimal;
     }> = [];
     let totalAmount = 0;
 
     for (const item of input.items) {
-      const product = productMap.get(item.productId);
-      if (!product) throw new AppError(404, `Product not found: ${item.productId}`);
-      if (product.stock < item.quantity)
-        throw new AppError(400, `Insufficient stock for ${product.name}. Available: ${product.stock}`);
-      const priceSnapshot = product.price;
-      const itemTotal = Number(priceSnapshot) * item.quantity;
-      totalAmount += itemTotal;
+      const listing = listingMap.get(item.listingId);
+      if (!listing) throw new AppError(404, `Listing not found: ${item.listingId}`);
+
+      // Validate listing is available
+      if (listing.status !== "ACTIVE") {
+        throw new AppError(400, `Listing ${item.listingId} is not available (status: ${listing.status})`);
+      }
+
+      // Validate trade lock
+      if (listing.tradeLockUntil && new Date(listing.tradeLockUntil) > new Date()) {
+        throw new AppError(400, `Listing ${item.listingId} is trade locked until ${listing.tradeLockUntil}`);
+      }
+
+      const priceSnapshot = listing.price;
+      totalAmount += Number(priceSnapshot);
       orderItems.push({
-        productId: product.id,
-        sellerId: product.sellerId,
-        quantity: item.quantity,
+        listingId: listing.id,
+        sellerId: listing.sellerId,
         priceSnapshot,
       });
     }
@@ -48,28 +61,18 @@ export const ordersService = {
       });
 
       for (const item of orderItems) {
+        // Reserve the listing
+        await tx.listing.update({
+          where: { id: item.listingId },
+          data: { status: "RESERVED" },
+        });
+
         await tx.orderItem.create({
           data: {
             orderId: order.id,
-            productId: item.productId,
+            listingId: item.listingId,
             sellerId: item.sellerId,
-            quantity: item.quantity,
             priceSnapshot: item.priceSnapshot,
-          },
-        });
-        const updated = await tx.product.updateMany({
-          where: { id: item.productId, stock: { gte: item.quantity } },
-          data: { stock: { decrement: item.quantity } },
-        });
-        if (updated.count === 0) {
-          throw new AppError(409, "Insufficient stock (concurrent update). Please retry.");
-        }
-        await tx.inventoryLog.create({
-          data: {
-            productId: item.productId,
-            type: "OUT",
-            quantity: item.quantity,
-            referenceId: order.id,
           },
         });
       }
@@ -124,7 +127,42 @@ export const ordersService = {
         customer: { select: { id: true, name: true, email: true } },
         items: {
           include: {
-            product: { select: { id: true, name: true } },
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
+            seller: { select: { id: true, storeName: true } },
+          },
+        },
+      },
+    });
+  },
+
+  async updateTracking(orderId: string, userId: string, role: string, input: UpdateOrderTrackingInput) {
+    const order = await ordersRepository.findById(orderId);
+    if (!order) throw new AppError(404, "Order not found");
+    if (role === "SELLER") {
+      const seller = await prisma.seller.findUnique({ where: { userId } });
+      if (!seller) throw new AppError(403, "Forbidden");
+      const hasSellerItem = order.items.some((i: { sellerId: string }) => i.sellerId === seller.id);
+      if (!hasSellerItem) throw new AppError(403, "Not your order");
+    }
+    const data: { trackingCode?: string | null; trackingCarrier?: string | null } = {};
+    if (input.trackingCode !== undefined) data.trackingCode = input.trackingCode || null;
+    if (input.trackingCarrier !== undefined) data.trackingCarrier = input.trackingCarrier || null;
+    return prisma.order.update({
+      where: { id: orderId },
+      data,
+      include: {
+        customer: { select: { id: true, name: true, email: true } },
+        items: {
+          include: {
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
             seller: { select: { id: true, storeName: true } },
           },
         },

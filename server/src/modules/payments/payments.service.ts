@@ -71,9 +71,17 @@ export const paymentsService = {
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
 
+      // Mark listings as SOLD
+      for (const item of order.items) {
+        await tx.listing.update({
+          where: { id: item.listingId },
+          data: { status: "SOLD", soldAt: new Date() },
+        });
+      }
+
       const bySeller = new Map<string, { grossAmount: number; commissionRate: number }>();
       for (const item of order.items) {
-        const gross = Number(item.priceSnapshot) * item.quantity;
+        const gross = Number(item.priceSnapshot);
         const seller = await tx.seller.findUnique({
           where: { id: item.sellerId },
           select: { commissionRate: true },

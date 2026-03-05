@@ -11,8 +11,13 @@ export const productsRepository = {
       prisma.product.findMany({
         ...params,
         include: {
-          seller: {
-            select: { id: true, storeName: true, user: { select: { name: true } } },
+          listings: {
+            where: { status: "ACTIVE" },
+            take: 1,
+            orderBy: { price: "asc" },
+          },
+          _count: {
+            select: { listings: { where: { status: "ACTIVE" } } },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -26,13 +31,22 @@ export const productsRepository = {
     return prisma.product.findUnique({
       where: { id },
       include: {
-        seller: {
-          select: {
-            id: true,
-            storeName: true,
-            rating: true,
-            user: { select: { id: true, name: true } },
+        listings: {
+          where: { status: "ACTIVE" },
+          include: {
+            seller: {
+              select: {
+                id: true,
+                storeName: true,
+                rating: true,
+                user: { select: { id: true, name: true } },
+              },
+            },
           },
+          orderBy: { price: "asc" },
+        },
+        _count: {
+          select: { listings: { where: { status: "ACTIVE" } } },
         },
       },
     });
@@ -41,9 +55,6 @@ export const productsRepository = {
   async create(data: Prisma.ProductCreateInput) {
     return prisma.product.create({
       data,
-      include: {
-        seller: { select: { id: true, storeName: true } },
-      },
     });
   },
 
@@ -51,27 +62,10 @@ export const productsRepository = {
     return prisma.product.update({
       where: { id },
       data,
-      include: {
-        seller: { select: { id: true, storeName: true } },
-      },
     });
   },
 
   async delete(id: string) {
     return prisma.product.delete({ where: { id } });
-  },
-
-  async decrementStock(id: string, quantity: number) {
-    return prisma.product.update({
-      where: { id },
-      data: { stock: { decrement: quantity } },
-    });
-  },
-
-  async findByIdForOrder(id: string) {
-    return prisma.product.findUnique({
-      where: { id, isActive: true },
-      select: { id: true, sellerId: true, price: true, stock: true, name: true },
-    });
   },
 };

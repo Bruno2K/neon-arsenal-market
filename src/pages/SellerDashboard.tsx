@@ -1,120 +1,155 @@
-import { BarChart3, Package, DollarSign, TrendingUp, Star, Eye } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { sellers, getProductsBySeller, getOrdersBySeller } from '@/services/mock-data';
-import { RankBadge } from '@/components/RankBadge';
-import { Button } from '@/components/ui/button';
-
-const seller = sellers[0]; // Mock: NeonTrader
-const sellerProducts = getProductsBySeller(seller.id);
-const sellerOrders = getOrdersBySeller(seller.id);
-
-const stats = [
-  { icon: DollarSign, label: 'Total Vendido', value: `$${seller.totalSales.toLocaleString()}`, color: 'text-primary' },
-  { icon: Package, label: 'Produtos Ativos', value: seller.activeProducts.toString(), color: 'text-secondary' },
-  { icon: TrendingUp, label: 'Saldo Disponível', value: `$${seller.balance.toFixed(2)}`, color: 'text-primary' },
-  { icon: Star, label: 'Avaliação', value: seller.rating.toString(), color: 'text-secondary' },
-];
+import { BarChart3, TrendingUp, Package, DollarSign } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+import { listOrders } from '@/api/orders';
+import { getSellerListings } from '@/api/listings';
+import type { Listing, Order } from '@/types/api';
 
 export default function SellerDashboard() {
+  const [listings, setListings] = useState<Listing[]>([]);
+
+  const { data: orders = [] } = useQuery({
+    queryKey: ['orders'],
+    queryFn: () => listOrders(),
+  });
+
+  const { data: sellerListings = [] } = useQuery({
+    queryKey: ['sellerListings'],
+    queryFn: () => getSellerListings(),
+  });
+
+  useEffect(() => {
+    if (sellerListings && 'items' in sellerListings) {
+      setListings((sellerListings as { items: Listing[]; total: number }).items);
+    } else if (Array.isArray(sellerListings)) {
+      setListings(sellerListings);
+    }
+  }, [sellerListings]);
+
+  // Calculate metrics
+  const totalRevenue = orders.reduce((sum, order) => {
+    const orderSum = order.items?.reduce((itemSum, i) => itemSum + Number(i.priceSnapshot || 0), 0) || 0;
+    return sum + orderSum;
+  }, 0);
+
+  const activeListings = listings.filter((l) => l.status === 'ACTIVE').length;
+
+  const firstItem = orders[0]?.items?.[0];
+
+  const stats = [
+    {
+      label: 'Active Listings',
+      value: activeListings,
+      icon: Package,
+      color: 'text-blue-500',
+    },
+    {
+      label: 'Total Revenue',
+      value: `$${totalRevenue.toFixed(2)}`,
+      icon: DollarSign,
+      color: 'text-green-500',
+    },
+    {
+      label: 'Orders',
+      value: orders.length,
+      icon: TrendingUp,
+      color: 'text-purple-500',
+    },
+  ];
+
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-heading text-foreground">Dashboard</h1>
-          <div className="flex items-center gap-3 mt-2">
-            <span className="text-muted-foreground">Olá, {seller.name}</span>
-            <RankBadge rank={seller.rank} size="md" />
-          </div>
-        </div>
-        <Button><Package className="h-4 w-4 mr-2" /> Novo Produto</Button>
-      </div>
+    <motion.div
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      transition={{ duration: 0.5 }}
+      className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6"
+    >
+      <div className="container mx-auto max-w-7xl">
+        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
+          <h1 className="text-4xl font-bold text-white mb-2">Seller Dashboard</h1>
+          <p className="text-gray-400 mb-8">Manage your CS2 skin marketplace inventory</p>
+        </motion.div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {stats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="p-4 rounded-lg border border-border bg-card"
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <s.icon className={`h-4 w-4 ${s.color}`} />
-              <span className="text-xs text-muted-foreground font-heading">{s.label}</span>
-            </div>
-            <span className={`font-heading text-2xl ${s.color}`}>{s.value}</span>
-          </motion.div>
-        ))}
-      </div>
+        {/* Stats Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
+        >
+          {stats.map((stat, index) => (
+            <motion.div
+              key={stat.label}
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
+            >
+              <Card className="bg-gray-800 border-gray-700">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-400">{stat.label}</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="text-3xl font-bold text-white">{stat.value}</div>
+                    <stat.icon className={`w-8 h-8 ${stat.color}`} />
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          ))}
+        </motion.div>
 
-      {/* Products */}
-      <div>
-        <h2 className="text-xl font-heading text-foreground mb-4">Meus Produtos</h2>
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">Produto</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden sm:table-cell">Preço</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden md:table-cell">Estoque</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden md:table-cell">Rating</th>
-                <th className="text-right p-3 font-heading text-muted-foreground text-xs">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sellerProducts.map(p => (
-                <tr key={p.id} className="border-t border-border hover:bg-muted/50 transition-colors">
-                  <td className="p-3 text-foreground">{p.name}</td>
-                  <td className="p-3 text-primary font-heading hidden sm:table-cell">${p.price.toFixed(2)}</td>
-                  <td className="p-3 text-muted-foreground hidden md:table-cell">{p.stock}</td>
-                  <td className="p-3 hidden md:table-cell"><span className="flex items-center gap-1"><Star className="h-3 w-3 fill-secondary text-secondary" />{p.rating}</span></td>
-                  <td className="p-3 text-right">
-                    <Button variant="ghost" size="sm"><Eye className="h-4 w-4" /></Button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+        {/* Recent Orders */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3, delay: 0.2 }}
+        >
+          <Card className="bg-gray-800 border-gray-700">
+            <CardHeader>
+              <CardTitle className="text-white">Recent Orders</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {orders.length === 0 ? (
+                <p className="text-gray-400">No orders yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {orders.slice(0, 5).map((order) => {
+                    const itemsSummary = order.items
+                      ?.slice(0, 2)
+                      .map((i) => i.listing?.product ? `${i.listing.product.weapon} | ${i.listing.product.skinName}` : 'Item')
+                      .join(', ') ?? '—';
+                    const hasMore = order.items && order.items.length > 2 ? '…' : '';
 
-      {/* Orders */}
-      <div>
-        <h2 className="text-xl font-heading text-foreground mb-4">Pedidos Recebidos</h2>
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">Pedido</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">Item</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden sm:table-cell">Total</th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sellerOrders.map(o => (
-                <tr key={o.id} className="border-t border-border hover:bg-muted/50 transition-colors">
-                  <td className="p-3 text-muted-foreground font-mono text-xs">#{o.id}</td>
-                  <td className="p-3 text-foreground">{o.items[0]?.name}</td>
-                  <td className="p-3 text-primary font-heading hidden sm:table-cell">${o.total.toFixed(2)}</td>
-                  <td className="p-3">
-                    <span className={`text-xs font-heading px-2 py-1 rounded ${
-                      o.status === 'completed' ? 'bg-primary/10 text-primary' :
-                      o.status === 'processing' ? 'bg-secondary/10 text-secondary' :
-                      o.status === 'pending' ? 'bg-muted text-muted-foreground' :
-                      'bg-destructive/10 text-destructive'
-                    }`}>
-                      {o.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+                    return (
+                      <div key={order.id} className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
+                        <div>
+                          <p className="text-white font-semibold">{firstItem?.listing?.product?.weapon ?? 'Item'}</p>
+                          <p className="text-gray-400 text-sm">{itemsSummary}{hasMore}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-white font-semibold">
+                            $
+                            {order.items
+                              ?.reduce((sum, i) => sum + Number(i.priceSnapshot || 0), 0)
+                              .toFixed(2) || '0.00'}
+                          </p>
+                          <Badge variant={order.status === 'COMPLETED' ? 'default' : 'secondary'}>
+                            {order.status}
+                          </Badge>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
       </div>
-    </div>
+    </motion.div>
   );
 }

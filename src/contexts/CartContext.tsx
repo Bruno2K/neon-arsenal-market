@@ -1,16 +1,14 @@
 import { createContext, useContext, useState, ReactNode } from 'react';
-import { Product } from '@/services/mock-data';
+import type { Listing } from '@/types/api';
 
 export interface CartItem {
-  product: Product;
-  quantity: number;
+  listing: Listing;
 }
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (product: Product) => void;
-  removeItem: (productId: string) => void;
-  updateQuantity: (productId: string, quantity: number) => void;
+  addItem: (listing: Listing) => void;
+  removeItem: (listingId: string) => void;
   clearCart: () => void;
   totalItems: number;
   totalPrice: number;
@@ -21,27 +19,26 @@ const CartContext = createContext<CartContextType | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
 
-  const addItem = (product: Product) => {
-    setItems(prev => {
-      const existing = prev.find(i => i.product.id === product.id);
-      if (existing) return prev.map(i => i.product.id === product.id ? { ...i, quantity: i.quantity + 1 } : i);
-      return [...prev, { product, quantity: 1 }];
-    });
+  const addItem = (listing: Listing) => {
+    // Check if listing is already in cart
+    if (items.some(i => i.listing.id === listing.id)) {
+      return; // Already in cart, each listing is unique
+    }
+    // Check if listing is available
+    if (listing.status !== 'ACTIVE') {
+      return; // Cannot add non-active listings
+    }
+    setItems(prev => [...prev, { listing }]);
   };
 
-  const removeItem = (productId: string) => setItems(prev => prev.filter(i => i.product.id !== productId));
-
-  const updateQuantity = (productId: string, quantity: number) => {
-    if (quantity <= 0) return removeItem(productId);
-    setItems(prev => prev.map(i => i.product.id === productId ? { ...i, quantity } : i));
-  };
+  const removeItem = (listingId: string) => setItems(prev => prev.filter(i => i.listing.id !== listingId));
 
   const clearCart = () => setItems([]);
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
-  const totalPrice = items.reduce((s, i) => s + i.product.price * i.quantity, 0);
+  const totalItems = items.length; // Each item is unique, no quantity
+  const totalPrice = items.reduce((s, i) => s + Number(i.listing.price), 0);
 
   return (
-    <CartContext.Provider value={{ items, addItem, removeItem, updateQuantity, clearCart, totalItems, totalPrice }}>
+    <CartContext.Provider value={{ items, addItem, removeItem, clearCart, totalItems, totalPrice }}>
       {children}
     </CartContext.Provider>
   );

@@ -1,0 +1,22 @@
+#!/usr/bin/env sh
+
+# ── lint-staged: lint & format only staged files ─────────────────────────────
+npx lint-staged
+
+# ── TypeScript: client ────────────────────────────────────────────────────────
+echo "⏳ Type-checking client..."
+npm run typecheck
+if [ $? -ne 0 ]; then
+  echo "❌ Client TypeScript errors. Commit aborted."
+  exit 1
+fi
+
+# ── TypeScript: server ────────────────────────────────────────────────────────
+echo "⏳ Type-checking server..."
+npm run typecheck --prefix server
+if [ $? -ne 0 ]; then
+  echo "❌ Server TypeScript errors. Commit aborted."
+  exit 1
+fi
+
+echo "✅ All checks passed."

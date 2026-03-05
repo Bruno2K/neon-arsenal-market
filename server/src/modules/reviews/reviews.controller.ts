@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { reviewsService } from "./reviews.service.js";
+import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 
 export const reviewsController = {
   async listByProduct(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -22,11 +23,8 @@ export const reviewsController = {
 
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const review = await reviewsService.create(req.user.id, req.body);
+      const user = getAuthUser(req);
+      const review = await reviewsService.create(user.id, req.body);
       res.status(201).json(review);
     } catch (e) {
       next(e);
@@ -35,11 +33,8 @@ export const reviewsController = {
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const review = await reviewsService.update(req.params.id, req.user.id, req.body);
+      const user = getAuthUser(req);
+      const review = await reviewsService.update(req.params.id, user.id, req.body);
       res.json(review);
     } catch (e) {
       next(e);
@@ -48,11 +43,8 @@ export const reviewsController = {
 
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      await reviewsService.delete(req.params.id, req.user.id);
+      const user = getAuthUser(req);
+      await reviewsService.delete(req.params.id, user.id);
       res.status(204).send();
     } catch (e) {
       next(e);

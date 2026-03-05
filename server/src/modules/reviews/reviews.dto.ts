@@ -11,5 +11,13 @@ export const updateReviewDto = z.object({
   comment: z.string().optional(),
 });
 
+export const reviewIdParamsDto = z.object({
+  id: z.string().min(1, "Review ID is required"),
+});
+
+export const productIdParamsDto = z.object({
+  productId: z.string().min(1, "Product ID is required"),
+});
+
 export type CreateReviewInput = z.infer<typeof createReviewDto>;
 export type UpdateReviewInput = z.infer<typeof updateReviewDto>;

@@ -6,7 +6,7 @@ export const ordersRepository = {
   async createWithItems(params: {
     customerId: string;
     totalAmount: Decimal;
-    items: Array<{ productId: string; sellerId: string; quantity: number; priceSnapshot: Decimal }>;
+    items: Array<{ listingId: string; sellerId: string; priceSnapshot: Decimal }>;
   }) {
     const { customerId, totalAmount, items } = params;
     return prisma.$transaction(async (tx) => {
@@ -21,9 +21,8 @@ export const ordersRepository = {
       await tx.orderItem.createMany({
         data: items.map((item) => ({
           orderId: order.id,
-          productId: item.productId,
+          listingId: item.listingId,
           sellerId: item.sellerId,
-          quantity: item.quantity,
           priceSnapshot: item.priceSnapshot,
         })),
       });
@@ -38,7 +37,11 @@ export const ordersRepository = {
         customer: { select: { id: true, name: true, email: true } },
         items: {
           include: {
-            product: { select: { id: true, name: true } },
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
             seller: { select: { id: true, storeName: true } },
           },
         },
@@ -52,7 +55,11 @@ export const ordersRepository = {
       include: {
         items: {
           include: {
-            product: { select: { id: true, name: true } },
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
             seller: { select: { id: true, storeName: true } },
           },
         },
@@ -69,7 +76,11 @@ export const ordersRepository = {
         items: {
           where: { sellerId },
           include: {
-            product: { select: { id: true, name: true } },
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
           },
         },
       },
@@ -84,7 +95,11 @@ export const ordersRepository = {
         customer: { select: { id: true, name: true, email: true } },
         items: {
           include: {
-            product: { select: { id: true, name: true } },
+            listing: {
+              include: {
+                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
+              },
+            },
             seller: { select: { id: true, storeName: true } },
           },
         },
@@ -94,9 +109,24 @@ export const ordersRepository = {
   },
 
   async updatePaymentStatus(orderId: string, paymentStatus: PaymentStatus) {
-    return prisma.order.update({
-      where: { id: orderId },
-      data: { paymentStatus, status: paymentStatus === "PAID" ? "CONFIRMED" : undefined },
+    return prisma.$transaction(async (tx) => {
+      const order = await tx.order.update({
+        where: { id: orderId },
+        data: { paymentStatus, status: paymentStatus === "PAID" ? "CONFIRMED" : undefined },
+        include: { items: { select: { listingId: true } } },
+      });
+
+      // Mark listings as SOLD when payment is confirmed
+      if (paymentStatus === "PAID") {
+        for (const item of order.items) {
+          await tx.listing.update({
+            where: { id: item.listingId },
+            data: { status: "SOLD", soldAt: new Date() },
+          });
+        }
+      }
+
+      return order;
     });
   },
 

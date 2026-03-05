@@ -1,14 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
+import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 
 export const ordersController = {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const order = await ordersService.create(req.user.id, req.body);
+      const user = getAuthUser(req);
+      const order = await ordersService.create(user.id, req.body);
       res.status(201).json(order);
     } catch (e) {
       next(e);
@@ -17,15 +15,8 @@ export const ordersController = {
 
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const order = await ordersService.getById(
-        req.params.id,
-        req.user.id,
-        req.user.role
-      );
+      const user = getAuthUser(req);
+      const order = await ordersService.getById(req.params.id, user.id, user.role);
       res.json(order);
     } catch (e) {
       next(e);
@@ -34,20 +25,17 @@ export const ordersController = {
 
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
+      const user = getAuthUser(req);
       let list;
-      if (req.user.role === "ADMIN") {
+      if (user.role === "ADMIN") {
         list = await ordersService.listAdmin({
           status: req.query.status as string,
           paymentStatus: req.query.paymentStatus as string,
         });
-      } else if (req.user.role === "SELLER") {
-        list = await ordersService.listBySeller(req.user.id);
+      } else if (user.role === "SELLER") {
+        list = await ordersService.listBySeller(user.id);
       } else {
-        list = await ordersService.listByCustomer(req.user.id);
+        list = await ordersService.listByCustomer(user.id);
       }
       res.json(list);
     } catch (e) {
@@ -57,15 +45,27 @@ export const ordersController = {
 
   async updateStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
+      const user = getAuthUser(req);
       const order = await ordersService.updateStatus(
         req.params.id,
-        req.user.id,
-        req.user.role,
+        user.id,
+        user.role,
         req.body.status
+      );
+      res.json(order);
+    } catch (e) {
+      next(e);
+    }
+  },
+
+  async updateTracking(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = getAuthUser(req);
+      const order = await ordersService.updateTracking(
+        req.params.id,
+        user.id,
+        user.role,
+        req.body
       );
       res.json(order);
     } catch (e) {

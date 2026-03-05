@@ -1,16 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { productsService } from "./products.service.js";
-import { listProductsQueryDto } from "./products.dto.js";
+import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import type { ListProductsQuery } from "./products.dto.js";
 
 export const productsController = {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const query = listProductsQueryDto.parse({
-        ...req.query,
-        page: req.query.page,
-        limit: req.query.limit,
-      });
-      const result = await productsService.list(query);
+      const result = await productsService.list(req.query as unknown as ListProductsQuery);
       res.json(result);
     } catch (e) {
       next(e);
@@ -28,11 +24,8 @@ export const productsController = {
 
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const product = await productsService.create(req.user.id, req.body);
+      const user = getAuthUser(req);
+      const product = await productsService.create(user.id, user.role, req.body);
       res.status(201).json(product);
     } catch (e) {
       next(e);
@@ -41,16 +34,8 @@ export const productsController = {
 
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      const product = await productsService.update(
-        req.params.id,
-        req.user.id,
-        req.user.role,
-        req.body
-      );
+      const user = getAuthUser(req);
+      const product = await productsService.update(req.params.id, user.id, user.role, req.body);
       res.json(product);
     } catch (e) {
       next(e);
@@ -59,11 +44,8 @@ export const productsController = {
 
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      if (!req.user) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      await productsService.delete(req.params.id, req.user.id, req.user.role);
+      const user = getAuthUser(req);
+      await productsService.delete(req.params.id, user.id, user.role);
       res.status(204).send();
     } catch (e) {
       next(e);

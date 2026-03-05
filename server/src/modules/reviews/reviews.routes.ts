@@ -1,13 +1,13 @@
 import { Router } from "express";
 import { reviewsController } from "./reviews.controller.js";
-import { authenticate } from "../../shared/middlewares/index.js";
+import { authenticate, validateParams } from "../../shared/middlewares/index.js";
 import { validateBody } from "../../shared/middlewares/validateBody.js";
-import { createReviewDto, updateReviewDto } from "./reviews.dto.js";
+import { createReviewDto, updateReviewDto, reviewIdParamsDto, productIdParamsDto } from "./reviews.dto.js";
 
 const router = Router();
 
-router.get("/product/:productId", reviewsController.listByProduct);
-router.get("/:id", reviewsController.getById);
+router.get("/product/:productId", validateParams(productIdParamsDto), reviewsController.listByProduct);
+router.get("/:id", validateParams(reviewIdParamsDto), reviewsController.getById);
 
 router.post(
   "/",
@@ -18,9 +18,10 @@ router.post(
 router.patch(
   "/:id",
   authenticate,
+  validateParams(reviewIdParamsDto),
   validateBody(updateReviewDto),
   reviewsController.update
 );
-router.delete("/:id", authenticate, reviewsController.delete);
+router.delete("/:id", authenticate, validateParams(reviewIdParamsDto), reviewsController.delete);
 
 export const reviewsRoutes = router;

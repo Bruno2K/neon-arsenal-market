@@ -14,8 +14,8 @@ export function Header() {
   const navLinks = [
     { to: '/', label: 'Home' },
     { to: '/products', label: 'Market' },
-    ...(user?.role === 'seller' ? [{ to: '/seller', label: 'Dashboard' }] : []),
-    ...(user?.role === 'admin' ? [{ to: '/admin', label: 'Admin' }] : []),
+    ...(user?.role === 'SELLER' ? [{ to: '/seller', label: 'Dashboard' }] : []),
+    ...(user?.role === 'ADMIN' ? [{ to: '/admin', label: 'Admin' }] : []),
   ];
 
   return (
