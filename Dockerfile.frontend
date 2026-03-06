@@ -8,13 +8,14 @@ FROM node:20-alpine AS dev
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
 EXPOSE 5173
 
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+# Install deps at startup so volume node_modules stay in sync with package.json
+CMD ["sh", "-c", "npm install && npm run dev -- --host 0.0.0.0"]
 
 # ── Build stage ────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
@@ -22,7 +23,7 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package*.json ./
-RUN npm ci
+RUN npm install
 
 COPY . .
 
