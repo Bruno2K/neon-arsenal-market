@@ -1,17 +1,21 @@
-import { Link } from 'react-router-dom';
-import { ShoppingCart } from 'lucide-react';
-import { motion } from 'framer-motion';
-import type { Listing } from '@/types/api';
-import { useCart } from '@/contexts/CartContext';
-import { Button } from '@/components/ui/button';
+import { Link } from "react-router-dom";
+import { ShoppingCart } from "lucide-react";
+import { motion } from "framer-motion";
+import type { Listing } from "@/types/api";
+import { useCart } from "@/contexts/CartContext";
+import { Button } from "@/components/ui/button";
 
 // Export both names for compatibility
 export function ListingCard({ listing }: { listing: Listing }) {
   const { addItem } = useCart();
-  const price = typeof listing.price === 'number' ? listing.price : Number(listing.price);
-  const sellerName = listing.seller?.user?.name ?? listing.seller?.storeName ?? '';
+  const price =
+    typeof listing.price === "number" ? listing.price : Number(listing.price);
+  const sellerName =
+    listing.seller?.user?.name ?? listing.seller?.storeName ?? "";
   const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
-  const isAvailable = listing.status === 'ACTIVE' && (!listing.tradeLockUntil || new Date(listing.tradeLockUntil) <= new Date());
+  const isAvailable =
+    listing.status === "ACTIVE" &&
+    (!listing.tradeLockUntil || new Date(listing.tradeLockUntil) <= new Date());
 
   return (
     <motion.div
@@ -41,13 +45,17 @@ export function ListingCard({ listing }: { listing: Listing }) {
         </Link>
         <div className="flex items-center justify-between text-[11px] text-muted-foreground">
           <span>{sellerName}</span>
-          <span>Float: {listing.floatValue.toFixed(8)}</span>
+          <span>Float: {Number(listing.floatValue).toFixed(8)}</span>
         </div>
         {listing.pattern && (
-          <span className="text-[10px] text-muted-foreground block">Pattern: {listing.pattern}</span>
+          <span className="text-[10px] text-muted-foreground block">
+            Pattern: {listing.pattern}
+          </span>
         )}
         <div className="flex items-center justify-between pt-1 border-t border-border">
-          <span className="font-heading text-primary text-lg">${price.toFixed(2)}</span>
+          <span className="font-heading text-primary text-lg">
+            ${price.toFixed(2)}
+          </span>
           <Button
             size="icon"
             className="h-8 w-8"
@@ -56,7 +64,9 @@ export function ListingCard({ listing }: { listing: Listing }) {
               addItem(listing);
             }}
             disabled={!isAvailable}
-            title={!isAvailable ? 'Item não disponível' : 'Adicionar ao carrinho'}
+            title={
+              !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
+            }
           >
             <ShoppingCart className="h-4 w-4" />
           </Button>

@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
-import { Package, Pencil, Trash2, EyeOff, Eye, Loader2, DollarSign } from "lucide-react";
+import {
+  Package,
+  Pencil,
+  Trash2,
+  EyeOff,
+  Eye,
+  Loader2,
+  DollarSign,
+} from "lucide-react";
 import {
   getSellerMe,
   getSellerListings,
@@ -138,7 +146,9 @@ export default function SellerListings() {
       pattern: l.pattern ? String(l.pattern) : "",
       price: String(l.price),
       currency: l.currency,
-      tradeLockUntil: l.tradeLockUntil ? new Date(l.tradeLockUntil).toISOString().slice(0, 16) : "",
+      tradeLockUntil: l.tradeLockUntil
+        ? new Date(l.tradeLockUntil).toISOString().slice(0, 16)
+        : "",
       steamAssetId: l.steamAssetId || "",
     });
     setFormOpen(true);
@@ -300,7 +310,10 @@ export default function SellerListings() {
             <TableBody>
               {listings.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground py-8"
+                  >
                     Nenhum listing. Clique em Novo Listing para criar.
                   </TableCell>
                 </TableRow>
@@ -309,9 +322,11 @@ export default function SellerListings() {
                   const productName = `${l.product.weapon} | ${l.product.skinName} (${l.product.exterior})`;
                   return (
                     <TableRow key={l.id}>
-                      <TableCell className="font-medium">{productName}</TableCell>
+                      <TableCell className="font-medium">
+                        {productName}
+                      </TableCell>
                       <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {l.floatValue.toFixed(8)}
+                        {Number(l.floatValue).toFixed(8)}
                       </TableCell>
                       <TableCell className="text-primary font-heading">
                         ${Number(l.price).toFixed(2)}
@@ -384,14 +399,18 @@ export default function SellerListings() {
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingListing ? "Editar listing" : "Novo listing"}</DialogTitle>
+            <DialogTitle>
+              {editingListing ? "Editar listing" : "Novo listing"}
+            </DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="productId">Produto</Label>
               <Select
                 value={form.productId}
-                onValueChange={(value) => setForm((f) => ({ ...f, productId: value }))}
+                onValueChange={(value) =>
+                  setForm((f) => ({ ...f, productId: value }))
+                }
                 disabled={!!editingListing}
               >
                 <SelectTrigger>
@@ -416,7 +435,9 @@ export default function SellerListings() {
                   max="1"
                   step="0.00000001"
                   value={form.floatValue}
-                  onChange={(e) => setForm((f) => ({ ...f, floatValue: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, floatValue: e.target.value }))
+                  }
                   placeholder="0.00000000"
                   disabled={!!editingListing}
                 />
@@ -428,7 +449,9 @@ export default function SellerListings() {
                   type="number"
                   min="0"
                   value={form.pattern}
-                  onChange={(e) => setForm((f) => ({ ...f, pattern: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, pattern: e.target.value }))
+                  }
                   placeholder="Opcional"
                   disabled={!!editingListing}
                 />
@@ -443,7 +466,9 @@ export default function SellerListings() {
                   min="0"
                   step="0.01"
                   value={form.price}
-                  onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, price: e.target.value }))
+                  }
                   placeholder="0.00"
                 />
               </div>
@@ -451,7 +476,9 @@ export default function SellerListings() {
                 <Label htmlFor="currency">Moeda</Label>
                 <Select
                   value={form.currency}
-                  onValueChange={(value) => setForm((f) => ({ ...f, currency: value }))}
+                  onValueChange={(value) =>
+                    setForm((f) => ({ ...f, currency: value }))
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -465,12 +492,16 @@ export default function SellerListings() {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="tradeLockUntil">Trade Lock Até (opcional)</Label>
+                <Label htmlFor="tradeLockUntil">
+                  Trade Lock Até (opcional)
+                </Label>
                 <Input
                   id="tradeLockUntil"
                   type="datetime-local"
                   value={form.tradeLockUntil}
-                  onChange={(e) => setForm((f) => ({ ...f, tradeLockUntil: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, tradeLockUntil: e.target.value }))
+                  }
                 />
               </div>
               <div className="grid gap-2">
@@ -478,18 +509,26 @@ export default function SellerListings() {
                 <Input
                   id="steamAssetId"
                   value={form.steamAssetId}
-                  onChange={(e) => setForm((f) => ({ ...f, steamAssetId: e.target.value }))}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, steamAssetId: e.target.value }))
+                  }
                   placeholder="Opcional"
                 />
               </div>
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setFormOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setFormOpen(false)}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               {editingListing ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
@@ -516,18 +555,27 @@ export default function SellerListings() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPriceFormOpen(false)} disabled={saving}>
+            <Button
+              variant="outline"
+              onClick={() => setPriceFormOpen(false)}
+              disabled={saving}
+            >
               Cancelar
             </Button>
             <Button onClick={handlePriceUpdate} disabled={saving}>
-              {saving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Atualizar
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Cancelar listing?</AlertDialogTitle>
@@ -542,7 +590,9 @@ export default function SellerListings() {
               disabled={deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {deleting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : null}
               Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>

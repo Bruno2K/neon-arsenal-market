@@ -23,9 +23,15 @@ app.use(requestId);
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 // Restrict to the configured frontend origin (defaults to localhost:5173 for dev)
-const allowedOrigins = (process.env.FRONTEND_URL ?? "http://localhost:5173")
+const fromEnv = (process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
-  .map((o) => o.trim());
+  .map((o) => o.trim())
+  .filter(Boolean);
+const devOrigins = [
+  "http://localhost:5173",
+  "http://127.0.0.1:5173",
+];
+const allowedOrigins = [...new Set([...fromEnv, ...devOrigins])];
 
 app.use(
   cors({

@@ -1,0 +1,9 @@
+node_modules
+server/node_modules
+.git
+.github
+.husky
+.claude
+.gemini
+*.docx
+dist

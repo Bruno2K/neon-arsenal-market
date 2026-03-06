@@ -3,11 +3,13 @@
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS builder
 
+RUN apk add --no-cache openssl python3 make g++
+
 WORKDIR /app
 
 # Install dependencies (separate layer for caching)
 COPY package*.json ./
-RUN npm ci --ignore-scripts
+RUN npm ci
 
 # Copy source and build TypeScript
 COPY . .
@@ -19,13 +21,18 @@ RUN npm run build
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS production
 
+RUN apk add --no-cache openssl python3 make g++
+
 WORKDIR /app
 
 ENV NODE_ENV=production
 
-# Install only production dependencies
+# Install only production dependencies (no --ignore-scripts so bcrypt native bindings compile)
 COPY package*.json ./
-RUN npm ci --omit=dev --ignore-scripts
+RUN npm ci --omit=dev
+
+# Install prisma CLI locally so entrypoint doesn't download v7 via npx
+RUN npm install prisma@5 --save-dev
 
 # Copy built output and Prisma client
 COPY --from=builder /app/dist ./dist
@@ -39,8 +46,8 @@ RUN chmod +x ./entrypoint.sh
 
 # Non-root user for security
 RUN addgroup --system --gid 1001 nodejs \
- && adduser  --system --uid 1001 expressjs \
- && chown -R expressjs:nodejs /app
+  && adduser  --system --uid 1001 expressjs \
+  && chown -R expressjs:nodejs /app
 USER expressjs
 
 EXPOSE 3001
