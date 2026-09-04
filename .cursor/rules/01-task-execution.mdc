@@ -1,0 +1,52 @@
+---
+description: Issue-driven task planning and execution
+alwaysApply: true
+---
+
+# Task Execution
+
+When the user names a GitHub issue, feature, bug, or roadmap item, treat it as an engineering task and follow the repository's agent protocol.
+
+## Before coding
+
+- Identify the exact issue/task.
+- Read its acceptance criteria and constraints.
+- Check the relevant roadmap item.
+- Classify the task by risk and domain.
+- Select logical roles using `docs/agents/roles.md`.
+- Read relevant architecture and invariant documents.
+- Search for existing implementations, tests, migrations, and related abstractions.
+
+For non-trivial work, present a concise plan before making broad changes. Do not ask for confirmation merely because a plan is needed; proceed when the task is within autonomous boundaries.
+
+## During coding
+
+- Keep changes scoped to the issue.
+- Preserve existing public behavior unless the task requires a change.
+- Prefer the smallest correct design.
+- Do not refactor unrelated code.
+- Keep error handling explicit.
+- Preserve type safety; do not use `any` as an escape hatch.
+- Consider concurrency, retries, duplicate requests, partial failure, and restart behavior for state-changing operations.
+- For external calls, reason about timeout, retry, idempotency, and failure after remote success.
+
+## Git behavior
+
+Use a dedicated branch/worktree when the environment supports it. Do not rewrite shared history. Do not force-push unless explicitly authorized.
+
+If the user asks for a commit, commit only the scoped changes after verification. Use a clear conventional commit message and include the issue number when appropriate.
+
+Do not claim that a commit, test, deployment, or CI run happened unless you actually performed or observed it.
+
+## Issue completion
+
+A task is not complete until:
+
+- acceptance criteria are addressed;
+- relevant tests exist or an explicit reason is documented when tests are not applicable;
+- verification passes;
+- the diff contains no unrelated changes;
+- remaining risks are known;
+- completion evidence is reported.
+
+If the issue is ambiguous in a way that affects correctness, stop and ask for clarification. If the ambiguity is safely resolvable from existing repository conventions, resolve it without unnecessary interruption.

@@ -1,0 +1,71 @@
+---
+description: Context loading and adaptive engineering roles
+alwaysApply: true
+---
+
+# Context and Roles
+
+Use the repository documentation as a layered knowledge base, not as a prompt dump.
+
+## Context loading
+
+Start with the mandatory governance documents. Then load only what the task requires.
+
+For backend/domain work, normally inspect:
+
+- relevant module/service/controller/route
+- repository layer when present
+- Prisma schema and relevant migrations
+- existing tests
+- shared errors/config/logging when imported
+- architecture/invariant docs for the affected domain
+
+Expand context when:
+
+- an import changes the behavior being reasoned about;
+- a database constraint or migration is involved;
+- a test fixture hides an important invariant;
+- an external provider contract is involved;
+- documentation and code disagree.
+
+When documentation conflicts with executable behavior, inspect the code and flag the documentation as potentially stale. Never silently invent a resolution for a material conflict.
+
+## Adaptive roles
+
+The same Cursor Agent may act as multiple logical roles. Explicitly change perspective rather than invoking unnecessary separate agents.
+
+### Planner
+
+Define objective, scope, invariants, affected components, implementation sequence, verification strategy, and risks.
+
+### Backend
+
+Implement application/domain behavior using repository conventions and clear boundaries.
+
+### Database / Concurrency
+
+Reason about transactions, isolation, conditional writes, unique constraints, races, state transitions, rollback, and multi-instance behavior.
+
+### Test
+
+Design tests that prove happy paths and meaningful failure/concurrency/retry behavior.
+
+### Reliability
+
+Analyze timeouts, retries, duplicate delivery, crash recovery, reconciliation, graceful shutdown, and external-system failure.
+
+### Security
+
+Review authentication, authorization, input validation, secrets, webhook authenticity, abuse controls, and trust boundaries.
+
+### Architecture
+
+Check module boundaries, dependency direction, source of truth, scalability implications, and whether a proposed technology is justified.
+
+### Verification
+
+Independently challenge the implementation against acceptance criteria, invariants, tests, and operational consequences. Look specifically for missing failure modes and accidental scope expansion.
+
+## Context budget
+
+Do not open every file because it exists. Prefer targeted searches and narrow ranges. Stop expanding context when additional material no longer changes the implementation or verification decision.

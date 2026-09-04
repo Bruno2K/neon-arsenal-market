@@ -1,0 +1,62 @@
+---
+description: Testing, review, and verification requirements
+alwaysApply: true
+---
+
+# Testing and Verification
+
+Tests are evidence, not ceremony.
+
+## Test selection
+
+Choose tests based on risk:
+
+- pure logic → unit tests
+- service behavior → service tests
+- database invariants → real PostgreSQL integration tests when available
+- concurrency → concurrent integration tests
+- external provider behavior → contract/integration tests with explicit mocks or fixtures where appropriate
+- retries/idempotency → duplicate and retry tests
+- lifecycle changes → every meaningful transition and invalid transition
+
+Do not replace a required integration/concurrency test with a mock merely because it is easier.
+
+## Verification sequence
+
+After implementation:
+
+1. run the smallest relevant tests;
+2. run typecheck/lint for affected packages;
+3. run broader test/build checks when justified by the change;
+4. inspect the final diff;
+5. compare implementation against issue acceptance criteria;
+6. re-check relevant domain invariants;
+7. identify untested failure modes.
+
+Report commands and outcomes exactly. Never claim a check passed if it was not run or its result is unknown.
+
+## Verification questions
+
+For state-changing backend work, ask:
+
+- Can two requests perform the same transition concurrently?
+- What happens on retry?
+- What happens if the process crashes after a database write?
+- What happens if an external system succeeds but the local process fails?
+- Can an expired entity still be acted upon?
+- Are invalid state transitions prevented?
+- Are authorization and ownership checks preserved?
+- Is the database constraint doing work that application code assumes?
+- Does behavior remain correct with multiple application instances?
+
+For payment/webhook work, additionally ask:
+
+- Is the event authentic?
+- Can the same event be delivered twice?
+- Can events arrive out of order?
+- Is provider success durable locally?
+- Can reconciliation recover a partial failure?
+
+## Final review
+
+Before committing, inspect the diff for unrelated edits, debug code, weakened tests, broad refactors, accidental API changes, secrets, and generated artifacts that do not belong in the commit.
