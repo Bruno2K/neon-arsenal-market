@@ -1,0 +1,63 @@
+---
+description: Completion, commit, and engineering handoff requirements
+alwaysApply: true
+---
+
+# Completion and Handoff
+
+Before declaring a task complete, perform a final verification pass.
+
+## Completion checklist
+
+- [ ] Issue acceptance criteria addressed
+- [ ] Relevant invariants reviewed
+- [ ] Tests added/updated where behavior changed
+- [ ] Targeted tests executed
+- [ ] Relevant typecheck/lint/build executed
+- [ ] Final diff inspected
+- [ ] No unrelated changes
+- [ ] No secrets/debug artifacts
+- [ ] Known risks documented
+
+If any required item is incomplete, do not present the task as fully complete.
+
+## Commit
+
+If the user asks you to commit:
+
+1. verify the working tree and diff;
+2. run the required checks;
+3. create a focused commit;
+4. report the exact commit SHA if available;
+5. summarize verification evidence.
+
+Do not create unrelated cleanup commits. Do not rewrite existing history.
+
+## Handoff format
+
+Use this compact structure in the final response:
+
+```text
+Task: <issue/title>
+Status: DONE | BLOCKED | PARTIAL
+
+Changed:
+- <file>: <purpose>
+
+Invariant:
+- <what must remain true>
+
+Verification:
+- `<command>` → <result>
+
+Decisions:
+- <important choice>
+
+Risks:
+- <known limitation, or none>
+
+Commit:
+- <sha, if created>
+```
+
+If blocked, clearly state the decision required from the human and why autonomous execution cannot safely continue.
