@@ -2,55 +2,68 @@ import { prisma } from "../../shared/database/index.js";
 import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
-import type { Decimal } from "@prisma/client/runtime/library";
+import { Prisma } from "@prisma/client";
 
 export const ordersService = {
   async create(customerId: string, input: CreateOrderInput) {
     const listingIds = input.items.map((i) => i.listingId);
-    const listings = await prisma.listing.findMany({
-      where: { id: { in: listingIds } },
-      select: {
-        id: true,
-        sellerId: true,
-        price: true,
-        status: true,
-        tradeLockUntil: true,
-        product: { select: { weapon: true, skinName: true } },
-      },
-    });
-    const listingMap = new Map(listings.map((l) => [l.id, l]));
-
-    const orderItems: Array<{
-      listingId: string;
-      sellerId: string;
-      priceSnapshot: Decimal;
-    }> = [];
-    let totalAmount = 0;
-
-    for (const item of input.items) {
-      const listing = listingMap.get(item.listingId);
-      if (!listing) throw new AppError(404, `Listing not found: ${item.listingId}`);
-
-      // Validate listing is available
-      if (listing.status !== "ACTIVE") {
-        throw new AppError(400, `Listing ${item.listingId} is not available (status: ${listing.status})`);
-      }
-
-      // Validate trade lock
-      if (listing.tradeLockUntil && new Date(listing.tradeLockUntil) > new Date()) {
-        throw new AppError(400, `Listing ${item.listingId} is trade locked until ${listing.tradeLockUntil}`);
-      }
-
-      const priceSnapshot = listing.price;
-      totalAmount += Number(priceSnapshot);
-      orderItems.push({
-        listingId: listing.id,
-        sellerId: listing.sellerId,
-        priceSnapshot,
-      });
+    if (new Set(listingIds).size !== listingIds.length) {
+      throw new AppError(400, "A listing can only appear once in an order");
     }
 
     const result = await prisma.$transaction(async (tx) => {
+      const orderItems: Array<{
+        listingId: string;
+        sellerId: string;
+        priceSnapshot: Prisma.Decimal;
+      }> = [];
+      let totalAmount = new Prisma.Decimal(0);
+
+      for (const listingId of listingIds) {
+        // The status transition is conditional, so two concurrent orders cannot
+        // both reserve the same listing. PostgreSQL performs this atomically.
+        const reserved = await tx.listing.updateMany({
+          where: {
+            id: listingId,
+            status: "ACTIVE",
+            OR: [
+              { tradeLockUntil: null },
+              { tradeLockUntil: { lte: new Date() } },
+            ],
+          },
+          data: { status: "RESERVED" },
+        });
+
+        if (reserved.count !== 1) {
+          const listing = await tx.listing.findUnique({
+            where: { id: listingId },
+            select: { id: true, status: true, tradeLockUntil: true },
+          });
+
+          if (!listing) throw new AppError(404, `Listing not found: ${listingId}`);
+          if (listing.tradeLockUntil && listing.tradeLockUntil > new Date()) {
+            throw new AppError(400, `Listing ${listingId} is trade locked until ${listing.tradeLockUntil}`);
+          }
+          throw new AppError(400, `Listing ${listingId} is not available (status: ${listing.status})`);
+        }
+
+        const listing = await tx.listing.findUnique({
+          where: { id: listingId },
+          select: { id: true, sellerId: true, price: true },
+        });
+
+        if (!listing) {
+          throw new AppError(404, `Listing not found: ${listingId}`);
+        }
+
+        totalAmount = totalAmount.plus(listing.price);
+        orderItems.push({
+          listingId: listing.id,
+          sellerId: listing.sellerId,
+          priceSnapshot: listing.price,
+        });
+      }
+
       const order = await tx.order.create({
         data: {
           customerId,
@@ -60,28 +73,20 @@ export const ordersService = {
         },
       });
 
-      for (const item of orderItems) {
-        // Reserve the listing
-        await tx.listing.update({
-          where: { id: item.listingId },
-          data: { status: "RESERVED" },
-        });
-
-        await tx.orderItem.create({
-          data: {
-            orderId: order.id,
-            listingId: item.listingId,
-            sellerId: item.sellerId,
-            priceSnapshot: item.priceSnapshot,
-          },
-        });
-      }
+      await tx.orderItem.createMany({
+        data: orderItems.map((item) => ({
+          orderId: order.id,
+          listingId: item.listingId,
+          sellerId: item.sellerId,
+          priceSnapshot: item.priceSnapshot,
+        })),
+      });
 
       return order;
     });
 
     const order = await ordersRepository.findById(result.id);
-    return { ...order!, totalAmount };
+    return { ...order!, totalAmount: result.totalAmount };
   },
 
   async getById(orderId: string, userId: string, role: string) {
