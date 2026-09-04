@@ -5,6 +5,7 @@ import {
   getPayPalApprovalLink,
 } from "../../shared/utils/paypal.js";
 import type { CreatePaymentInput } from "./payments.dto.js";
+import { Prisma } from "@prisma/client";
 
 export const paymentsService = {
   async createPaymentLink(userId: string, input: CreatePaymentInput) {
@@ -16,7 +17,7 @@ export const paymentsService = {
     if (order.customerId !== userId) throw new AppError(403, "Not your order");
     if (order.paymentStatus === "PAID") throw new AppError(400, "Order already paid");
 
-    const amount = Number(order.totalAmount).toFixed(2);
+    const amount = order.totalAmount.toFixed(2);
     const paypalOrder = await createPayPalOrder(amount, "BRL", order.id);
     const approvalLink = getPayPalApprovalLink(paypalOrder as { links?: Array<{ href?: string; rel?: string }> });
     if (!approvalLink) throw new AppError(500, "Failed to create PayPal order");
@@ -59,45 +60,57 @@ export const paymentsService = {
   },
 
   async confirmPayment(orderId: string) {
-    const order = await prisma.order.findUnique({
-      where: { id: orderId },
-      include: { items: true },
-    });
-    if (!order || order.paymentStatus === "PAID") return;
-
     await prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
+      // Claim the payment confirmation atomically. A repeated/concurrent webhook
+      // sees count = 0 and exits without issuing another seller payout.
+      const claimed = await tx.order.updateMany({
+        where: {
+          id: orderId,
+          paymentStatus: "PENDING",
+        },
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
 
-      // Mark listings as SOLD
-      for (const item of order.items) {
-        await tx.listing.update({
-          where: { id: item.listingId },
-          data: { status: "SOLD", soldAt: new Date() },
-        });
-      }
+      if (claimed.count === 0) return;
 
-      const bySeller = new Map<string, { grossAmount: number; commissionRate: number }>();
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true },
+      });
+      if (!order) throw new AppError(404, "Order not found");
+
+      const soldAt = new Date();
+      await tx.listing.updateMany({
+        where: {
+          id: { in: order.items.map((item) => item.listingId) },
+          status: "RESERVED",
+        },
+        data: { status: "SOLD", soldAt },
+      });
+
+      const bySeller = new Map<string, { grossAmount: Prisma.Decimal; commissionRate: Prisma.Decimal }>();
       for (const item of order.items) {
-        const gross = Number(item.priceSnapshot);
         const seller = await tx.seller.findUnique({
           where: { id: item.sellerId },
           select: { commissionRate: true },
         });
-        const rate = seller ? Number(seller.commissionRate) : 0;
+        if (!seller) throw new AppError(404, `Seller not found: ${item.sellerId}`);
+
         const existing = bySeller.get(item.sellerId);
         if (existing) {
-          existing.grossAmount += gross;
+          existing.grossAmount = existing.grossAmount.plus(item.priceSnapshot);
         } else {
-          bySeller.set(item.sellerId, { grossAmount: gross, commissionRate: rate });
+          bySeller.set(item.sellerId, {
+            grossAmount: item.priceSnapshot,
+            commissionRate: seller.commissionRate,
+          });
         }
       }
 
       for (const [sellerId, data] of bySeller) {
-        const commissionAmount = data.grossAmount * data.commissionRate;
-        const netAmount = data.grossAmount - commissionAmount;
+        const commissionAmount = data.grossAmount.mul(data.commissionRate);
+        const netAmount = data.grossAmount.minus(commissionAmount);
+
         await tx.sellerTransaction.create({
           data: {
             sellerId,
@@ -108,6 +121,7 @@ export const paymentsService = {
             status: "PAID",
           },
         });
+
         await tx.seller.update({
           where: { id: sellerId },
           data: { balance: { increment: netAmount } },
