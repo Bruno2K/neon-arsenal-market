@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-// Mock database
 vi.mock("../../../shared/database/index.js", () => ({
   prisma: {
     listing: {
       findMany: vi.fn(),
+      findUnique: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
     },
     order: {
       create: vi.fn(),
@@ -14,6 +15,7 @@ vi.mock("../../../shared/database/index.js", () => ({
     },
     orderItem: {
       create: vi.fn(),
+      createMany: vi.fn(),
     },
     seller: {
       findUnique: vi.fn(),
@@ -22,7 +24,6 @@ vi.mock("../../../shared/database/index.js", () => ({
   },
 }));
 
-// Mock repository
 vi.mock("../orders.repository.js", () => ({
   ordersRepository: {
     findById: vi.fn(),
@@ -32,24 +33,15 @@ vi.mock("../orders.repository.js", () => ({
   },
 }));
 
-// Mock listings repository
-vi.mock("../../listings/listings.repository.js", () => ({
-  listingsRepository: { findById: vi.fn() },
-}));
-
-// Mock listings service
-vi.mock("../../listings/listings.service.js", () => ({
-  listingsService: {},
-}));
-
 import { prisma } from "../../../shared/database/index.js";
 import { ordersRepository } from "../orders.repository.js";
 import { ordersService } from "../orders.service.js";
+import { Prisma } from "@prisma/client";
 
 const mockListing = (overrides = {}) => ({
   id: "listing-1",
   sellerId: "seller-1",
-  price: 150.0 as unknown as import("@prisma/client/runtime/library").Decimal,
+  price: new Prisma.Decimal("150.00"),
   status: "ACTIVE",
   tradeLockUntil: null,
   product: { weapon: "AK-47", skinName: "Redline" },
@@ -59,13 +51,19 @@ const mockListing = (overrides = {}) => ({
 const mockOrder = (overrides = {}) => ({
   id: "order-1",
   customerId: "user-1",
-  totalAmount: 150.0,
+  totalAmount: new Prisma.Decimal("150.00"),
   status: "PENDING",
   paymentStatus: "PENDING",
   customer: { id: "user-1", name: "Bruno", email: "bruno@test.com" },
   items: [],
   ...overrides,
 });
+
+const mockTransaction = () => {
+  const tx = prisma as any;
+  vi.mocked(tx.$transaction).mockImplementation(async (fn: any) => fn(tx));
+  return tx;
+};
 
 describe("ordersService", () => {
   beforeEach(() => {
@@ -75,101 +73,144 @@ describe("ordersService", () => {
   describe("create()", () => {
     it("creates order and reserves listing in transaction", async () => {
       const listing = mockListing();
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([listing] as any);
-
-      const createdOrder = { id: "order-1", customerId: "user-1", totalAmount: 150, status: "PENDING", paymentStatus: "PENDING" };
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
-        vi.mocked(prisma.order.create).mockResolvedValue(createdOrder as any);
-        vi.mocked(prisma.listing.update).mockResolvedValue({} as any);
-        vi.mocked(prisma.orderItem.create).mockResolvedValue({} as any);
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(listing as any);
+        vi.mocked(prisma.order.create).mockResolvedValue({
+          id: "order-1",
+          customerId: "user-1",
+          totalAmount: listing.price,
+          status: "PENDING",
+          paymentStatus: "PENDING",
+        } as any);
+        vi.mocked(prisma.orderItem.createMany).mockResolvedValue({ count: 1 } as any);
         return fn(prisma);
       });
-
       vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as any);
 
       const result = await ordersService.create("user-1", {
         items: [{ listingId: "listing-1" }],
-      } as any);
+      });
 
-      expect(prisma.listing.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: { in: ["listing-1"] } } })
+      expect(prisma.listing.updateMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expect.objectContaining({
+            id: "listing-1",
+            status: "ACTIVE",
+            OR: expect.arrayContaining([
+              { tradeLockUntil: null },
+              { tradeLockUntil: { lte: expect.any(Date) } },
+            ]),
+          }),
+          data: { status: "RESERVED" },
+        })
+      );
+      expect(prisma.orderItem.createMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: [
+            expect.objectContaining({
+              listingId: "listing-1",
+              sellerId: "seller-1",
+              priceSnapshot: listing.price,
+            }),
+          ],
+        })
       );
       expect(result.id).toBe("order-1");
     });
 
     it("throws 404 when listing not found", async () => {
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([]);
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(null);
+        return fn(prisma);
+      });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "non-existent" }] } as any)
+        ordersService.create("user-1", { items: [{ listingId: "non-existent" }] })
       ).rejects.toMatchObject({ statusCode: 404, message: expect.stringContaining("Listing not found") });
     });
 
     it("throws 400 when listing is not ACTIVE", async () => {
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([mockListing({ status: "SOLD" })] as any);
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(mockListing({ status: "SOLD" }) as any);
+        return fn(prisma);
+      });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] } as any)
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("not available") });
     });
 
     it("throws 400 when listing is trade locked", async () => {
-      const futureDate = new Date(Date.now() + 86400000); // +1 day
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([
-        mockListing({ tradeLockUntil: futureDate }),
-      ] as any);
+      const futureDate = new Date(Date.now() + 86400000);
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(
+          mockListing({ tradeLockUntil: futureDate }) as any
+        );
+        return fn(prisma);
+      });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] } as any)
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("trade locked") });
     });
 
     it("captures price snapshot at time of order creation", async () => {
-      const listing = mockListing({ price: 299.99 as any });
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([listing] as any);
-
-      const createdOrder = { id: "order-1", customerId: "user-1", totalAmount: 299.99 };
+      const listing = mockListing({ price: new Prisma.Decimal("299.99") });
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
-        vi.mocked(prisma.order.create).mockResolvedValue(createdOrder as any);
-        vi.mocked(prisma.listing.update).mockResolvedValue({} as any);
-        vi.mocked(prisma.orderItem.create).mockResolvedValue({} as any);
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(listing as any);
+        vi.mocked(prisma.order.create).mockResolvedValue({
+          id: "order-1",
+          customerId: "user-1",
+          totalAmount: listing.price,
+        } as any);
+        vi.mocked(prisma.orderItem.createMany).mockResolvedValue({ count: 1 } as any);
         return fn(prisma);
       });
-
-      const returnedOrder = { ...mockOrder(), totalAmount: 299.99 };
-      vi.mocked(ordersRepository.findById).mockResolvedValue(returnedOrder as any);
+      vi.mocked(ordersRepository.findById).mockResolvedValue(
+        mockOrder({ totalAmount: new Prisma.Decimal("299.99") }) as any
+      );
 
       const result = await ordersService.create("user-1", {
         items: [{ listingId: "listing-1" }],
-      } as any);
+      });
 
-      // Verify the orderItem was created with the price snapshot
-      expect(prisma.orderItem.create).toHaveBeenCalledWith(
+      expect(prisma.orderItem.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          data: expect.objectContaining({ priceSnapshot: listing.price }),
+          data: expect.arrayContaining([
+            expect.objectContaining({ priceSnapshot: listing.price }),
+          ]),
         })
       );
-      expect(result.totalAmount).toBe(299.99);
+      expect(result.totalAmount).toEqual(new Prisma.Decimal("299.99"));
     });
 
-    it("reserves listing status to RESERVED inside transaction", async () => {
-      vi.mocked(prisma.listing.findMany).mockResolvedValue([mockListing()] as any);
+    it("rejects duplicate listing IDs in the same order", async () => {
+      await expect(
+        ordersService.create("user-1", {
+          items: [{ listingId: "listing-1" }, { listingId: "listing-1" }],
+        })
+      ).rejects.toMatchObject({ statusCode: 400 });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("fails reservation when another transaction already reserved the listing", async () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
-        vi.mocked(prisma.order.create).mockResolvedValue({ id: "order-1" } as any);
-        vi.mocked(prisma.listing.update).mockResolvedValue({} as any);
-        vi.mocked(prisma.orderItem.create).mockResolvedValue({} as any);
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 } as any);
+        vi.mocked(prisma.listing.findUnique).mockResolvedValue(
+          mockListing({ status: "RESERVED" }) as any
+        );
         return fn(prisma);
       });
-      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as any);
 
-      await ordersService.create("user-1", { items: [{ listingId: "listing-1" }] } as any);
-
-      expect(prisma.listing.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: { id: "listing-1" },
-          data: { status: "RESERVED" },
-        })
-      );
+      await expect(
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
+      ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("not available") });
     });
   });
 
