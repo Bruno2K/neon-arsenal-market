@@ -1,0 +1,60 @@
+---
+description: Architecture, security, and reliability guardrails
+alwaysApply: true
+---
+
+# Architecture, Security, and Reliability
+
+## Architecture
+
+This project is a modular monolith. Preserve that architecture unless the task explicitly requires an approved change.
+
+Preferred dependency direction:
+
+`Routes/Controllers → Application/Domain Services → Repositories → Prisma/PostgreSQL`
+
+PostgreSQL is authoritative for transactional state. Use explicit transactions and atomic conditional operations when correctness depends on concurrency.
+
+Do not put slow or failure-prone external calls inside database transactions.
+
+Do not introduce distributed infrastructure simply to demonstrate scale. Every Redis, Kafka, RabbitMQ, SQS, queue, cache, worker, or service split must have a concrete failure/scaling requirement and documented trade-off.
+
+## Security
+
+Preserve authentication, authorization, validation, rate limiting, token handling, secret management, and trust boundaries.
+
+Treat payment webhooks as untrusted input until authenticity is verified. Do not assume a provider event is genuine because its payload looks valid.
+
+Never log credentials, tokens, payment secrets, or sensitive user data.
+
+Do not disable security controls to make tests or local development easier.
+
+## Reliability
+
+For important state transitions, reason about:
+
+- duplicate requests
+- retries
+- concurrent requests
+- partial failure
+- process crashes
+- external-system success followed by local failure
+- delayed/out-of-order events
+- restart and multi-instance execution
+
+Prefer durable state and database invariants over in-memory coordination for transactional correctness.
+
+For external integrations, establish explicit timeout, retry, idempotency, and reconciliation behavior when the task requires them. Do not invent provider behavior; inspect existing contracts and authoritative documentation available to the project.
+
+## Current high-risk domains
+
+Pay particular attention when changing:
+
+- Listing reservation lifecycle
+- Order creation
+- Payment confirmation and webhooks
+- Seller balances and transactions
+- Authentication/authorization
+- Database constraints and migrations
+
+Consult `docs/architecture/domain-invariants.md` before modifying these areas.
