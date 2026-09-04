@@ -51,7 +51,6 @@ model Seller {
   transactions SellerTransaction[]
 }
 
-// Catalog base - defines the skin model, not individual items
 model Product {
   id          String   @id @default(cuid())
   game        String   // CS2, CSGO, etc. - prepared for multi-game
@@ -60,11 +59,11 @@ model Product {
   rarity      String
   exterior    String   // Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred
   collection  String?
-  imageUrl    String?
-  isStattrak  Boolean  @default(false)
-  isSouvenir  Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  imageUrl     String?
+  isStattrak   Boolean  @default(false)
+  isSouvenir   Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
 
   listings    Listing[]
   reviews     Review[]
@@ -98,21 +97,22 @@ model Order {
   @@index([paymentStatus])
 }
 
-// Individual skin item for sale
 model Listing {
-  id            String   @id @default(cuid())
-  productId     String
-  sellerId      String
-  floatValue    Decimal
-  pattern       Int?
-  price         Decimal
-  currency      String   @default("USD")
-  status        String   @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
-  tradeLockUntil DateTime?
-  steamAssetId  String?
-  createdAt     DateTime @default(now())
-  soldAt        DateTime?
-  updatedAt     DateTime @updatedAt
+  id                   String   @id @default(cuid())
+  productId            String
+  sellerId             String
+  floatValue           Decimal
+  pattern              Int?
+  price                Decimal
+  currency             String   @default("USD")
+  status               String   @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
+  tradeLockUntil       DateTime?
+  reservedAt           DateTime?
+  reservationExpiresAt DateTime?
+  steamAssetId         String?
+  createdAt            DateTime @default(now())
+  soldAt               DateTime?
+  updatedAt            DateTime @updatedAt
 
   product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
   seller        Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
@@ -125,6 +125,7 @@ model Listing {
   @@index([status])
   @@index([sellerId])
   @@index([productId, status])
+  @@index([status, reservationExpiresAt])
 }
 
 model PriceHistory {
@@ -157,14 +158,14 @@ model OrderItem {
 }
 
 model SellerTransaction {
-  id               String                   @id @default(cuid())
+  id               String   @id @default(cuid())
   sellerId         String
   orderId          String
   grossAmount      Decimal
   commissionAmount Decimal
   netAmount        Decimal
   status           String   @default("PENDING") // PENDING | PAID | REFUNDED
-  createdAt        DateTime                 @default(now())
+  createdAt        DateTime @default(now())
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
