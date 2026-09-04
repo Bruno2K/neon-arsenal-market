@@ -169,6 +169,7 @@ model SellerTransaction {
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@unique([sellerId, orderId])
   @@index([sellerId])
   @@index([orderId])
 }
