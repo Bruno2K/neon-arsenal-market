@@ -143,8 +143,12 @@ describe("CartPage", () => {
     renderCart();
 
     expect(
-      await screen.findByText("AK-47 | Neon Rider não está mais disponível"),
-    ).toBeTruthy();
+      (
+        await screen.findAllByText(
+          "AK-47 | Neon Rider não está mais disponível",
+        )
+      ).length,
+    ).toBeGreaterThan(0);
     expect(
       screen.getByRole("button", { name: "Finalizar compra" }),
     ).toBeDisabled();
