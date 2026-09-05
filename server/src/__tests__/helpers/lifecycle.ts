@@ -26,6 +26,7 @@ export const BUSINESS_TABLES = [
   "Seller",
   "PendingRegistration",
   "RevokedToken",
+  "AuditLog",
   "User",
 ] as const;
 

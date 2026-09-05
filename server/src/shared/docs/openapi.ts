@@ -100,6 +100,22 @@ export const openApiSpec = {
           isApproved: { type: "boolean" },
         },
       },
+      AuditLog: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          actorId: { type: "string", nullable: true },
+          actorRole: { type: "string", enum: ["ADMIN", "SELLER", "CUSTOMER"], nullable: true },
+          action: { type: "string", example: "LISTING_PRICE_CHANGE" },
+          resourceType: { type: "string", example: "Listing" },
+          resourceId: { type: "string" },
+          before: { type: "object", nullable: true, additionalProperties: true },
+          after: { type: "object", nullable: true, additionalProperties: true },
+          ip: { type: "string", nullable: true },
+          userAgent: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
     },
   },
   security: [{ bearerAuth: [] }],
@@ -498,6 +514,45 @@ export const openApiSpec = {
               },
             },
           },
+        },
+      },
+    },
+    "/admin/audit-logs": {
+      get: {
+        tags: ["Admin"],
+        summary: "List audit logs",
+        description:
+          "ADMIN-only trail of sensitive mutations (seller approval, listing price/cancel, order status, local payment confirmation). before/after are non-sensitive field diffs. Retention: 365 days. CUSTOMER/SELLER receive 403.",
+        parameters: [
+          { name: "actorId", in: "query", schema: { type: "string" } },
+          { name: "action", in: "query", schema: { type: "string" } },
+          { name: "resourceType", in: "query", schema: { type: "string" } },
+          { name: "resourceId", in: "query", schema: { type: "string" } },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 50 } },
+        ],
+        responses: {
+          200: {
+            description: "Paginated audit rows",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: { $ref: "#/components/schemas/AuditLog" },
+                    },
+                    total: { type: "integer" },
+                    page: { type: "integer" },
+                    limit: { type: "integer" },
+                  },
+                },
+              },
+            },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
         },
       },
     },

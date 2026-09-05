@@ -297,3 +297,29 @@ model RevokedToken {
   @@index([userId])
   @@index([expiresAt])
 }
+
+// Append-only audit trail for sensitive mutations (issue #42).
+// Access: ADMIN-only (`GET /admin/audit-logs`). Non-admin callers receive 401/403.
+// Retention: keep rows for 365 days. There is no Redis/SQS/cron purge worker;
+// `createdAt` is indexed so an operator can delete aged rows with a one-shot SQL
+// job later. Do not store passwords, JWT/refresh tokens, PayPal secrets, or
+// full payment payloads — writers persist field-level non-sensitive diffs and
+// the repository redacts known secret keys as defense in depth.
+// No FK to User: the trail must outlive account deletion; actorId is informational.
+model AuditLog {
+  id           String    @id @default(cuid())
+  actorId      String?
+  actorRole    UserRole?
+  action       String
+  resourceType String
+  resourceId   String
+  before       Json?
+  after        Json?
+  ip           String?
+  userAgent    String?
+  createdAt    DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([resourceType, resourceId])
+  @@index([actorId])
+}
