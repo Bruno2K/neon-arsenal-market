@@ -14,7 +14,6 @@ import {
 } from "../../shared/utils/sendVerificationCode.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import type { RegisterInput, VerifyEmailInput, LoginInput } from "./auth.dto.js";
-import type { Role } from "../../shared/types/roles.js";
 
 // Type assertion helper — RevokedToken is added by Sprint 6 migration; the Prisma
 // client types will be regenerated on the next `prisma generate` in the dev environment.
@@ -111,8 +110,8 @@ export const authService = {
 
     await prisma.pendingRegistration.delete({ where: { id: pending.id } });
 
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role as Role });
-    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role as Role });
+    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
     return {
       user,
       accessToken,
@@ -128,8 +127,8 @@ export const authService = {
     if (!user) throw new AppError(401, "Invalid email or password");
     const valid = await comparePassword(input.password, user.password);
     if (!valid) throw new AppError(401, "Invalid email or password");
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role as Role });
-    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role as Role });
+    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
     const { password: _p, ...safe } = user;
     return { user: safe, accessToken, refreshToken };
   },
@@ -153,8 +152,8 @@ export const authService = {
       },
     });
 
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role as Role });
-    const newRefreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role as Role });
+    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+    const newRefreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
     const { password: _p, ...safe } = user;
     return { user: safe, accessToken, refreshToken: newRefreshToken };
   },

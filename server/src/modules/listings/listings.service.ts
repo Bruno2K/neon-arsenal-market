@@ -4,6 +4,7 @@ import { priceHistoryRepository } from "./price-history.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { Prisma } from "@prisma/client";
+import type { ListingStatus } from "../../shared/types/roles.js";
 import type {
   CreateListingInput,
   UpdateListingInput,
@@ -14,7 +15,7 @@ import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
 
-const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
+const VALID_STATUS_TRANSITIONS: Record<ListingStatus, readonly ListingStatus[]> = {
   ACTIVE: ["RESERVED", "CANCELED"],
   RESERVED: ["ACTIVE", "SOLD", "CANCELED"],
   SOLD: [],

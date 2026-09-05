@@ -3,6 +3,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../../shared/database/index.js";
 import type { CreateOrderInput } from "../../modules/orders/orders.dto.js";
 import { ordersService } from "../../modules/orders/orders.service.js";
+import type { ListingStatus, Role } from "../../shared/types/roles.js";
 
 export function uniqueSuffix() {
   return randomUUID();
@@ -15,7 +16,7 @@ export function orderKey(label: string) {
 export async function createUser(overrides: {
   name?: string;
   email?: string;
-  role?: string;
+  role?: Role;
 } = {}) {
   const suffix = uniqueSuffix();
   return prisma.user.create({
@@ -56,7 +57,7 @@ export async function createListing(input: {
   productId: string;
   sellerId: string;
   price?: string;
-  status?: string;
+  status?: ListingStatus;
   floatValue?: string;
 }) {
   return prisma.listing.create({

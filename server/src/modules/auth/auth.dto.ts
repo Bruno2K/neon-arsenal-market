@@ -1,12 +1,12 @@
 import { z } from "zod";
+import { REGISTRATION_ROLES } from "../../shared/types/roles.js";
 
-// z.enum() requires a non-empty readonly tuple — use inline const tuple
 export const registerDto = z
   .object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    role: z.enum(["CUSTOMER", "SELLER"] as const).default("CUSTOMER"),
+    role: z.enum(REGISTRATION_ROLES).default("CUSTOMER"),
     storeName: z.string().min(1).optional(),
   })
   .refine((data) => data.role !== "SELLER" || (data.storeName && data.storeName.trim().length > 0), {

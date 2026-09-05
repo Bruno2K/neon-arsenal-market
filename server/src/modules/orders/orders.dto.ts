@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ORDER_STATUSES } from "../../shared/types/roles.js";
+import { ORDER_STATUSES, PAYMENT_STATUSES } from "../../shared/types/roles.js";
 
 export const createOrderItemDto = z.object({
   listingId: z.string().min(1, "Listing ID is required"),
@@ -13,6 +13,11 @@ export const updateOrderStatusDto = z.object({
   status: z.enum(ORDER_STATUSES),
 });
 
+export const listOrdersQueryDto = z.object({
+  status: z.enum(ORDER_STATUSES).optional(),
+  paymentStatus: z.enum(PAYMENT_STATUSES).optional(),
+});
+
 export const orderIdParamsDto = z.object({
   id: z.string().min(1, "Order ID is required"),
 });
@@ -24,3 +29,4 @@ export const updateOrderTrackingDto = z.object({
 
 export type CreateOrderInput = z.infer<typeof createOrderDto>;
 export type UpdateOrderTrackingInput = z.infer<typeof updateOrderTrackingDto>;
+export type ListOrdersQuery = z.infer<typeof listOrdersQueryDto>;

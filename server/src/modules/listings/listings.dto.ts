@@ -1,6 +1,5 @@
 import { z } from "zod";
-
-const LISTING_STATUSES = ["ACTIVE", "SOLD", "RESERVED", "CANCELED"] as const;
+import { LISTING_STATUSES } from "../../shared/types/roles.js";
 
 export const createListingDto = z.object({
   productId: z.string().min(1, "Product ID is required"),

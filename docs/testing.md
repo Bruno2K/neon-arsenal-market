@@ -100,7 +100,7 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | Suite | Invariants |
 |---|---|
 | `postgres.transactions.integration.test.ts` | Commit of order + items + key + reservation; forced mid-transaction rollback; conditional `updateMany` races. |
-| `postgres.constraints.integration.test.ts` | `OrderIdempotencyKey(customerId, key)`, concurrent unique inserts, per-customer key isolation, `User.email`, webhook event id, `SellerTransaction(sellerId, orderId)`, `PaymentLink(orderId)`. |
+| `postgres.enums.integration.test.ts` | Prisma and PostgreSQL reject invalid role/status labels; listing `CANCELED` vs order `CANCELLED`; unknown PayPal `eventType` still persists. |
 | `order.idempotency.integration.test.ts` | Replay, canonical listing order, conflicting key reuse, customer isolation, service-level rollback, concurrent same-key retries, reservation race. |
 | `payment.link.idempotency.integration.test.ts` | Payment-link replay, concurrent `POST /payments` (one `OrdersCreate`), claim rollback after PayPal failure, `PaymentLink(orderId)` uniqueness. |
 | `reservation.lifecycle.integration.test.ts` | Reservation timestamps, concurrent buyers, expiration vs payment, no duplicate seller transactions. |

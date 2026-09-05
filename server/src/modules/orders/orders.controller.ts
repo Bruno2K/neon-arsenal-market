@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import type { ListOrdersQuery } from "./orders.dto.js";
 
 export const ordersController = {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -29,10 +30,7 @@ export const ordersController = {
       const user = getAuthUser(req);
       let list;
       if (user.role === "ADMIN") {
-        list = await ordersService.listAdmin({
-          status: req.query.status as string,
-          paymentStatus: req.query.paymentStatus as string,
-        });
+        list = await ordersService.listAdmin(req.query as ListOrdersQuery);
       } else if (user.role === "SELLER") {
         list = await ordersService.listBySeller(user.id);
       } else {

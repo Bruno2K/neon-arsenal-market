@@ -17,11 +17,12 @@ import {
 } from "../../shared/config/paypal.js";
 import { Prisma } from "@prisma/client";
 import type { CreatePaymentInput } from "./payments.dto.js";
+import { PaymentProvider, type WebhookEventStatus } from "../../shared/types/roles.js";
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
 
-const WEBHOOK_PROVIDER = "PAYPAL";
+const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
 export const paymentsService = {
   async createPaymentLink(userId: string, input: CreatePaymentInput) {
@@ -475,7 +476,7 @@ async function claimWebhookEvent(
 
 async function markWebhookEvent(
   externalEventId: string,
-  data: { status: string; orderId?: string | null; failureReason?: string }
+  data: { status: WebhookEventStatus; orderId?: string | null; failureReason?: string }
 ) {
   await prisma.paymentWebhookEvent.update({
     where: {
