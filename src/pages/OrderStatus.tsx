@@ -3,6 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
+import { useAuth } from "@/contexts/AuthContext";
 import { ErrorState, PageSkeleton } from "@/components/page-state";
 import { ReservationHold } from "@/components/ReservationHold";
 import { Badge } from "@/components/ui/badge";
@@ -96,7 +97,9 @@ function OrderHeadline({
 export default function OrderStatusPage() {
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
+  const { user } = useAuth();
   const intent = orderPageIntent(location.pathname);
+  const isCustomer = user?.role === "CUSTOMER";
   const [now, setNow] = useState(() => Date.now());
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
@@ -159,9 +162,16 @@ export default function OrderStatusPage() {
           }
           action={
             accessError ? (
-              <Button asChild>
-                <Link to="/products">Ir ao Market</Link>
-              </Button>
+              <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                {isCustomer ? (
+                  <Button asChild variant="outline">
+                    <Link to="/account/orders">Voltar aos pedidos</Link>
+                  </Button>
+                ) : null}
+                <Button asChild>
+                  <Link to="/products">Ir ao Market</Link>
+                </Button>
+              </div>
             ) : (
               <Button
                 type="button"
@@ -207,8 +217,21 @@ export default function OrderStatusPage() {
     }
   };
 
+  const trackingCode = order.trackingCode?.trim();
+  const trackingCarrier = order.trackingCarrier?.trim();
+
   return (
     <div className="container max-w-2xl py-8">
+      {isCustomer ? (
+        <p className="mb-4">
+          <Link
+            to="/account/orders"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Voltar aos pedidos
+          </Link>
+        </p>
+      ) : null}
       <div className="mb-8 space-y-4">
         <OrderHeadline order={order} intent={intent} expired={expired} />
         {!paid ? (
@@ -229,15 +252,41 @@ export default function OrderStatusPage() {
         <ul className="space-y-2">
           {(order.items ?? []).map((item) => (
             <li key={item.id} className="flex justify-between gap-4 text-sm">
-              <span className="min-w-0 truncate text-foreground">
-                {orderItemLabel(item)}
-              </span>
+              {item.listingId ? (
+                <Link
+                  to={`/listing/${item.listingId}`}
+                  className="min-w-0 truncate text-foreground underline-offset-4 hover:underline"
+                >
+                  {orderItemLabel(item)}
+                </Link>
+              ) : (
+                <span className="min-w-0 truncate text-foreground">
+                  {orderItemLabel(item)}
+                </span>
+              )}
               <span className="shrink-0 tabular-price text-muted-foreground">
                 ${Number(item.priceSnapshot).toFixed(2)}
               </span>
             </li>
           ))}
         </ul>
+
+        {trackingCode || trackingCarrier ? (
+          <dl className="space-y-1 border-t border-border pt-3 text-sm">
+            {trackingCarrier ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Transportadora</dt>
+                <dd className="text-foreground">{trackingCarrier}</dd>
+              </div>
+            ) : null}
+            {trackingCode ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-muted-foreground">Rastreio</dt>
+                <dd className="tabular-nums text-foreground">{trackingCode}</dd>
+              </div>
+            ) : null}
+          </dl>
+        ) : null}
 
         <dl className="space-y-1 border-t border-border pt-3 text-sm">
           <div className="flex justify-between pt-1 text-base font-medium text-foreground">
