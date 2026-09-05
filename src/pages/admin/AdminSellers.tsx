@@ -35,7 +35,7 @@ export default function AdminSellers() {
     refetch,
   } = useQuery({
     queryKey: ["admin-sellers"],
-    queryFn: listSellers,
+    queryFn: () => listSellers(),
   });
 
   const approveSeller = useMutation({
