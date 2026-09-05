@@ -330,6 +330,48 @@ describe("ordersService", () => {
 
       expect(ordersRepository.findById).not.toHaveBeenCalled();
     });
+
+    it("treats equivalent listing order as the same idempotent request", async () => {
+      const duplicateKeyError = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        { code: "P2002", clientVersion: "5.22.0", meta: { target: ["customerId", "key"] } }
+      );
+      vi.mocked(prisma.$transaction).mockRejectedValue(duplicateKeyError);
+      vi.mocked(prisma.orderIdempotencyKey.findUnique).mockResolvedValue({
+        id: "idempotency-1",
+        customerId: "user-1",
+        key: IDEMPOTENCY_KEY,
+        requestHash: createOrderRequestHash(["listing-2", "listing-1"]),
+        status: "COMPLETED",
+        orderId: "order-1",
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as never);
+      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
+
+      const result = await ordersService.create(
+        "user-1",
+        { items: [{ listingId: "listing-1" }, { listingId: "listing-2" }] },
+        IDEMPOTENCY_KEY
+      );
+
+      expect(result.id).toBe("order-1");
+      expect(prisma.listing.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("does not treat other unique constraint failures as idempotency retries", async () => {
+      const duplicateOrderIdError = new Prisma.PrismaClientKnownRequestError(
+        "Unique constraint failed",
+        { code: "P2002", clientVersion: "5.22.0", meta: { target: ["orderId"] } }
+      );
+      vi.mocked(prisma.$transaction).mockRejectedValue(duplicateOrderIdError);
+
+      await expect(
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY)
+      ).rejects.toBe(duplicateOrderIdError);
+
+      expect(prisma.orderIdempotencyKey.findUnique).not.toHaveBeenCalled();
+    });
   });
 
   describe("getById()", () => {

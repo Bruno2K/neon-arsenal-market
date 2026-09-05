@@ -128,7 +128,7 @@ export const ordersService = {
       const order = await ordersRepository.findById(result.id);
       return { ...order!, totalAmount: result.totalAmount };
     } catch (err) {
-      if (!isUniqueConstraintError(err)) throw err;
+      if (!isIdempotencyKeyUniqueConstraintError(err)) throw err;
 
       const existing = await prisma.orderIdempotencyKey.findUnique({
         where: {
@@ -260,6 +260,17 @@ function createOrderRequestHash(input: CreateOrderInput) {
     .digest("hex");
 }
 
-function isUniqueConstraintError(err: unknown) {
-  return err instanceof Prisma.PrismaClientKnownRequestError && err.code === "P2002";
+function isIdempotencyKeyUniqueConstraintError(err: unknown) {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") {
+    return false;
+  }
+
+  const target = err.meta?.target;
+  if (Array.isArray(target)) {
+    return target.includes("customerId") && target.includes("key");
+  }
+  if (typeof target === "string") {
+    return target.includes("OrderIdempotencyKey_customerId_key_key") || target.includes("customerId_key");
+  }
+  return false;
 }
