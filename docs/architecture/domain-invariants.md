@@ -74,7 +74,7 @@ IDs: `INV-PAYMENT-TRUSTED-CONFIRM`, `INV-PAYMENT-WEBHOOK-AUTHENTIC`, `INV-PAYMEN
 
 ## Seller finances
 
-IDs: `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`.
+IDs: `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`, `INV-SELLER-LEDGER-SOURCE`.
 
 For a confirmed payment:
 
@@ -86,10 +86,11 @@ gross amount
 
 Rules:
 
-1. Commission uses the applicable seller commission rate.
-2. Seller transaction creation and seller balance update must be consistent.
-3. The same order/seller pair must not generate duplicate seller transactions.
-4. Monetary calculations must preserve exact decimal semantics.
+1. Commission uses the applicable seller commission rate. Arithmetic is Prisma `Decimal`, never JavaScript `number`.
+2. `SellerTransaction` is the authoritative ledger. One row per `(sellerId, orderId)`. Currency is BRL (PayPal capture). Listing prices and PayPal amounts use 2 decimal places; commission is exact `gross × rate` with no extra rounding step. See `docs/adr/0011-seller-ledger.md`.
+3. Confirmation writes `status = PAID`. `REFUNDED` is not an application path.
+4. `Seller.balance` is a materialized projection of PAID net amounts, updated in the same local database transaction as the ledger insert. If they disagree, the ledger wins.
+5. Duplicate confirm, webhook replay, and concurrent confirmation must not insert a second row or double-credit the projection.
 
 ## Authorization
 

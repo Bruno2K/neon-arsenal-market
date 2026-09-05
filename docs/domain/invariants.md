@@ -113,11 +113,27 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 **Enforced:**
 
-- Schema: `Seller.commissionRate`, `Seller.balance`, `SellerTransaction.grossAmount` / `commissionAmount` / `netAmount` are `Decimal`. `@@unique([sellerId, orderId])`.
-- Service: `paymentsService.confirmPayment` uses `.plus`, `.mul`, `.minus`, and `balance: { increment: netAmount }` inside the claim transaction.
-- Tests: `server/src/modules/payments/__tests__/payments.service.test.ts` (Decimal commission, balance increment, two-item sum that IEEE-754 would mis-add); `server/src/__tests__/reservation.lifecycle.integration.test.ts` (committed balance `"90"` for 100 at 10%); `server/src/__tests__/postgres.constraints.integration.test.ts` (`SellerTransaction(sellerId, orderId)`).
+- Schema: `Seller.commissionRate`, `Seller.balance`, `SellerTransaction.grossAmount` / `commissionAmount` / `netAmount` are `Decimal`. `@@unique([sellerId, orderId])`. CHECK `netAmount = grossAmount - commissionAmount`.
+- Service: `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction.
+- Tests: `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`.
 
-**Related:** `INV-SELLER-TXN-UNIQUE`, `INV-PAYMENT-TRUSTED-CONFIRM`.
+**Related:** `INV-SELLER-TXN-UNIQUE`, `INV-SELLER-LEDGER-SOURCE`, `INV-PAYMENT-TRUSTED-CONFIRM`.
+
+---
+
+## INV-SELLER-LEDGER-SOURCE
+
+**Statement:** `SellerTransaction` is the authoritative seller ledger. `Seller.balance` is a materialized projection of PAID `netAmount` rows for that seller. Confirmation inserts the ledger row and increments the projection in one PostgreSQL transaction. If they disagree, the ledger wins. Amounts are BRL. Confirmation writes `PaymentStatus.PAID`. There is no refund path.
+
+**Why it matters:** A cached balance that can drift from history is not a financial source of truth. Webhook retries must not mint a second payout.
+
+**Enforced:**
+
+- Schema: unique `(sellerId, orderId)`; CHECK net identity and non-negative amounts. `Seller.balance` documented as projection (ADR 0011).
+- Service: `confirmPayment` claim (`paymentStatus = PENDING AND status = PENDING`) plus ledger insert. Duplicate claims are no-ops.
+- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`.
+
+**Related:** `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`. Issue #45 (not implemented) can reconcile projection vs `SUM(netAmount) WHERE status = 'PAID'`.
 
 ---
 
@@ -136,7 +152,7 @@ These are already specified in the architecture narrative. This table is the ID 
 | `INV-PAYMENT-WEBHOOK-AUTHENTIC` | Required PayPal headers; transmission time within 5 minutes; reject before `handleWebhook`. | `paymentsController.webhook`, `verifyPayPalWebhookSignature` | `payments.controller.test.ts`, `paypalWebhook` unit tests |
 | `INV-PAYMENT-WEBHOOK-IDEMPOTENT` | Duplicate event id is a no-op; duplicate confirm does not double payout. | `PaymentWebhookEvent` unique `(provider, externalEventId)`; `confirmPayment` claim | `paypal.webhook.integration.test.ts`, `postgres.constraints.integration.test.ts` |
 | `INV-PAYMENT-LINK-IDEMPOTENT` | One `OrdersCreate` per local order. Replay completed `PaymentLink`. Concurrent claim 409. OrdersCreate is not retried. | `PaymentLink.orderId` PK | `payment.link.idempotency.integration.test.ts` |
-| `INV-SELLER-TXN-UNIQUE` | One seller transaction per `(sellerId, orderId)`. | schema unique + confirm claim | `postgres.constraints.integration.test.ts`, reservation concurrent confirm |
+| `INV-SELLER-TXN-UNIQUE` | One seller transaction per `(sellerId, orderId)`. | schema unique + confirm claim | `postgres.constraints.integration.test.ts`, `seller.ledger.integration.test.ts` |
 | `INV-AUDIT-APPEND-ONLY` | Sensitive mutations append `AuditLog`; ADMIN-only read; 365-day retention; no secrets on the trail. | `auditRepository`, `GET /admin/audit-logs` | `audit.integration.test.ts`, `docs/adr/0010-audit-log.md` |
 | `INV-DB-ENUMS` | Lifecycle columns are PostgreSQL enums; invalid labels fail with `22P02`. | Prisma enums | `postgres.enums.integration.test.ts`, `roles.test.ts` |
 
@@ -147,4 +163,4 @@ These are already specified in the architecture narrative. This table is the ID 
 3. Add or extend the regression/integration test named in the row.
 4. Write an ADR when the change is significant.
 
-Do not start ledger (#44) or reconciliation-product (#45) work from this document. Those issues are separate.
+Periodic financial reconciliation as a product (#45) is a separate issue. The ledger contract in ADR 0011 is the input that work would use.

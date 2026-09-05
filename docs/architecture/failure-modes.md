@@ -43,7 +43,7 @@ Local end state after this failure (before or after the sweep):
 | `Listing.status` | still `RESERVED` with `reservationExpiresAt` in the past, or `ACTIVE` after the sweep (or `RESERVED` by a later order) |
 | `Order.paymentStatus` | `PENDING` |
 | `Order.status` | `PENDING`, then `CANCELLED` after the sweep |
-| `SellerTransaction` | none for this order |
+| `SellerTransaction` | none for this order. The ledger is the source of truth; `Seller.balance` is not incremented. |
 | `PaymentWebhookEvent` | `FAILED`, `failureReason = reservation_expired` |
 | PayPal | capture completed; funds moved |
 

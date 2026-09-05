@@ -1,3 +1,4 @@
+import { Prisma } from "@prisma/client";
 import { prisma } from "../../shared/database/index.js";
 
 export const commissionsRepository = {
@@ -22,10 +23,11 @@ export const commissionsRepository = {
   },
 
   async getBalance(sellerId: string) {
+    // Projection only. Authoritative history is SellerTransaction (ADR 0011).
     const seller = await prisma.seller.findUnique({
       where: { id: sellerId },
       select: { balance: true },
     });
-    return seller?.balance ?? 0;
+    return seller?.balance ?? new Prisma.Decimal(0);
   },
 };

@@ -377,6 +377,22 @@ describe("paymentsService", () => {
       );
     });
 
+    it("writes ledger amounts that satisfy net = gross − commission", async () => {
+      setupTransaction();
+
+      await paymentsService.confirmPayment("order-1");
+
+      const createArg = vi.mocked(prisma.sellerTransaction.create).mock.calls[0]?.[0];
+      const data = createArg?.data as {
+        grossAmount: Prisma.Decimal;
+        commissionAmount: Prisma.Decimal;
+        netAmount: Prisma.Decimal;
+        status: string;
+      };
+      expect(data.netAmount.equals(data.grossAmount.minus(data.commissionAmount))).toBe(true);
+      expect(data.status).toBe("PAID");
+    });
+
     it("is idempotent when the order was already claimed", async () => {
       setupTransaction(0);
 
