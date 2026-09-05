@@ -62,7 +62,11 @@ export default function Register() {
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
-          <Link to="/" className="mb-8 flex items-center gap-2.5">
+          <Link
+            to="/"
+            className="mb-8 flex min-h-11 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Neon Arsenal, página inicial"
+          >
             <span className="h-4 w-4 rounded-sm bg-primary" aria-hidden />
             <span className="text-[15px] font-semibold tracking-tight text-foreground">
               Neon Arsenal
@@ -92,6 +96,7 @@ export default function Register() {
                   className="mt-1.5"
                   required
                   autoComplete="name"
+                  aria-describedby={error ? "register-error" : undefined}
                 />
               </div>
               <div>
@@ -105,6 +110,7 @@ export default function Register() {
                   className="mt-1.5"
                   required
                   autoComplete="email"
+                  aria-describedby={error ? "register-error" : undefined}
                 />
               </div>
               <div>
@@ -120,6 +126,7 @@ export default function Register() {
                     required
                     minLength={6}
                     autoComplete="new-password"
+                    aria-describedby={error ? "register-error" : undefined}
                   />
                   <button
                     type="button"
@@ -192,7 +199,11 @@ export default function Register() {
                 </div>
               ) : null}
               {error ? (
-                <p className="text-sm text-destructive" role="alert">
+                <p
+                  id="register-error"
+                  className="text-sm text-destructive"
+                  role="alert"
+                >
                   {error}
                 </p>
               ) : null}
@@ -224,10 +235,15 @@ export default function Register() {
                   required
                   autoComplete="one-time-code"
                   aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "register-code-error" : undefined}
                 />
               </div>
               {error ? (
-                <p className="text-sm text-destructive" role="alert">
+                <p
+                  id="register-code-error"
+                  className="text-sm text-destructive"
+                  role="alert"
+                >
                   {error}
                 </p>
               ) : null}

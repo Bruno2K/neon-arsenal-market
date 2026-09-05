@@ -112,6 +112,7 @@ export function Header() {
             className="md:hidden"
             aria-expanded={menuOpen}
             aria-controls="mobile-nav"
+            aria-haspopup="true"
             onClick={() => setMenuOpen((open) => !open)}
           >
             {menuOpen ? (

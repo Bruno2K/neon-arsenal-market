@@ -20,7 +20,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
     <article className="group flex flex-col overflow-hidden rounded-md border border-border bg-card">
       <Link
         to={`/listing/${listing.id}`}
-        className="relative block aspect-[4/3] bg-muted"
+        className="relative block aspect-[4/3] bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex h-full items-center justify-center">
           <span className="text-2xl font-semibold tracking-tight text-muted-foreground/70">
@@ -35,7 +35,10 @@ export function ListingCard({ listing }: { listing: Listing }) {
       </Link>
 
       <div className="flex flex-1 flex-col gap-2 p-3">
-        <Link to={`/listing/${listing.id}`}>
+        <Link
+          to={`/listing/${listing.id}`}
+          className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
           <h3 className="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors hover:text-primary">
             {productName}
           </h3>

@@ -41,7 +41,10 @@ describe("Header", () => {
     expect(screen.getByText("Login")).toBeTruthy();
     expect(screen.queryByText("SKINMARKET")).toBeNull();
     expect(screen.getByLabelText("Carrinho")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Menu" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute(
+      "aria-haspopup",
+      "true",
+    );
   });
 
   it("shows Dashboard for a seller", () => {
