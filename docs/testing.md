@@ -26,6 +26,7 @@ The flagship invariants are database-backed:
 - `ACTIVE → RESERVED` is a conditional update (`status = ACTIVE`).
 - Order creation, reservation and `OrderIdempotencyKey` commit in one transaction.
 - `(customerId, key)` uniqueness serializes concurrent retries.
+- `PaymentLink(orderId)` uniqueness serializes concurrent `POST /payments` so only one `OrdersCreate` runs.
 - Payment confirmation claims an order with `updateMany` and rolls back if listings cannot be sold.
 - `(provider, externalEventId)` and `(sellerId, orderId)` prevent duplicate webhook/payout effects.
 
@@ -99,8 +100,9 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | Suite | Invariants |
 |---|---|
 | `postgres.transactions.integration.test.ts` | Commit of order + items + key + reservation; forced mid-transaction rollback; conditional `updateMany` races. |
-| `postgres.constraints.integration.test.ts` | `OrderIdempotencyKey(customerId, key)`, concurrent unique inserts, per-customer key isolation, `User.email`, webhook event id, `SellerTransaction(sellerId, orderId)`. |
+| `postgres.constraints.integration.test.ts` | `OrderIdempotencyKey(customerId, key)`, concurrent unique inserts, per-customer key isolation, `User.email`, webhook event id, `SellerTransaction(sellerId, orderId)`, `PaymentLink(orderId)`. |
 | `order.idempotency.integration.test.ts` | Replay, canonical listing order, conflicting key reuse, customer isolation, service-level rollback, concurrent same-key retries, reservation race. |
+| `payment.link.idempotency.integration.test.ts` | Payment-link replay, concurrent `POST /payments` (one `OrdersCreate`), claim rollback after PayPal failure, `PaymentLink(orderId)` uniqueness. |
 | `reservation.lifecycle.integration.test.ts` | Reservation timestamps, concurrent buyers, expiration vs payment, no duplicate seller transactions. |
 | `paypal.webhook.integration.test.ts` | Duplicate/out-of-order events, expired capture, stale-order capture, payment rollback. PayPal remains isolated. |
 | `observability.integration.test.ts` | Order/reservation/payment/webhook spans and counters against real PostgreSQL. No secrets or high-cardinality labels. |

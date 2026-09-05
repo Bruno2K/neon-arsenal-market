@@ -14,6 +14,12 @@ vi.mock("../../../shared/database/index.js", () => ({
       findUnique: vi.fn(),
       update: vi.fn(),
     },
+    paymentLink: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+      deleteMany: vi.fn(),
+    },
     listing: {
       update: vi.fn(),
       updateMany: vi.fn(),
@@ -59,11 +65,21 @@ describe("paymentsService", () => {
   });
 
   describe("createPaymentLink()", () => {
-    it("creates PayPal order and returns approval URL", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+    const setupCreateLink = () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder({ paymentLink: null }) as never);
+      vi.mocked(prisma.paymentLink.create).mockResolvedValue({} as never);
+      vi.mocked(prisma.paymentLink.update).mockResolvedValue({} as never);
+      vi.mocked(prisma.paymentLink.deleteMany).mockResolvedValue({ count: 0 } as never);
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) =>
+        fn(prisma)
+      );
       vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-1", links: [] } as never);
       vi.mocked(getPayPalApprovalLink).mockReturnValue("https://paypal.com/approve/123");
       vi.mocked(prisma.order.update).mockResolvedValue({} as never);
+    };
+
+    it("creates PayPal order and returns approval URL", async () => {
+      setupCreateLink();
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
@@ -82,7 +98,7 @@ describe("paymentsService", () => {
 
     it("throws 403 when user does not own the order", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(
-        mockOrder({ customerId: "other-user" }) as never
+        mockOrder({ customerId: "other-user", paymentLink: null }) as never
       );
 
       await expect(
@@ -92,7 +108,7 @@ describe("paymentsService", () => {
 
     it("throws 400 when order is already paid", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(
-        mockOrder({ paymentStatus: "PAID" }) as never
+        mockOrder({ paymentStatus: "PAID", paymentLink: null }) as never
       );
 
       await expect(
@@ -100,27 +116,111 @@ describe("paymentsService", () => {
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("already paid") });
     });
 
-    it("throws 500 when PayPal approval link is missing", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+    it("falls back to the PayPal checkout URL when the approve link is missing", async () => {
+      setupCreateLink();
       vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-1", links: [] } as never);
-      vi.mocked(getPayPalApprovalLink).mockReturnValue(null as never);
+      vi.mocked(getPayPalApprovalLink).mockReturnValue(undefined);
 
-      await expect(
-        paymentsService.createPaymentLink("user-1", { orderId: "order-1" })
-      ).rejects.toMatchObject({ statusCode: 500 });
+      const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
+
+      expect(result.approvalUrl).toBe("https://www.sandbox.paypal.com/checkoutnow?token=paypal-1");
+      expect(prisma.paymentLink.deleteMany).not.toHaveBeenCalled();
     });
 
     it("stores paypalOrderId on the order", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+      setupCreateLink();
       vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-99" } as never);
       vi.mocked(getPayPalApprovalLink).mockReturnValue("https://approve.url");
-      vi.mocked(prisma.order.update).mockResolvedValue({} as never);
 
       await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
       expect(prisma.order.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: { paypalOrderId: "paypal-order-99" } })
       );
+    });
+
+    it("replays an existing PayPal order without calling OrdersCreate", async () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(
+        mockOrder({
+          paypalOrderId: "paypal-existing",
+          paymentLink: {
+            status: "COMPLETED",
+            paypalOrderId: "paypal-existing",
+            approvalUrl: "https://paypal.com/approve/existing",
+          },
+        }) as never
+      );
+
+      const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
+
+      expect(createPayPalOrder).not.toHaveBeenCalled();
+      expect(prisma.paymentLink.create).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        orderId: "order-1",
+        paypalOrderId: "paypal-existing",
+        approvalUrl: "https://paypal.com/approve/existing",
+      });
+    });
+
+    it("returns 409 when a concurrent claim is still in progress", async () => {
+      vi.mocked(prisma.order.findUnique)
+        .mockResolvedValueOnce(mockOrder({ paymentLink: null }) as never)
+        .mockResolvedValueOnce(mockOrder({ paymentLink: { status: "IN_PROGRESS", paypalOrderId: null, approvalUrl: null } }) as never);
+      vi.mocked(prisma.paymentLink.create).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+          meta: { target: ["orderId"] },
+        })
+      );
+
+      await expect(
+        paymentsService.createPaymentLink("user-1", { orderId: "order-1" })
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("still in progress"),
+      });
+      expect(createPayPalOrder).not.toHaveBeenCalled();
+    });
+
+    it("replays when a concurrent claim has already completed", async () => {
+      vi.mocked(prisma.order.findUnique)
+        .mockResolvedValueOnce(mockOrder({ paymentLink: null }) as never)
+        .mockResolvedValueOnce(
+          mockOrder({
+            paypalOrderId: "paypal-won",
+            paymentLink: {
+              status: "COMPLETED",
+              paypalOrderId: "paypal-won",
+              approvalUrl: "https://paypal.com/approve/won",
+            },
+          }) as never
+        );
+      vi.mocked(prisma.paymentLink.create).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+          meta: { target: ["orderId"] },
+        })
+      );
+
+      const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
+
+      expect(createPayPalOrder).not.toHaveBeenCalled();
+      expect(result.paypalOrderId).toBe("paypal-won");
+    });
+
+    it("releases the in-progress claim when OrdersCreate fails", async () => {
+      setupCreateLink();
+      vi.mocked(createPayPalOrder).mockRejectedValue(new Error("PayPal unavailable"));
+
+      await expect(
+        paymentsService.createPaymentLink("user-1", { orderId: "order-1" })
+      ).rejects.toThrow(/PayPal unavailable/);
+
+      expect(prisma.paymentLink.deleteMany).toHaveBeenCalledWith({
+        where: { orderId: "order-1", status: "IN_PROGRESS" },
+      });
     });
   });
 
