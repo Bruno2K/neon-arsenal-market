@@ -1,155 +1,185 @@
-import { useEffect, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { BarChart3, TrendingUp, Package, DollarSign } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { listOrders } from '@/api/orders';
-import { getSellerListings } from '@/api/listings';
-import type { Listing, Order } from '@/types/api';
+import { Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { Package, ShoppingBag, DollarSign } from "lucide-react";
+import { listOrders } from "@/api/orders";
+import { getSellerListings } from "@/api/listings";
+import { EmptyState, ErrorState } from "@/components/page-state";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Order } from "@/types/api";
+
+function orderTotal(order: Order): number {
+  if (order.totalAmount != null && Number(order.totalAmount) > 0) {
+    return Number(order.totalAmount);
+  }
+  return (
+    order.items?.reduce(
+      (sum, item) => sum + Number(item.priceSnapshot || 0),
+      0,
+    ) ?? 0
+  );
+}
+
+function orderSummary(order: Order): string {
+  const names =
+    order.items
+      ?.slice(0, 2)
+      .map((item) =>
+        item.listing?.product
+          ? `${item.listing.product.weapon} | ${item.listing.product.skinName}`
+          : "Item",
+      )
+      .join(", ") ?? "—";
+  const extra = order.items && order.items.length > 2 ? "…" : "";
+  return `${names}${extra}`;
+}
 
 export default function SellerDashboard() {
-  const [listings, setListings] = useState<Listing[]>([]);
-
-  const { data: orders = [] } = useQuery({
-    queryKey: ['orders'],
+  const listingsQuery = useQuery({
+    queryKey: ["sellerListings"],
+    queryFn: () => getSellerListings(),
+  });
+  const ordersQuery = useQuery({
+    queryKey: ["orders"],
     queryFn: () => listOrders(),
   });
 
-  const { data: sellerListings = [] } = useQuery({
-    queryKey: ['sellerListings'],
-    queryFn: () => getSellerListings(),
-  });
+  const listings = listingsQuery.data?.items ?? [];
+  const orders = ordersQuery.data ?? [];
+  const isLoading = listingsQuery.isLoading || ordersQuery.isLoading;
+  const isError = listingsQuery.isError || ordersQuery.isError;
+  const error = listingsQuery.error ?? ordersQuery.error;
 
-  useEffect(() => {
-    if (sellerListings && 'items' in sellerListings) {
-      setListings((sellerListings as { items: Listing[]; total: number }).items);
-    } else if (Array.isArray(sellerListings)) {
-      setListings(sellerListings);
-    }
-  }, [sellerListings]);
+  const activeListings = listings.filter(
+    (listing) => listing.status === "ACTIVE",
+  ).length;
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + orderTotal(order),
+    0,
+  );
 
-  // Calculate metrics
-  const totalRevenue = orders.reduce((sum, order) => {
-    const orderSum = order.items?.reduce((itemSum, i) => itemSum + Number(i.priceSnapshot || 0), 0) || 0;
-    return sum + orderSum;
-  }, 0);
+  if (isLoading) {
+    return (
+      <div className="space-y-6" role="status" aria-label="Carregando">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </div>
+    );
+  }
 
-  const activeListings = listings.filter((l) => l.status === 'ACTIVE').length;
-
-  const firstItem = orders[0]?.items?.[0];
+  if (isError) {
+    return (
+      <ErrorState
+        title="Erro ao carregar o painel"
+        description={
+          error instanceof Error
+            ? error.message
+            : "Tente novamente em instantes."
+        }
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void listingsQuery.refetch();
+              void ordersQuery.refetch();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
 
   const stats = [
+    { label: "Listings ativos", value: String(activeListings), icon: Package },
     {
-      label: 'Active Listings',
-      value: activeListings,
-      icon: Package,
-      color: 'text-blue-500',
-    },
-    {
-      label: 'Total Revenue',
+      label: "Receita",
       value: `$${totalRevenue.toFixed(2)}`,
       icon: DollarSign,
-      color: 'text-green-500',
     },
-    {
-      label: 'Orders',
-      value: orders.length,
-      icon: TrendingUp,
-      color: 'text-purple-500',
-    },
+    { label: "Pedidos", value: String(orders.length), icon: ShoppingBag },
   ];
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="min-h-screen bg-gradient-to-br from-gray-900 to-black p-6"
-    >
-      <div className="container mx-auto max-w-7xl">
-        <motion.div initial={{ y: 20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} transition={{ duration: 0.3 }}>
-          <h1 className="text-4xl font-bold text-white mb-2">Seller Dashboard</h1>
-          <p className="text-gray-400 mb-8">Manage your CS2 skin marketplace inventory</p>
-        </motion.div>
-
-        {/* Stats Grid */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-          className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8"
-        >
-          {stats.map((stat, index) => (
-            <motion.div
-              key={stat.label}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.3, delay: 0.1 + index * 0.1 }}
-            >
-              <Card className="bg-gray-800 border-gray-700">
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-medium text-gray-400">{stat.label}</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <div className="text-3xl font-bold text-white">{stat.value}</div>
-                    <stat.icon className={`w-8 h-8 ${stat.color}`} />
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          ))}
-        </motion.div>
-
-        {/* Recent Orders */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3, delay: 0.2 }}
-        >
-          <Card className="bg-gray-800 border-gray-700">
-            <CardHeader>
-              <CardTitle className="text-white">Recent Orders</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {orders.length === 0 ? (
-                <p className="text-gray-400">No orders yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {orders.slice(0, 5).map((order) => {
-                    const itemsSummary = order.items
-                      ?.slice(0, 2)
-                      .map((i) => i.listing?.product ? `${i.listing.product.weapon} | ${i.listing.product.skinName}` : 'Item')
-                      .join(', ') ?? '—';
-                    const hasMore = order.items && order.items.length > 2 ? '…' : '';
-
-                    return (
-                      <div key={order.id} className="flex items-center justify-between p-4 bg-gray-700 rounded-lg">
-                        <div>
-                          <p className="text-white font-semibold">{firstItem?.listing?.product?.weapon ?? 'Item'}</p>
-                          <p className="text-gray-400 text-sm">{itemsSummary}{hasMore}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-white font-semibold">
-                            $
-                            {order.items
-                              ?.reduce((sum, i) => sum + Number(i.priceSnapshot || 0), 0)
-                              .toFixed(2) || '0.00'}
-                          </p>
-                          <Badge variant={order.status === 'COMPLETED' ? 'default' : 'secondary'}>
-                            {order.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
+    <div className="space-y-8">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Visão geral</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Listings únicos, pedidos e receita da loja.
+        </p>
       </div>
-    </motion.div>
+
+      <div className="grid gap-3 sm:grid-cols-3">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-md border border-border bg-card p-4"
+          >
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs text-muted-foreground">{stat.label}</p>
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
+            </div>
+            <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
+              {stat.value}
+            </p>
+          </div>
+        ))}
+      </div>
+
+      <section>
+        <div className="mb-3 flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold tracking-tight">
+            Pedidos recentes
+          </h2>
+          <Button asChild variant="outline" size="sm">
+            <Link to="/seller/orders">Ver pedidos</Link>
+          </Button>
+        </div>
+        {orders.length === 0 ? (
+          <EmptyState
+            title="Nenhum pedido"
+            description="Quando houver vendas, elas aparecem aqui."
+            action={
+              <Button asChild>
+                <Link to="/seller/listings">Ver listings</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <ul className="space-y-2">
+            {orders.slice(0, 5).map((order) => (
+              <li
+                key={order.id}
+                className="flex items-center justify-between gap-4 rounded-md border border-border bg-card p-4"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium">
+                    {orderSummary(order)}
+                  </p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Pedido {order.id}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="tabular-nums text-sm font-semibold">
+                    ${orderTotal(order).toFixed(2)}
+                  </p>
+                  <Badge variant="secondary" className="mt-1">
+                    {order.status}
+                  </Badge>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
   );
 }
