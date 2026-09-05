@@ -1,51 +1,57 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { CreditCard, CheckCircle, ShieldCheck } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useCart } from '@/contexts/CartContext';
-import { useAuth } from '@/contexts/AuthContext';
-import { createOrder } from '@/api/orders';
-import { createPaymentLink } from '@/api/payments';
-import { Button } from '@/components/ui/button';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { useCart } from "@/contexts/CartContext";
+import { useAuth } from "@/contexts/AuthContext";
+import { createOrder } from "@/api/orders";
+import { createPaymentLink } from "@/api/payments";
+import { EmptyState } from "@/components/page-state";
+import { Button } from "@/components/ui/button";
 
 export default function Checkout() {
-  const { items, totalPrice, clearCart } = useCart();
+  const { items, totalPrice } = useCart();
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
-  const [completed, setCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
-
-  if (completed) {
-    return (
-      <div className="container py-20 text-center">
-        <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ type: 'spring' }}>
-          <CheckCircle className="h-20 w-20 text-primary mx-auto mb-6" />
-        </motion.div>
-        <h1 className="text-3xl font-heading text-foreground mb-4">Pedido Confirmado!</h1>
-        <p className="text-muted-foreground mb-8">Seu pagamento foi processado com sucesso. Você receberá os itens em breve.</p>
-        <Button asChild><Link to="/products">Continuar Comprando</Link></Button>
-      </div>
-    );
-  }
 
   if (items.length === 0) {
     return (
-      <div className="container py-20 text-center">
-        <p className="text-muted-foreground mb-4">Seu carrinho está vazio</p>
-        <Button asChild><Link to="/products">Ir ao Market</Link></Button>
+      <div className="container py-8">
+        <h1 className="sr-only">Checkout</h1>
+        <EmptyState
+          title="Carrinho vazio"
+          description="Adicione um listing ativo antes de pagar."
+          action={
+            <Button asChild>
+              <Link to="/products">Ir ao Market</Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
 
-  if (!isAuthenticated || user?.role !== 'CUSTOMER') {
+  if (!isAuthenticated || user?.role !== "CUSTOMER") {
     return (
-      <div className="container py-20 text-center">
-        <p className="text-muted-foreground mb-4">Faça login como comprador para finalizar a compra.</p>
-        <Button onClick={() => navigate('/login', { state: { from: { pathname: '/checkout' } } })}>
-          Ir para Login
-        </Button>
+      <div className="container py-8">
+        <h1 className="sr-only">Checkout</h1>
+        <EmptyState
+          title="Login de comprador necessário"
+          description="Faça login como comprador para finalizar a compra."
+          action={
+            <Button
+              onClick={() =>
+                navigate("/login", {
+                  state: { from: { pathname: "/checkout" } },
+                })
+              }
+            >
+              Ir para Login
+            </Button>
+          }
+        />
       </div>
     );
   }
@@ -62,56 +68,90 @@ export default function Checkout() {
         window.location.href = payment.approvalUrl;
         return;
       }
-      setCompleted(true);
-      clearCart();
+      setError(
+        "Não foi possível obter o link do PayPal. O pagamento ainda não foi confirmado.",
+      );
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Falha ao criar pedido');
+      setError(e instanceof Error ? e.message : "Falha ao criar pedido");
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="container py-8 max-w-2xl">
-      <h1 className="text-3xl font-heading text-foreground mb-8">Checkout</h1>
+    <div className="container max-w-2xl py-8">
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Checkout</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Revise os itens e pague no PayPal. Nada é confirmado nesta tela.
+        </p>
+      </div>
 
       <div className="space-y-6">
-        <div className="p-4 rounded-lg border border-border bg-card space-y-3">
-          <h2 className="font-heading text-sm text-muted-foreground">Itens ({items.length})</h2>
-          {items.map(({ listing }) => {
-            const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
-            return (
-              <div key={listing.id} className="flex justify-between text-sm">
-                <span className="text-foreground">{productName}</span>
-                <span className="text-muted-foreground">${Number(listing.price).toFixed(2)}</span>
-              </div>
-            );
-          })}
-          <div className="border-t border-border pt-3 flex justify-between font-heading text-lg">
-            <span className="text-foreground">Total</span>
-            <span className="text-primary">${total.toFixed(2)}</span>
-          </div>
-        </div>
-
-        <div className="p-6 rounded-lg border border-border bg-card space-y-4">
-          <h2 className="font-heading text-foreground flex items-center gap-2">
-            <CreditCard className="h-5 w-5" /> Pagamento
+        <section className="space-y-3 rounded-md border border-border bg-card p-4">
+          <h2 className="text-sm font-medium text-muted-foreground">
+            Itens ({items.length})
           </h2>
-          <p className="text-sm text-muted-foreground">Pagamento via PayPal</p>
-          {error && <p className="text-sm text-destructive">{error}</p>}
+          <ul className="space-y-2">
+            {items.map(({ listing }) => {
+              const name = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
+              return (
+                <li
+                  key={listing.id}
+                  className="flex justify-between gap-4 text-sm"
+                >
+                  <span className="min-w-0 truncate text-foreground">
+                    {name}
+                  </span>
+                  <span className="shrink-0 tabular-price text-muted-foreground">
+                    ${Number(listing.price).toFixed(2)}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+          <dl className="space-y-1 border-t border-border pt-3 text-sm">
+            <div className="flex justify-between text-muted-foreground">
+              <dt>Subtotal</dt>
+              <dd className="tabular-price">${totalPrice.toFixed(2)}</dd>
+            </div>
+            <div className="flex justify-between text-muted-foreground">
+              <dt>Taxa de serviço</dt>
+              <dd className="tabular-price">${serviceFee.toFixed(2)}</dd>
+            </div>
+            <div className="flex justify-between pt-1 text-base font-medium text-foreground">
+              <dt>Total</dt>
+              <dd className="tabular-price">${total.toFixed(2)}</dd>
+            </div>
+          </dl>
+        </section>
+
+        <section className="space-y-4 rounded-md border border-border bg-card p-6">
+          <h2 className="text-sm font-semibold tracking-tight">PayPal</h2>
+          <p className="text-sm text-muted-foreground">
+            Você será redirecionado ao PayPal. O pagamento só é confirmado
+            depois que o provedor retornar o resultado — esta página não marca o
+            pedido como pago.
+          </p>
+          {error ? (
+            <p className="text-sm text-destructive" role="alert">
+              {error}
+            </p>
+          ) : null}
           <Button
             className="w-full"
             size="lg"
             onClick={handlePay}
             disabled={loading}
           >
-            {loading ? 'Processando...' : `Pagar com PayPal — $${total.toFixed(2)}`}
+            {loading
+              ? "Abrindo o PayPal..."
+              : `Pagar com PayPal — $${total.toFixed(2)}`}
           </Button>
-          <div className="flex items-center justify-center gap-2 text-xs text-muted-foreground">
-            <ShieldCheck className="h-3 w-3" />
-            <span>Transação segura e protegida</span>
-          </div>
-        </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Sem confirmação local até o retorno do PayPal.
+          </p>
+        </section>
       </div>
     </div>
   );

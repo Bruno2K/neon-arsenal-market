@@ -1,106 +1,110 @@
 import { Link } from "react-router-dom";
-import { Trash2, ShoppingBag } from "lucide-react";
-import { motion } from "framer-motion";
+import { Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { EmptyState } from "@/components/page-state";
 import { Button } from "@/components/ui/button";
+
+function listingLabel(listing: {
+  product: { weapon: string; skinName: string; exterior: string };
+}) {
+  return `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
+}
 
 export default function CartPage() {
   const { items, removeItem, totalPrice, totalItems } = useCart();
+  const serviceFee = totalPrice * 0.05;
+  const total = totalPrice * 1.05;
 
   if (items.length === 0) {
     return (
-      <div className="container py-20 text-center">
-        <ShoppingBag className="h-16 w-16 text-muted-foreground mx-auto mb-4" />
-        <h1 className="text-2xl font-heading text-foreground mb-2">
-          Carrinho Vazio
-        </h1>
-        <p className="text-muted-foreground mb-6">
-          Adicione itens do marketplace para começar
-        </p>
-        <Button asChild>
-          <Link to="/products">Explorar Market</Link>
-        </Button>
+      <div className="container py-8">
+        <h1 className="sr-only">Carrinho</h1>
+        <EmptyState
+          title="Carrinho vazio"
+          description="Adicione itens do marketplace para começar."
+          action={
+            <Button asChild>
+              <Link to="/products">Explorar Market</Link>
+            </Button>
+          }
+        />
       </div>
     );
   }
 
   return (
     <div className="container py-8">
-      <h1 className="text-3xl font-heading text-foreground mb-8">
-        Carrinho ({totalItems})
-      </h1>
+      <div className="mb-8">
+        <h1 className="text-2xl font-semibold tracking-tight">Carrinho</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {totalItems} item{totalItems !== 1 ? "s" : ""} · item único
+        </p>
+      </div>
 
-      <div className="grid lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-4">
+      <div className="grid gap-8 lg:grid-cols-3">
+        <ul className="space-y-3 lg:col-span-2">
           {items.map(({ listing }) => {
-            const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
+            const name = listingLabel(listing);
             return (
-              <motion.div
+              <li
                 key={listing.id}
-                layout
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="flex items-center gap-4 p-4 rounded-lg border border-border bg-card"
+                className="flex items-center gap-4 rounded-md border border-border bg-card p-4"
               >
-                <div className="h-20 w-20 rounded-md bg-muted flex items-center justify-center flex-shrink-0">
-                  <span className="text-xs font-heading text-foreground/60 line-clamp-2 px-1">
-                    {productName}
-                  </span>
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted px-1 text-center text-[10px] leading-tight text-muted-foreground">
+                  {listing.product.weapon}
                 </div>
-                <div className="flex-1 min-w-0">
+                <div className="min-w-0 flex-1">
                   <Link
                     to={`/listing/${listing.id}`}
-                    className="font-heading text-sm text-foreground hover:text-primary transition-colors truncate block normal-case"
+                    className="block truncate text-sm font-medium text-foreground hover:underline"
                   >
-                    {productName}
+                    {name}
                   </Link>
-                  <div className="text-xs text-muted-foreground mt-1">
-                    <span>Float: {Number(listing.floatValue).toFixed(8)}</span>
-                    {listing.pattern && (
-                      <span className="ml-2">Pattern: {listing.pattern}</span>
-                    )}
-                  </div>
-                  <span className="text-primary font-heading text-lg">
+                  <p className="mt-1 text-xs tabular-float text-muted-foreground">
+                    Float {Number(listing.floatValue).toFixed(8)}
+                    {listing.pattern ? ` · Pattern ${listing.pattern}` : ""}
+                  </p>
+                  <p className="mt-1 text-sm tabular-price text-foreground">
                     ${Number(listing.price).toFixed(2)}
-                  </span>
+                  </p>
                 </div>
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-8 w-8 text-destructive"
+                  className="h-10 w-10 text-muted-foreground hover:text-destructive"
                   onClick={() => removeItem(listing.id)}
+                  aria-label={`Remover ${name}`}
                 >
                   <Trash2 className="h-4 w-4" />
                 </Button>
-              </motion.div>
+              </li>
             );
           })}
-        </div>
+        </ul>
 
-        {/* Summary */}
-        <div className="p-6 rounded-lg border border-border bg-card h-fit space-y-4 sticky top-24">
-          <h2 className="font-heading text-lg text-foreground">Resumo</h2>
-          <div className="space-y-2 text-sm">
+        <aside className="h-fit space-y-4 rounded-md border border-border bg-card p-6 lg:sticky lg:top-20">
+          <h2 className="text-sm font-semibold tracking-tight">Resumo</h2>
+          <dl className="space-y-2 text-sm">
             <div className="flex justify-between text-muted-foreground">
-              <span>Subtotal</span>
-              <span>${totalPrice.toFixed(2)}</span>
+              <dt>Subtotal</dt>
+              <dd className="tabular-price">${totalPrice.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
-              <span>Taxa de serviço</span>
-              <span>${(totalPrice * 0.05).toFixed(2)}</span>
+              <dt>Taxa de serviço</dt>
+              <dd className="tabular-price">${serviceFee.toFixed(2)}</dd>
             </div>
-            <div className="border-t border-border pt-2 flex justify-between font-heading text-lg text-foreground">
-              <span>Total</span>
-              <span className="text-primary">
-                ${(totalPrice * 1.05).toFixed(2)}
-              </span>
+            <div className="flex justify-between border-t border-border pt-2 text-base font-medium text-foreground">
+              <dt>Total</dt>
+              <dd className="tabular-price">${total.toFixed(2)}</dd>
             </div>
-          </div>
+          </dl>
           <Button asChild className="w-full" size="lg">
-            <Link to="/checkout">Finalizar Compra</Link>
+            <Link to="/checkout">Finalizar compra</Link>
           </Button>
-        </div>
+          <p className="text-xs text-muted-foreground">
+            O pagamento é confirmado só depois do retorno do PayPal.
+          </p>
+        </aside>
       </div>
     </div>
   );
