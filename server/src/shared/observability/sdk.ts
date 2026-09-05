@@ -39,7 +39,10 @@ function buildResource(serviceName: string) {
 function createTraceExporter(kind: ReturnType<typeof readTelemetryConfig>["exporter"], otlpUrl?: string) {
   if (kind === "console") return new ConsoleSpanExporter();
   if (kind === "otlp") {
-    return new OTLPTraceExporter(otlpUrl ? { url: otlpUrl } : undefined);
+    return new OTLPTraceExporter({
+      ...(otlpUrl ? { url: otlpUrl } : {}),
+      timeoutMillis: 2_000,
+    });
   }
   return undefined;
 }
@@ -47,7 +50,10 @@ function createTraceExporter(kind: ReturnType<typeof readTelemetryConfig>["expor
 function createMetricExporter(kind: ReturnType<typeof readTelemetryConfig>["exporter"], otlpUrl?: string) {
   if (kind === "console") return new ConsoleMetricExporter();
   if (kind === "otlp") {
-    return new OTLPMetricExporter(otlpUrl ? { url: otlpUrl } : undefined);
+    return new OTLPMetricExporter({
+      ...(otlpUrl ? { url: otlpUrl } : {}),
+      timeoutMillis: 2_000,
+    });
   }
   return undefined;
 }
