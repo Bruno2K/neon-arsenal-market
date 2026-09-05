@@ -110,6 +110,8 @@ A task that fails verification twice for the same root cause should escalate to 
 
 ## Parallelism
 
+P-back and P-front are specialized **sprint control planes** on top of this contract (`docs/agents/p-back-orchestrator.md`, `docs/agents/p-front-orchestrator.md`). They pick work from `scripts/p-back/activities.json` / `scripts/p-front/activities.json`. They must not add Kafka, Redis, or a workflow engine to the application.
+
 Parallel execution is allowed only when scopes and invariants are independent. Examples include independent documentation sections or separate read-only reviews.
 
 Do not parallelize:
