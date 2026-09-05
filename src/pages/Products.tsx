@@ -1,9 +1,15 @@
 import { useState } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { ListingCard } from "@/components/ProductCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { listListings } from "@/api/listings";
+import {
+  MARKET_SIMILAR_EMPTY_DESCRIPTION,
+  MARKET_SIMILAR_EMPTY_TITLE,
+  MARKET_VIEW_CTA,
+} from "@/lib/listingCartCta";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -51,6 +57,8 @@ function Chip({
 }
 
 export default function Products() {
+  const [searchParams] = useSearchParams();
+  const productId = searchParams.get("productId")?.trim() || undefined;
   const [exterior, setExterior] = useState("");
   const [isStattrak, setIsStattrak] = useState<boolean | undefined>(undefined);
   const [sort, setSort] = useState("");
@@ -61,13 +69,14 @@ export default function Products() {
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [
       "listings",
-      { page, exterior, isStattrak, sort, minPrice, maxPrice },
+      { page, exterior, isStattrak, sort, minPrice, maxPrice, productId },
     ],
     queryFn: () =>
       listListings({
         page,
         limit: PAGE_SIZE,
         status: "ACTIVE",
+        ...(productId ? { productId } : {}),
         ...(exterior ? { exterior } : {}),
         ...(isStattrak !== undefined ? { isStattrak } : {}),
         ...(minPrice ? { minPrice: parseFloat(minPrice) } : {}),
@@ -99,7 +108,9 @@ export default function Products() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Market</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Listings ativos · item único
+            {productId
+              ? "Listings ativos desta skin · item único"
+              : "Listings ativos · item único"}
           </p>
         </div>
         {!isLoading && !isError ? (
@@ -229,12 +240,25 @@ export default function Products() {
         />
       )}
 
-      {!isLoading && !isError && sortedItems.length === 0 && (
-        <EmptyState
-          title="Nenhum item encontrado"
-          description="Tente ajustar os filtros"
-        />
-      )}
+      {!isLoading &&
+        !isError &&
+        sortedItems.length === 0 &&
+        (productId ? (
+          <EmptyState
+            title={MARKET_SIMILAR_EMPTY_TITLE}
+            description={MARKET_SIMILAR_EMPTY_DESCRIPTION}
+            action={
+              <Button asChild>
+                <Link to="/products">{MARKET_VIEW_CTA}</Link>
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            title="Nenhum item encontrado"
+            description="Tente ajustar os filtros"
+          />
+        ))}
 
       {!isLoading && !isError && sortedItems.length > 0 && (
         <>

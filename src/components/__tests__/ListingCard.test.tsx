@@ -172,7 +172,7 @@ describe("ListingCard", () => {
     expect(screen.getByText("Vendido")).toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: CART_CTA_SIMILAR }),
-    ).toHaveAttribute("href", "/products");
+    ).toHaveAttribute("href", "/products?productId=prod-1");
     fireEvent.click(screen.getByRole("link", { name: CART_CTA_SIMILAR }));
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
     expect(toast).not.toHaveBeenCalled();

@@ -11,6 +11,7 @@ import {
   CART_CTA_SIMILAR,
   CART_CTA_VIEW_CART,
   resolveListingCartCta,
+  similarItemsMarketPath,
 } from "@/lib/listingCartCta";
 import { cn } from "@/lib/utils";
 
@@ -110,7 +111,9 @@ export function ListingCartCta({
           }
           asChild
         >
-          <Link to="/products">{CART_CTA_SIMILAR}</Link>
+          <Link to={similarItemsMarketPath(listing.productId)}>
+            {CART_CTA_SIMILAR}
+          </Link>
         </Button>
       ) : null}
     </div>
