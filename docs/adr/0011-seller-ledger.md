@@ -28,5 +28,5 @@ Drop the two CHECK constraints. Unique `(sellerId, orderId)` and the confirm-pat
 ## Consequences
 
 - Duplicate payment confirmation remains a no-op after the order claim (`paymentStatus = PENDING AND status = PENDING`); the unique constraint is defense in depth.
-- Demo seed may set `Seller.balance` without matching ledger rows. That display data is not a production invariant. Reconciliation (#45) would flag it.
+- Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Non-zero credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. Periodic SUM-vs-projection reconciliation remains #45.
 - Capture after reservation expiry still creates no ledger row (ADR 0002).

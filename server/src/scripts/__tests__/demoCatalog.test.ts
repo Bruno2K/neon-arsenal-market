@@ -46,4 +46,13 @@ describe("demoCatalog", () => {
     expect(listing).toBeDefined();
     expect(listingPrice(product!, listing!)).toBe("22.00");
   });
+
+  it("seeds seller balances at zero so the empty ledger is the source of truth", () => {
+    const sellers = DEMO_USERS.filter((user) => user.seller);
+    expect(sellers.length).toBeGreaterThan(0);
+
+    for (const user of sellers) {
+      expect(["0", "0.00"]).toContain(user.seller!.balance);
+    }
+  });
 });

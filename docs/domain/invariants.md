@@ -131,7 +131,9 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 - Schema: unique `(sellerId, orderId)`; CHECK net identity and non-negative amounts. `Seller.balance` documented as projection (ADR 0011).
 - Service: `confirmPayment` claim (`paymentStatus = PENDING AND status = PENDING`) plus ledger insert. Duplicate claims are no-ops.
-- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`.
+- HTTP: `GET /commissions/balance` returns the Prisma Decimal projection (JSON string via Decimal#toJSON). No `Number()`.
+- Seed: demo `Seller.balance` is `"0.00"` with no ledger rows so the projection matches empty PAID SUM. Confirm remains the only non-zero writer.
+- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`; `commissions.service.test.ts`; `demoCatalog.test.ts`; `seed.ledger.integration.test.ts`.
 
 **Related:** `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`. Issue #45 (not implemented) can reconcile projection vs `SUM(netAmount) WHERE status = 'PAID'`.
 

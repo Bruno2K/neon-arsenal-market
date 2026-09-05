@@ -20,6 +20,8 @@ export const commissionsService = {
     });
     if (!seller) throw new AppError(404, "Seller not found");
     const balance = await commissionsRepository.getBalance(seller.id);
-    return { balance: Number(balance) };
+    // Projection only (ADR 0011). Pass Prisma Decimal through so JSON.stringify
+    // uses Decimal#toJSON (a string), matching listing price / order totalAmount.
+    return { balance };
   },
 };

@@ -52,21 +52,21 @@ export const DEMO_USERS: DemoUser[] = [
     password: "seller123",
     name: "NeonTrader",
     role: "SELLER",
-    seller: { storeName: "NeonTrader Store", commissionRate: "0.10", balance: "1250.75", isApproved: true },
+    seller: { storeName: "NeonTrader Store", commissionRate: "0.10", balance: "0.00", isApproved: true },
   },
   {
     email: "pro_trader@skinmarket.gg",
     password: "seller456",
     name: "ProTrader",
     role: "SELLER",
-    seller: { storeName: "ProTrader CS2", commissionRate: "0.08", balance: "580.00", isApproved: true },
+    seller: { storeName: "ProTrader CS2", commissionRate: "0.08", balance: "0.00", isApproved: true },
   },
   {
     email: "rustking@skinmarket.gg",
     password: "seller123",
     name: "RustKing",
     role: "SELLER",
-    seller: { storeName: "RustKing Trades", commissionRate: "0.10", balance: "210.40", isApproved: true },
+    seller: { storeName: "RustKing Trades", commissionRate: "0.10", balance: "0.00", isApproved: true },
   },
   {
     email: "pending_seller@skinmarket.gg",
@@ -261,6 +261,11 @@ export function assertDemoCatalog(): void {
     emails.add(user.email);
     if (user.role === "SELLER" && !user.seller) {
       throw new Error(`Seller ${user.email} is missing a store profile`);
+    }
+    if (user.seller && user.seller.balance !== "0" && user.seller.balance !== "0.00") {
+      throw new Error(
+        `Demo seller ${user.email} must seed balance "0" or "0.00"; confirm/ledger is the only balance writer`
+      );
     }
   }
 
