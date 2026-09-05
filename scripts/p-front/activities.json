@@ -1,0 +1,249 @@
+{
+  "sprint": "P-front",
+  "brand": "Neon Arsenal",
+  "visual": "dark-editorial",
+  "prTitlePrefix": "[P-front]",
+  "commitConvention": "[P-front] <ID> — <short title>",
+  "forbiddenGlobally": [
+    "server/",
+    "server/prisma/"
+  ],
+  "lockedDecisions": {
+    "brand": "Neon Arsenal. Remove SKINMARKET / SkinMarket / “CS2 Skin Marketplace”.",
+    "visual": "Dark editorial. No neon glow, scan-lines, grid-pattern, or global uppercase headings.",
+    "seller": "Keep /seller/products and /seller/listings. Listings = unique-item CRUD. Products = read-only Product catalog via listProducts. Seller cannot create/update/delete Product (ADMIN-only API)."
+  },
+  "activities": [
+    {
+      "id": "F0.1",
+      "title": "Contrato de superfície do frontend",
+      "dependsOn": [],
+      "ownerFiles": [
+        "docs/frontend-sprint.md",
+        "docs/agents/p-front-orchestrator.md",
+        "docs/roadmap.md",
+        "scripts/p-front/"
+      ],
+      "roles": ["Planner", "Verification"],
+      "verify": ["docs-only diff"],
+      "acceptance": [
+        "Later agents can implement one screen without inventing a route, field, or endpoint.",
+        "Seller IA is written: listings = CRUD; products = read-only catalog.",
+        "Out-of-scope list is explicit."
+      ]
+    },
+    {
+      "id": "F0.2",
+      "title": "Tokens e tema dark editorial",
+      "dependsOn": ["F0.1"],
+      "ownerFiles": ["src/index.css", "tailwind.config.ts", "index.html"],
+      "roles": ["Implementation", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint"],
+      "acceptance": [
+        "Tokens define canvas, accent, muted, rarity without scan-line/glow utilities.",
+        "Chakra Petch is not the heading default.",
+        "No server/ changes."
+      ]
+    },
+    {
+      "id": "F0.3",
+      "title": "Shell, primitivos e chrome compartilhado",
+      "dependsOn": ["F0.2"],
+      "ownerFiles": [
+        "src/layouts/MainLayout.tsx",
+        "src/layouts/DashboardLayout.tsx",
+        "src/components/Header.tsx",
+        "src/App.tsx"
+      ],
+      "roles": ["Implementation", "Test", "Verification"],
+      "verify": ["npm test", "npm run typecheck", "npm run lint"],
+      "acceptance": [
+        "Header shows Neon Arsenal; role links unchanged.",
+        "Dashboard has usable mobile navigation.",
+        "ProtectedRoute behavior unchanged.",
+        "No new routes."
+      ]
+    },
+    {
+      "id": "F0.4",
+      "title": "Higiene: código morto do template",
+      "dependsOn": ["F0.3"],
+      "ownerFiles": [
+        "src/pages/ProductDetail.tsx",
+        "src/services/mock-data.ts"
+      ],
+      "roles": ["Implementation", "Verification"],
+      "verify": ["npm run typecheck", "npm test", "npm run lint"],
+      "acceptance": [
+        "Unrouted ProductDetail and unused mock-data are removed if nothing imports them.",
+        "If a supposedly dead file is still imported, stop and ask HUMAN.",
+        "No server/ changes."
+      ]
+    },
+    {
+      "id": "S2",
+      "title": "Market e ListingCard",
+      "dependsOn": ["F0.4"],
+      "parallelGroup": "storefront-critical",
+      "ownerFiles": [
+        "src/pages/Products.tsx",
+        "src/components/ProductCard.tsx",
+        "src/components/__tests__/ListingCard.test.tsx"
+      ],
+      "roles": ["Implementation", "Test", "Verification"],
+      "verify": [
+        "npm test -- src/components/__tests__/ListingCard.test.tsx",
+        "npm run typecheck",
+        "npm run lint"
+      ],
+      "acceptance": [
+        "Filters unchanged: exterior, StatTrak, min/max price, client-side sort, pagination, ACTIVE.",
+        "Loading / empty / error states.",
+        "This PR owns ListingCard. Other agents must not edit it until merge."
+      ]
+    },
+    {
+      "id": "A1",
+      "title": "Login e registro",
+      "dependsOn": ["F0.4"],
+      "parallelGroup": "auth",
+      "ownerFiles": ["src/pages/Login.tsx", "src/pages/Register.tsx"],
+      "roles": ["Implementation", "Security", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "Same auth API calls and role rules.",
+        "2-step email verification, CUSTOMER | SELLER, storeName, redirect from.",
+        "Do not change token/refresh/verify semantics."
+      ]
+    },
+    {
+      "id": "C1",
+      "title": "Carrinho e checkout (UX only)",
+      "dependsOn": ["F0.4"],
+      "parallelGroup": "checkout",
+      "ownerFiles": ["src/pages/CartPage.tsx", "src/pages/Checkout.tsx"],
+      "roles": ["Implementation", "Test", "Security", "Verification"],
+      "verify": [
+        "npm test -- src/contexts/__tests__/CartContext.test.tsx",
+        "npm run typecheck",
+        "npm run lint"
+      ],
+      "acceptance": [
+        "Empty cart and CUSTOMER-only pay gate unchanged.",
+        "createOrder + createPaymentLink unchanged.",
+        "Copy must not claim payment succeeded before PayPal return."
+      ]
+    },
+    {
+      "id": "S1",
+      "title": "Home Neon Arsenal",
+      "dependsOn": ["S2"],
+      "ownerFiles": ["src/pages/Index.tsx"],
+      "roles": ["Implementation", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "Still fetches ACTIVE listings limit 8.",
+        "Loading / empty / error.",
+        "No new sections or routes.",
+        "Consumes ListingCard; do not edit the card."
+      ]
+    },
+    {
+      "id": "S3",
+      "title": "Detalhe do listing",
+      "dependsOn": ["S2"],
+      "ownerFiles": ["src/pages/ListingDetail.tsx"],
+      "roles": ["Implementation", "Test", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "Keep rarity, float, pattern, StatTrak, seller, trade lock, price, history, related, add to cart.",
+        "Unavailable / trade-lock / not found remain non-purchasable when already disabled.",
+        "Do not edit ListingCard except a trivial import."
+      ]
+    },
+    {
+      "id": "D1",
+      "title": "Dashboard seller",
+      "dependsOn": ["S1", "S3", "A1", "C1"],
+      "parallelGroup": "dashboards",
+      "ownerFiles": [
+        "src/pages/SellerDashboard.tsx",
+        "src/pages/seller/SellerListings.tsx",
+        "src/pages/seller/SellerProducts.tsx",
+        "src/pages/seller/SellerOrders.tsx"
+      ],
+      "roles": ["Implementation", "Test", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "Both seller routes remain.",
+        "Listings stays unique-item CRUD.",
+        "Products becomes read-only catalog (listProducts). Stop duplicate listing CRUD.",
+        "Do not edit Header or DashboardLayout."
+      ]
+    },
+    {
+      "id": "D2",
+      "title": "Dashboard admin",
+      "dependsOn": ["S1", "S3", "A1", "C1"],
+      "parallelGroup": "dashboards",
+      "ownerFiles": [
+        "src/pages/AdminDashboard.tsx",
+        "src/pages/admin/AdminSellers.tsx",
+        "src/pages/admin/AdminOrders.tsx",
+        "src/pages/admin/AdminUsers.tsx"
+      ],
+      "roles": ["Implementation", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "adminApproveSeller and current lists unchanged in contract.",
+        "No new admin actions.",
+        "Do not edit Header or DashboardLayout."
+      ]
+    },
+    {
+      "id": "Q1",
+      "title": "Estados vazios e acessibilidade",
+      "dependsOn": ["D1", "D2"],
+      "ownerFiles": [],
+      "roles": ["Implementation", "Verification"],
+      "verify": ["npm run typecheck", "npm run lint", "npm test"],
+      "acceptance": [
+        "Every existing route has loading, empty, error, disabled where applicable.",
+        "Focus, labels, contrast, 44px mobile targets, dialog/menu aria.",
+        "No new features."
+      ]
+    },
+    {
+      "id": "Q2",
+      "title": "Testes de contrato da UI",
+      "dependsOn": ["Q1"],
+      "ownerFiles": [
+        "src/components/__tests__/ListingCard.test.tsx",
+        "src/contexts/__tests__/CartContext.test.tsx"
+      ],
+      "roles": ["Test", "Verification"],
+      "verify": ["npm test", "npm run typecheck", "npm run lint"],
+      "acceptance": [
+        "ListingCard and CartContext coverage remain meaningful.",
+        "Root npm test passes."
+      ]
+    },
+    {
+      "id": "Q3",
+      "title": "Passada visual desktop/mobile",
+      "dependsOn": ["Q2"],
+      "ownerFiles": [],
+      "roles": ["Verification"],
+      "verify": [
+        "npm run typecheck",
+        "npm run lint",
+        "npm test",
+        "browser walkthrough"
+      ],
+      "acceptance": [
+        "Browser walkthrough of home, market, listing, cart, login, seller listings, admin sellers.",
+        "No leftover SKINMARKET / scan-lines / neon-text in src/."
+      ]
+    }
+  ]
+}
