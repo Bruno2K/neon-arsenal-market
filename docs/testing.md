@@ -107,6 +107,8 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `reservation.lifecycle.integration.test.ts` | Reservation timestamps, concurrent buyers, expiration vs payment, no duplicate seller transactions. |
 | `paypal.webhook.integration.test.ts` | Duplicate/out-of-order events, expired capture, stale-order capture, payment rollback. PayPal remains isolated. |
 | `observability.integration.test.ts` | Order/reservation/payment/webhook spans and counters against real PostgreSQL. No secrets or high-cardinality labels. |
+| `seller.ledger.integration.test.ts` | Sequential/concurrent confirm; Decimal net identity; projection matches PAID SUM. |
+| `seller.ledger.reconcile.integration.test.ts` | Matching projection is a no-op; drifted projection is SET once + audited; concurrent confirmPayment cannot double-credit. |
 | `performance.evidence.integration.test.ts` | `EXPLAIN ANALYZE` on market/expiry/reconciliation SQL uses the hot-path indexes; listing/order/payment timings stay bounded. |
 
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.

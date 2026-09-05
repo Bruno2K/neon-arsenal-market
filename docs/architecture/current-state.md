@@ -32,7 +32,7 @@ Express API --> PayPal
 Express API --> Resend
 ```
 
-The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling. `startApiProcess` binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry and PayPal-reconciliation jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins.
+The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling. `startApiProcess` binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins.
 
 Observability is optional. `OTEL_ENABLED` defaults to off so `npm run dev` does not need a collector. See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
 
@@ -91,7 +91,7 @@ Webhook handling:
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20) and reuses `confirmPayment`.
 
-Critical workflows emit explicit spans (`orders.create`, `listings.reserve`, `payments.confirm`, `paypal.webhook.*`, `payments.reconcile`) and low-cardinality business counters. Expected 4xx results use `app.outcome` and are not marked span `ERROR`. Prisma calls get `db.prisma` spans without SQL text or parameters. PayPal HTTP uses stable operation names such as `paypal.orders_create`.
+Critical workflows emit explicit spans (`orders.create`, `listings.reserve`, `payments.confirm`, `paypal.webhook.*`, `payments.reconcile`, `seller.ledger.reconcile`) and low-cardinality business counters. Expected 4xx results use `app.outcome` and are not marked span `ERROR`. Prisma calls get `db.prisma` spans without SQL text or parameters. PayPal HTTP uses stable operation names such as `paypal.orders_create`.
 
 ## Testing
 

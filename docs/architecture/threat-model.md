@@ -126,13 +126,13 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 - Listing reserve: `ACTIVE` → `RESERVED` via conditional update (lost update → conflict).
 - Order create: durable `OrderIdempotencyKey` before PayPal.
 - Money: Prisma Decimal, not IEEE floats.
-- Unique seller ledger row per `(sellerId, orderId)`. `Seller.balance` is a projection; the ledger wins if they disagree (ADR 0011).
+- Unique seller ledger row per `(sellerId, orderId)`. `Seller.balance` is a projection; the ledger wins if they disagree (ADR 0011). Periodic in-process reconciliation SETs a drifted projection to PAID SUM under `FOR UPDATE`.
 
 These are **correctness** controls; they also limit economic abuse (double spend of a unique listing, double credit).
 
 ### 4.6 Audit trail
 
-- Append-only `AuditLog` in PostgreSQL for seller approval, listing price/cancel, order status transitions, and local payment confirmation (`docs/adr/0010-audit-log.md`).
+- Append-only `AuditLog` in PostgreSQL for seller approval, listing price/cancel, order status transitions, local payment confirmation, and seller-ledger projection correction (`docs/adr/0010-audit-log.md`).
 - Read API: `GET /admin/audit-logs` is `authenticate` + `requireRole("ADMIN")`. CUSTOMER/SELLER → 403; missing token → 401.
 - `before`/`after` are non-sensitive field diffs. Known secret keys and JWT-shaped values are redacted at write. Full PayPal payloads are not stored.
 - Retention: 365 days (documented policy + `createdAt` index). No Redis TTL worker.

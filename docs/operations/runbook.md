@@ -10,7 +10,7 @@ API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`)
 2. `server/entrypoint.sh` runs `prisma migrate deploy`.
 3. If `SEED_DEMO_DATA=true`, the entrypoint also runs `npm run db:seed`.
 4. `node dist/index.js` starts. It binds **`0.0.0.0:$PORT`** (`PORT` is `3001` in the Blueprint). If `SEED_DEMO_DATA=true`, `index.ts` seeds again. Both passes upsert; they do not overwrite existing rows.
-5. In-process jobs start after listen: reservation expiry (30s) and PayPal GET reconciliation (60s).
+5. In-process jobs start after listen: reservation expiry (30s), PayPal GET reconciliation (60s), and seller ledger reconciliation (60s).
 
 The Blueprint also defines static `neon-arsenal-web`. The public demo often uses Vercel for the Vite client and Render only for the API; set `FRONTEND_URL` on the API and `API_URL` on the frontend. Do not invent env vars.
 
@@ -36,7 +36,7 @@ A new Render deploy does not take traffic until `GET /ready` is 2xx/3xx (Postgre
 On SIGTERM/SIGINT (`docs/adr/0005-external-retry-and-graceful-shutdown.md`):
 
 1. Mark shutting down → `GET /ready` is 503 `shutting_down`.
-2. Stop reservation-expiry and PayPal-reconciliation timers (in-flight sweeps may finish).
+2. Stop reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation timers (in-flight sweeps may finish).
 3. `server.close()`: no new HTTP connections; in-flight requests get **10s** (`SHUTDOWN_DRAIN_MS`), then remaining connections are closed.
 4. Disconnect Prisma.
 5. Shut down OpenTelemetry exporters.
@@ -83,7 +83,7 @@ ORDER BY "receivedAt" DESC
 LIMIT 50;
 ```
 
-Logs (no secrets): `paypal webhook received`, `paypal capture webhook processed`, `paypal webhook duplicate ignored`, `paypal webhook not applied: reservation expired`, `paypal reconciliation skipped: reservation expired`, `graceful shutdown started`.
+Logs (no secrets): `paypal webhook received`, `paypal capture webhook processed`, `paypal webhook duplicate ignored`, `paypal webhook not applied: reservation expired`, `paypal reconciliation skipped: reservation expired`, `seller ledger projection drifted; corrected to PAID SUM`, `graceful shutdown started`.
 
 Capture after the reservation TTL is a split-brain with PayPal. Procedure: **Capture after reservation expiry** below.
 

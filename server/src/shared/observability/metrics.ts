@@ -26,6 +26,8 @@ type Instruments = {
   webhooksDuplicate: Counter;
   webhooksIgnored: Counter;
   webhooksFailed: Counter;
+  sellerLedgerDriftDetected: Counter;
+  sellerLedgerCorrected: Counter;
 };
 
 let instruments: Instruments | undefined;
@@ -99,6 +101,12 @@ function createInstruments(meter: Meter): Instruments {
     webhooksFailed: meter.createCounter("paypal.webhooks.failed", {
       description: "Failed PayPal webhooks",
     }),
+    sellerLedgerDriftDetected: meter.createCounter("seller.ledger.drift_detected", {
+      description: "Seller.balance disagreed with PAID ledger SUM",
+    }),
+    sellerLedgerCorrected: meter.createCounter("seller.ledger.corrected", {
+      description: "Seller.balance set to PAID ledger SUM",
+    }),
   };
 }
 
@@ -169,4 +177,6 @@ export const appMetrics = {
   webhooksDuplicate: (value = 1) => add(getInstruments().webhooksDuplicate, undefined, value),
   webhooksIgnored: (value = 1) => add(getInstruments().webhooksIgnored, undefined, value),
   webhooksFailed: (value = 1) => add(getInstruments().webhooksFailed, undefined, value),
+  sellerLedgerDriftDetected: (value = 1) => add(getInstruments().sellerLedgerDriftDetected, undefined, value),
+  sellerLedgerCorrected: (value = 1) => add(getInstruments().sellerLedgerCorrected, undefined, value),
 };

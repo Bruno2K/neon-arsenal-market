@@ -19,14 +19,28 @@ The project is a modular monolith. PostgreSQL is the source of truth. Redis, Kaf
 5. **Scale / rounding:** listing prices and PayPal capture use 2 decimal places (`toFixed(2)` at the PayPal boundary). Commission keeps exact Decimal `gross × rate` (extra fractional digits from the rate are preserved). This is the existing policy; a separate banker's-rounding step is not introduced.
 6. **Status:** `SellerTransaction.status` is `PaymentStatus` (`PENDING`, `PAID`, `REFUNDED`). Confirmation writes `PAID`. `PENDING` is the unused column default. `REFUNDED` exists for enum alignment with `Order.paymentStatus`; no application path writes it. Do not invent refunds.
 7. **Database enforcement:** keep `@@unique([sellerId, orderId])`. Add CHECK constraints `netAmount = grossAmount - commissionAmount` and non-negative amounts.
-8. **Issue #45 (not implemented here):** periodic financial reconciliation would compare `Seller.balance` to `SELECT sellerId, SUM("netAmount") FROM "SellerTransaction" WHERE status = 'PAID' GROUP BY "sellerId"` and treat ledger SUM as the correct figure. No job, cron, or product UI is added in this change.
+8. **Periodic reconciliation (issue #45):** an in-process job (same `setInterval` + `unref` pattern as PayPal GET reconcile / reservation expiry) compares each `Seller.balance` to `SUM(netAmount) WHERE status = 'PAID'`. There is no Render cron, Redis, or extra worker.
+
+## Correction strategy (issue #45)
+
+Safe correction is **projection-only**. Ledger rows are never inserted, updated, or deleted to "fix" a drift.
+
+1. Unlocked scan: load seller projections and grouped PAID SUMs. Compare with Prisma `Decimal.equals` (never JavaScript `number`).
+2. For each candidate, open a PostgreSQL transaction, `SELECT … FROM "Seller" WHERE id = $id FOR UPDATE`, re-read `balance` and PAID `SUM(netAmount)`.
+3. If they still disagree: `UPDATE Seller SET balance = $sum` (assignment to the ledger figure, not `increment`) and append `AuditLog` `SELLER_BALANCE_RECONCILED` with a system actor (`actorId`/`actorRole` null) in **that same transaction**. `before`/`after` store Decimal strings only.
+4. If they agree under the lock: commit with no write. A second sweep is a no-op.
+5. Structured `warn` + counters `seller.ledger.drift_detected` / `seller.ledger.corrected` fire only after the transaction commits. Metrics have no sellerId labels.
+6. Concurrent `confirmPayment` is safe because it increments `Seller.balance` in the same transaction as the ledger insert; `FOR UPDATE` serializes the corrective SET against that increment so the job cannot apply a stale SUM after a committed credit, and cannot double-credit.
+
+Do not invent refunds, PayPal capture reversal, or a public "fix balance" HTTP route.
 
 ## Rollback
 
-Drop the two CHECK constraints. Unique `(sellerId, orderId)` and the confirm-path claim remain from earlier migrations. Documentation and the shared `computeSellerLedgerAmounts` helper can be reverted independently; doing so would not restore a second source of truth.
+Drop the two CHECK constraints. Unique `(sellerId, orderId)` and the confirm-path claim remain from earlier migrations. Documentation and the shared `computeSellerLedgerAmounts` helper can be reverted independently; doing so would not restore a second source of truth. The reconcile job can be removed from `startApiProcess` without changing ledger writes; in-flight sweeps may finish, then projections stop being auto-aligned.
 
 ## Consequences
 
 - Duplicate payment confirmation remains a no-op after the order claim (`paymentStatus = PENDING AND status = PENDING`); the unique constraint is defense in depth.
-- Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Re-seed on an existing demo seller writes catalog `"0.00"` only when there are no PAID ledger rows; if PAID rows exist, the projection is set to that SUM so credited net is not wiped. Non-zero production credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. Periodic SUM-vs-projection reconciliation remains #45.
+- Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Re-seed on an existing demo seller writes catalog `"0.00"` only when there are no PAID ledger rows; if PAID rows exist, the projection is set to that SUM so credited net is not wiped. Non-zero production credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. The in-process job periodically realigns a drifted projection to PAID SUM (ledger wins).
 - Capture after reservation expiry still creates no ledger row (ADR 0002).
+- Multiple API replicas may run the same sweep; extra executions no-op after the first correction.

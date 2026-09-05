@@ -20,6 +20,7 @@ The project is a modular monolith with PostgreSQL as the source of truth. Redis,
    - listing price change and cancel (`LISTING_PRICE_CHANGE`, `LISTING_CANCEL`)
    - order fulfillment status transitions (`ORDER_STATUS_CHANGE`)
    - local payment confirmation (`PAYMENT_CONFIRMED`, system actor)
+   - seller ledger projection correction (`SELLER_BALANCE_RECONCILED`, system actor; same transaction as the `Seller.balance` SET)
 5. Read access is ADMIN-only (`GET /admin/audit-logs` behind `authenticate` + `requireRole("ADMIN")`). CUSTOMER/SELLER receive 403; missing auth receives 401.
 6. Retention: **365 days**. `createdAt` is indexed. No Redis TTL worker and no new cron/SQS infrastructure. An operator may delete aged rows with a one-shot SQL statement when needed.
 7. `before`/`after` are field-level non-sensitive diffs (status, price, approval flags). The repository redacts known secret keys and JWT-shaped values as defense in depth. Full PayPal payloads, passwords, and tokens must never be stored.

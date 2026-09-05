@@ -180,6 +180,8 @@ describe("OpenTelemetry runtime", () => {
     appMetrics.webhooksDuplicate();
     appMetrics.webhooksIgnored();
     appMetrics.webhooksFailed();
+    appMetrics.sellerLedgerDriftDetected();
+    appMetrics.sellerLedgerCorrected();
 
     const metrics = await collectMetrics();
     expect(sumMetric(metrics, "orders.created")).toBe(1);
@@ -187,6 +189,8 @@ describe("OpenTelemetry runtime", () => {
     expect(sumMetric(metrics, "orders.idempotency_conflict")).toBe(1);
     expect(sumMetric(metrics, "reservations.conflict")).toBe(1);
     expect(sumMetric(metrics, "paypal.webhooks.duplicate")).toBe(1);
+    expect(sumMetric(metrics, "seller.ledger.drift_detected")).toBe(1);
+    expect(sumMetric(metrics, "seller.ledger.corrected")).toBe(1);
     expect(telemetryContainsSensitive(await collectSpans(), metrics)).toBe(false);
   });
 
