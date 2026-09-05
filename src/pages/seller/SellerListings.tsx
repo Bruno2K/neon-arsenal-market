@@ -4,7 +4,6 @@ import {
   Pencil,
   Trash2,
   EyeOff,
-  Eye,
   Loader2,
   DollarSign,
 } from "lucide-react";
@@ -275,24 +274,35 @@ export default function SellerListings() {
   if (error && !seller) {
     return (
       <div className="space-y-4">
-        <h1 className="text-2xl font-heading text-foreground">Meus Listings</h1>
-        <p className="text-destructive">{error}</p>
+        <h1 className="text-2xl font-semibold tracking-tight">Meus listings</h1>
+        <p className="text-sm text-destructive">{error}</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-heading text-foreground">Meus Listings</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Meus listings
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            CRUD de itens únicos. O catálogo de produtos é somente leitura.
+          </p>
+        </div>
         <Button onClick={openCreate} disabled={!seller}>
-          <Package className="h-4 w-4 mr-2" />
+          <Package className="mr-2 h-4 w-4" />
           Novo Listing
         </Button>
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-12">
+        <div
+          className="flex items-center justify-center py-12"
+          role="status"
+          aria-label="Carregando"
+        >
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       ) : (
@@ -328,7 +338,7 @@ export default function SellerListings() {
                       <TableCell className="hidden md:table-cell text-muted-foreground">
                         {Number(l.floatValue).toFixed(8)}
                       </TableCell>
-                      <TableCell className="text-primary font-heading">
+                      <TableCell className="tabular-nums font-medium">
                         ${Number(l.price).toFixed(2)}
                       </TableCell>
                       <TableCell>
