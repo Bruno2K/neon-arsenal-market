@@ -13,6 +13,7 @@ import Products from "./pages/Products";
 import ListingDetail from "./pages/ListingDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
+import OrderStatusPage from "./pages/OrderStatus";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -42,6 +43,30 @@ const App = () => (
                   <Route path="/listing/:id" element={<ListingDetail />} />
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/checkout" element={<Checkout />} />
+                  <Route
+                    path="/orders/:id/return"
+                    element={
+                      <ProtectedRoute>
+                        <OrderStatusPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/orders/:id/cancel"
+                    element={
+                      <ProtectedRoute>
+                        <OrderStatusPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/orders/:id"
+                    element={
+                      <ProtectedRoute>
+                        <OrderStatusPage />
+                      </ProtectedRoute>
+                    }
+                  />
                 </Route>
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />

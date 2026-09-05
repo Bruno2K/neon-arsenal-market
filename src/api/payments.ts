@@ -2,6 +2,8 @@ import { api } from "./client";
 
 export interface CreatePaymentBody {
   orderId: string;
+  returnUrl?: string;
+  cancelUrl?: string;
 }
 
 export interface CreatePaymentResponse {
@@ -10,6 +12,8 @@ export interface CreatePaymentResponse {
   [key: string]: unknown;
 }
 
-export function createPaymentLink(body: CreatePaymentBody): Promise<CreatePaymentResponse> {
+export function createPaymentLink(
+  body: CreatePaymentBody,
+): Promise<CreatePaymentResponse> {
   return api.post<CreatePaymentResponse>("/payments/create", body);
 }
