@@ -28,5 +28,5 @@ Drop the two CHECK constraints. Unique `(sellerId, orderId)` and the confirm-pat
 ## Consequences
 
 - Duplicate payment confirmation remains a no-op after the order claim (`paymentStatus = PENDING AND status = PENDING`); the unique constraint is defense in depth.
-- Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Non-zero credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. Periodic SUM-vs-projection reconciliation remains #45.
+- Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Re-seed on an existing demo seller writes catalog `"0.00"` only when there are no PAID ledger rows; if PAID rows exist, the projection is set to that SUM so credited net is not wiped. Non-zero production credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. Periodic SUM-vs-projection reconciliation remains #45.
 - Capture after reservation expiry still creates no ledger row (ADR 0002).

@@ -1,6 +1,6 @@
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import type { Prisma, PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient } from "@prisma/client";
 import { prisma } from "../shared/database/index.js";
 import { hashPassword } from "../shared/utils/hash.js";
 import { logger } from "../shared/logger.js";
@@ -14,6 +14,7 @@ import {
   listingPrice,
   type DemoListing,
   type DemoProduct,
+  type DemoSellerProfile,
 } from "./demoCatalog.js";
 
 export type SeedSummary = {
@@ -25,6 +26,62 @@ export type SeedSummary = {
 };
 
 const RESERVATION_TTL_MS = 30 * 60 * 1000;
+
+/**
+ * Demo re-seed of `Seller.balance` (INV-SELLER-LEDGER-SOURCE).
+ *
+ * Empty PAID ledger → catalog `"0.00"` so a stale pre-#140 projection
+ * (1250.75 / 580.00 / 210.40) cannot survive `update: {}`.
+ * Existing PAID rows → SUM(netAmount); seed does not wipe confirm credits
+ * and is not a second production writer.
+ */
+export function projectedDemoSellerBalance(
+  catalogBalance: string,
+  paidLedgerNet: Prisma.Decimal | null
+): Prisma.Decimal {
+  if (paidLedgerNet === null) {
+    return new Prisma.Decimal(catalogBalance);
+  }
+  return paidLedgerNet;
+}
+
+async function upsertDemoSeller(
+  client: PrismaClient,
+  userId: string,
+  profile: DemoSellerProfile
+) {
+  return client.$transaction(async (tx) => {
+    const existing = await tx.seller.findUnique({ where: { userId } });
+
+    if (!existing) {
+      return tx.seller.create({
+        data: {
+          userId,
+          storeName: profile.storeName,
+          commissionRate: profile.commissionRate,
+          balance: profile.balance,
+          isApproved: profile.isApproved,
+        },
+      });
+    }
+
+    // Hold the projection row so confirmPayment's increment cannot land
+    // between the PAID SUM read and this write.
+    await tx.$queryRaw`SELECT 1 FROM "Seller" WHERE id = ${existing.id} FOR UPDATE`;
+
+    const paid = await tx.sellerTransaction.aggregate({
+      where: { sellerId: existing.id, status: "PAID" },
+      _sum: { netAmount: true },
+    });
+
+    return tx.seller.update({
+      where: { id: existing.id },
+      data: {
+        balance: projectedDemoSellerBalance(profile.balance, paid._sum.netAmount),
+      },
+    });
+  });
+}
 
 function listingCreateData(
   listing: DemoListing,
@@ -84,19 +141,7 @@ export async function seedDemoData(client: PrismaClient = prisma): Promise<SeedS
     userIds.set(account.email, user.id);
 
     if (account.seller) {
-      const seller = await client.seller.upsert({
-        where: { userId: user.id },
-        update: {},
-        create: {
-          userId: user.id,
-          storeName: account.seller.storeName,
-          commissionRate: account.seller.commissionRate,
-          // Zero projection: no SellerTransaction rows are seeded. confirmPayment
-          // is the only writer of non-zero Seller.balance (ADR 0011 / #140).
-          balance: account.seller.balance,
-          isApproved: account.seller.isApproved,
-        },
-      });
+      const seller = await upsertDemoSeller(client, user.id, account.seller);
       sellerIds.set(account.email, seller.id);
     }
   }
