@@ -38,11 +38,23 @@ describe("Health routes", () => {
   });
 
   describe("GET /health", () => {
+    beforeEach(async () => {
+      const { resetLifecycleForTests } = await import("../../lifecycle/state.js");
+      resetLifecycleForTests();
+    });
+
     it("returns 200 and status ok", async () => {
       const res = await fetch(`${baseUrl}/health`);
       expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body).toEqual({ status: "ok" });
+      expect(await res.json()).toEqual({ status: "ok" });
+    });
+
+    it("stays 200 while the process is shutting down", async () => {
+      const { beginShutdown } = await import("../../lifecycle/state.js");
+      beginShutdown();
+      const res = await fetch(`${baseUrl}/health`);
+      expect(res.status).toBe(200);
+      expect(await res.json()).toEqual({ status: "ok" });
     });
   });
 
