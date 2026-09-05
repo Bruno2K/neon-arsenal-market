@@ -31,6 +31,31 @@ services:
       retries: 5
       start_period: 10s
 
+  # ─── PostgreSQL for integration tests ─────────────────────────────────────
+  # Isolated from the development volume. Data lives in tmpfs and is discarded
+  # when the container stops.
+  #
+  #   docker compose --profile test up db-test -d
+  #   TEST_DATABASE_URL=postgresql://neon:test@localhost:5433/neon_arsenal_test
+  db-test:
+    image: postgres:16-alpine
+    container_name: neon-arsenal-db-test
+    profiles: ["test"]
+    environment:
+      POSTGRES_USER: neon
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: neon_arsenal_test
+    ports:
+      - "5433:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U neon -d neon_arsenal_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
   # ─── Backend API ──────────────────────────────────────────────────────────
   api:
     build:

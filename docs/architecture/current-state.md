@@ -85,9 +85,22 @@ Webhook handling:
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20) and reuses `confirmPayment`.
 
+## Testing
+
+Backend tests are split:
+
+- Unit tests (`npm run test:unit`) cover validation, error mapping and control flow. Prisma may be mocked there.
+- Integration tests (`npm run test:integration`) run against real PostgreSQL after `prisma migrate deploy`. They fail if the database is missing or unreachable.
+
+The integration harness resets business tables with `TRUNCATE ... CASCADE` between tests. Factories create only the rows a scenario needs. Integration files are serialized because they share one database; unit files stay parallel.
+
+Concurrency, rollback, unique constraints and reservation/payment races are proven by querying PostgreSQL after the operation. PayPal HTTP remains isolated from persistence tests.
+
+See `docs/testing.md`.
+
 ## Runtime configuration
 
-The backend package provides scripts for development, build, type checking, tests and Prisma migrations.
+The backend package provides scripts for development, build, type checking, unit tests, PostgreSQL integration tests and Prisma migrations.
 
 Agents must inspect the actual `.env.example` and configuration modules before introducing configuration. Never invent environment variables.
 
