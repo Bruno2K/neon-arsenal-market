@@ -351,6 +351,39 @@ export const openApiSpec = {
         },
       },
     },
+    "/orders/{id}/status": {
+      patch: {
+        tags: ["Orders"],
+        summary: "Apply a valid order status transition",
+        description:
+          "Replaces free status updates with the fulfillment state machine. Allowed: PENDING→CONFIRMED|CANCELLED, CONFIRMED→SHIPPED|CANCELLED, SHIPPED→DELIVERED. DELIVERED and CANCELLED are terminal. CUSTOMER may cancel own PENDING/CONFIRMED orders and confirm SHIPPED→DELIVERED. ADMIN may apply any graph edge. SELLER cannot change status. Concurrent transitions from the same row return 409.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["status"],
+                properties: {
+                  status: {
+                    type: "string",
+                    enum: ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"],
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Transition applied", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+          400: { description: "Invalid or terminal transition" },
+          403: { description: "Role cannot apply this transition, or the order is not the caller's" },
+          404: { description: "Order not found" },
+          409: { description: "A concurrent request already changed the order status" },
+        },
+      },
+    },
     "/payments/create": {
       post: {
         tags: ["Payments"],

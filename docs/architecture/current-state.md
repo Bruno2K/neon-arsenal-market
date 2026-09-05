@@ -74,6 +74,10 @@ Order creation currently uses a PostgreSQL transaction and an atomic conditional
 
 Expired reservations are released by an in-process sweep that calls `listingsService.expireReservations()`. The listing UPDATE is conditional on `status = RESERVED` and `reservationExpiresAt <= now`, so it cannot overwrite `SOLD`. Payment confirmation requires `status = RESERVED`, `reservedByOrderId = orderId` and `reservationExpiresAt > now`; if that UPDATE does not cover every order item, the payment transaction rolls back. Unpaid orders are cancelled when they no longer hold their listings, including the case where the listing was reserved by a later order.
 
+### Order status
+
+`PATCH /orders/:id/status` applies an explicit fulfillment graph (`PENDING → CONFIRMED | CANCELLED`, `CONFIRMED → SHIPPED | CANCELLED`, `SHIPPED → DELIVERED`; `DELIVERED` and `CANCELLED` are terminal). The write is a conditional `UPDATE` on current status so concurrent PATCHes cannot both succeed. Role rules: SELLER is forbidden; CUSTOMER may cancel own `PENDING`/`CONFIRMED` orders and confirm `SHIPPED → DELIVERED`; ADMIN may apply any graph edge. Payment confirmation still performs `PENDING → CONFIRMED` internally and is not a customer PATCH.
+
 ### Payment confirmation
 
 Payment creation calls PayPal outside the database transaction, with an explicit timeout (`PAYPAL_API_TIMEOUT_MS`, default 10s). `OrdersCreate` and `OrdersCapture` are not retried. Idempotent PayPal reads (order GET, OAuth token, webhook certificate) retry HTTP 5xx/429, timeouts and network errors up to 3 times with exponential backoff. The PayPal order ID is stored on the local order.
