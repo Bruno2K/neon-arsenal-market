@@ -1,5 +1,6 @@
-import { Component, type ErrorInfo, type ReactNode } from 'react';
-import { Button } from '@/components/ui/button';
+import { Component, type ErrorInfo, type ReactNode } from "react";
+import { ErrorState } from "@/components/page-state";
+import { Button } from "@/components/ui/button";
 
 interface Props {
   children: ReactNode;
@@ -19,23 +20,26 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught:', error, errorInfo);
+    console.error("ErrorBoundary caught:", error, errorInfo);
   }
 
   render() {
     if (this.state.hasError && this.state.error) {
       if (this.props.fallback) return this.props.fallback;
       return (
-        <div className="container py-20 text-center">
-          <h1 className="text-2xl font-heading text-foreground mb-2">Algo deu errado</h1>
-          <p className="text-muted-foreground mb-6 max-w-md mx-auto">
-            {this.state.error.message}
-          </p>
-          <Button
-            onClick={() => this.setState({ hasError: false, error: null })}
-          >
-            Tentar novamente
-          </Button>
+        <div className="container py-20">
+          <ErrorState
+            title="Algo deu errado"
+            description={this.state.error.message}
+            action={
+              <Button
+                type="button"
+                onClick={() => this.setState({ hasError: false, error: null })}
+              >
+                Tentar novamente
+              </Button>
+            }
+          />
         </div>
       );
     }

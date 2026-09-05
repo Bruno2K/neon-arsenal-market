@@ -79,7 +79,7 @@ export default function Login() {
                 />
                 <button
                   type="button"
-                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setShowPassword((open) => !open)}
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 >

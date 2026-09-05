@@ -40,6 +40,8 @@ describe("Header", () => {
     expect(screen.getByText("Market")).toBeTruthy();
     expect(screen.getByText("Login")).toBeTruthy();
     expect(screen.queryByText("SKINMARKET")).toBeNull();
+    expect(screen.getByLabelText("Carrinho")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Menu" })).toBeTruthy();
   });
 
   it("shows Dashboard for a seller", () => {

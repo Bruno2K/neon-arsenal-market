@@ -58,13 +58,15 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <Button
             size="icon"
             variant="outline"
-            className="h-9 w-9"
             onClick={(e) => {
               e.preventDefault();
               addItem(listing);
             }}
             disabled={!isAvailable}
             title={
+              !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
+            }
+            aria-label={
               !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
             }
           >

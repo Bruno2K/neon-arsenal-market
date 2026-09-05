@@ -123,7 +123,7 @@ export default function Register() {
                   />
                   <button
                     type="button"
-                    className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                    className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     onClick={() => setShowPassword((open) => !open)}
                     aria-label={
                       showPassword ? "Ocultar senha" : "Mostrar senha"
@@ -141,7 +141,7 @@ export default function Register() {
                 <legend className="text-sm font-medium">Tipo de conta</legend>
                 <div className="mt-2 flex gap-2">
                   <label
-                    className={`flex h-10 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
+                    className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
                       role === "CUSTOMER"
                         ? "border-primary bg-accent text-accent-foreground"
                         : "border-border text-muted-foreground hover:text-foreground"
@@ -157,7 +157,7 @@ export default function Register() {
                     Comprador
                   </label>
                   <label
-                    className={`flex h-10 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
+                    className={`flex min-h-11 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
                       role === "SELLER"
                         ? "border-primary bg-accent text-accent-foreground"
                         : "border-border text-muted-foreground hover:text-foreground"

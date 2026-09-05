@@ -6,6 +6,7 @@ import { EmptyState, ErrorState } from "@/components/page-state";
 import { listListings } from "@/api/listings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const EXTERIORS = [
@@ -41,7 +42,7 @@ function Chip({
       type="button"
       variant={active ? "default" : "outline"}
       size="sm"
-      className="h-8"
+      aria-pressed={active}
       onClick={onClick}
     >
       {children}
@@ -57,7 +58,7 @@ export default function Products() {
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
-  const { data, isLoading, isError, error } = useQuery({
+  const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: [
       "listings",
       { page, exterior, isStattrak, sort, minPrice, maxPrice },
@@ -109,8 +110,8 @@ export default function Products() {
       </div>
 
       <div className="mb-8 space-y-4 border-b border-border pb-6">
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Exterior</p>
+        <fieldset className="space-y-1.5">
+          <legend className="text-xs text-muted-foreground">Exterior</legend>
           <div className="flex flex-wrap gap-1.5">
             {EXTERIORS.map((ext) => (
               <Chip
@@ -125,11 +126,11 @@ export default function Products() {
               </Chip>
             ))}
           </div>
-        </div>
+        </fieldset>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">StatTrak™</p>
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs text-muted-foreground">StatTrak™</legend>
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
@@ -150,43 +151,46 @@ export default function Products() {
                 </Chip>
               ))}
             </div>
-          </div>
+          </fieldset>
 
-          <div className="space-y-1.5">
-            <p className="text-xs text-muted-foreground">
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs text-muted-foreground">
               Faixa de Preço (USD)
-            </p>
+            </legend>
             <div className="flex items-center gap-2">
+              <Label htmlFor="minPrice" className="sr-only">
+                Preço mínimo
+              </Label>
               <Input
+                id="minPrice"
                 type="number"
                 placeholder="Mín"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
-                className="h-8 w-24"
+                className="w-24"
               />
               <span className="text-sm text-muted-foreground">–</span>
+              <Label htmlFor="maxPrice" className="sr-only">
+                Preço máximo
+              </Label>
               <Input
+                id="maxPrice"
                 type="number"
                 placeholder="Máx"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
-                className="h-8 w-24"
+                className="w-24"
               />
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-8"
-                onClick={() => setPage(1)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setPage(1)}>
                 <Filter className="mr-1 h-3 w-3" />
                 Filtrar
               </Button>
             </div>
-          </div>
+          </fieldset>
         </div>
 
-        <div className="space-y-1.5">
-          <p className="text-xs text-muted-foreground">Ordenar</p>
+        <fieldset className="space-y-1.5">
+          <legend className="text-xs text-muted-foreground">Ordenar</legend>
           <div className="flex flex-wrap gap-1.5">
             {SORTS.map(({ value, label }) => (
               <Chip
@@ -198,7 +202,7 @@ export default function Products() {
               </Chip>
             ))}
           </div>
-        </div>
+        </fieldset>
       </div>
 
       {isLoading && (
@@ -220,6 +224,11 @@ export default function Products() {
             error instanceof Error
               ? error.message
               : "Tente novamente em instantes."
+          }
+          action={
+            <Button type="button" variant="outline" onClick={() => refetch()}>
+              Tentar novamente
+            </Button>
           }
         />
       )}

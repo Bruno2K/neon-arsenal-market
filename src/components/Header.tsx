@@ -7,7 +7,11 @@ import { Button } from "@/components/ui/button";
 
 function brandMark() {
   return (
-    <Link to="/" className="flex items-center gap-2.5">
+    <Link
+      to="/"
+      className="flex min-h-11 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      aria-label="Neon Arsenal, página inicial"
+    >
       <span className="h-4 w-4 rounded-sm bg-primary" aria-hidden />
       <span className="text-[15px] font-semibold tracking-tight text-foreground">
         Neon Arsenal
@@ -33,7 +37,7 @@ export function Header() {
   const linkClass = (to: string) => {
     const active =
       to === "/" ? location.pathname === "/" : location.pathname.startsWith(to);
-    return `text-sm transition-colors ${
+    return `inline-flex min-h-11 items-center text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
       active ? "text-foreground" : "text-muted-foreground hover:text-foreground"
     }`;
   };
@@ -48,7 +52,20 @@ export function Header() {
           aria-label="Principal"
         >
           {navLinks.map((item) => (
-            <Link key={item.to} to={item.to} className={linkClass(item.to)}>
+            <Link
+              key={item.to}
+              to={item.to}
+              className={linkClass(item.to)}
+              aria-current={
+                (
+                  item.to === "/"
+                    ? location.pathname === "/"
+                    : location.pathname.startsWith(item.to)
+                )
+                  ? "page"
+                  : undefined
+              }
+            >
               {item.label}
             </Link>
           ))}
@@ -57,7 +74,7 @@ export function Header() {
         <div className="flex items-center gap-1.5">
           <Link
             to="/cart"
-            className="relative rounded-md p-2 text-muted-foreground transition-colors hover:text-foreground"
+            className="relative inline-flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             aria-label={
               totalItems > 0 ? `Carrinho, ${totalItems} itens` : "Carrinho"
             }
@@ -118,6 +135,15 @@ export function Header() {
               key={item.to}
               to={item.to}
               className={`block rounded-md px-3 py-2.5 text-sm ${linkClass(item.to)}`}
+              aria-current={
+                (
+                  item.to === "/"
+                    ? location.pathname === "/"
+                    : location.pathname.startsWith(item.to)
+                )
+                  ? "page"
+                  : undefined
+              }
               onClick={() => setMenuOpen(false)}
             >
               {item.label}
@@ -126,7 +152,7 @@ export function Header() {
           {isAuthenticated ? (
             <button
               type="button"
-              className="block w-full rounded-md px-3 py-2.5 text-left text-sm text-muted-foreground"
+              className="block min-h-11 w-full rounded-md px-3 py-2.5 text-left text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => {
                 logout();
                 setMenuOpen(false);
