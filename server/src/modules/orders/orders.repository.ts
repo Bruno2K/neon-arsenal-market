@@ -136,4 +136,16 @@ export const ordersRepository = {
       include: { items: true },
     });
   },
+
+  /**
+   * Atomically apply from → to. Concurrent PATCH or expiry/payment races
+   * lose when `status` is no longer `from`.
+   */
+  async transitionStatus(orderId: string, from: OrderStatus, to: OrderStatus) {
+    const result = await prisma.order.updateMany({
+      where: { id: orderId, status: from },
+      data: { status: to },
+    });
+    return result.count;
+  },
 };

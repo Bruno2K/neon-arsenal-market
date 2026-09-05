@@ -89,7 +89,7 @@ Variáveis: `OTEL_ENABLED`, `OTEL_EXPORTER` (`none` | `console` | `otlp`), `OTEL
 | `GET/POST/PATCH/DELETE /products` | CRUD (POST/PATCH/DELETE = SELLER/ADMIN) |
 | `POST /orders`        | Criar pedido (CUSTOMER, body: items: [{ productId, quantity }]) |
 | `GET /orders`, `GET /orders/:id` | Listar/detalhe (auth)        |
-| `PATCH /orders/:id/status` | Atualizar status (CUSTOMER/ADMIN, não SELLER) |
+| `PATCH /orders/:id/status` | Transição explícita (CUSTOMER: cancelar PENDING/CONFIRMED ou SHIPPED→DELIVERED; ADMIN: grafo completo; SELLER: 403). Terminais: DELIVERED, CANCELLED |
 | `POST /payments/create` | Link PayPal (body: orderId) (auth)  |
 | `POST /payments/webhook` | Webhook PayPal (sem auth)        |
 | `GET /commissions/transactions` | Transações (SELLER/ADMIN)   |

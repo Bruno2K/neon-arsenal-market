@@ -35,6 +35,7 @@ vi.mock("../orders.repository.js", () => ({
     findManyByCustomerId: vi.fn(),
     findManyBySellerId: vi.fn(),
     findMany: vi.fn(),
+    transitionStatus: vi.fn(),
   },
 }));
 
@@ -436,14 +437,93 @@ describe("ordersService", () => {
       ).rejects.toMatchObject({ statusCode: 403 });
     });
 
-    it("ADMIN can update any order status", async () => {
-      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
-      vi.mocked(prisma.order.update).mockResolvedValue({ ...mockOrder(), status: "SHIPPED" } as never);
+    it("ADMIN can apply a valid graph transition", async () => {
+      const pending = mockOrder();
+      const confirmed = { ...mockOrder(), status: "CONFIRMED" };
+      vi.mocked(ordersRepository.findById)
+        .mockResolvedValueOnce(pending as never)
+        .mockResolvedValueOnce(confirmed as never);
+      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(1);
 
-      await ordersService.updateStatus("order-1", "admin-id", "ADMIN", "SHIPPED");
-      expect(prisma.order.update).toHaveBeenCalledWith(
-        expect.objectContaining({ data: { status: "SHIPPED" } })
+      const result = await ordersService.updateStatus("order-1", "admin-id", "ADMIN", "CONFIRMED");
+      expect(ordersRepository.transitionStatus).toHaveBeenCalledWith("order-1", "PENDING", "CONFIRMED");
+      expect(result.status).toBe("CONFIRMED");
+    });
+
+    it("rejects an invalid graph skip PENDING → SHIPPED", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
+
+      await expect(
+        ordersService.updateStatus("order-1", "admin-id", "ADMIN", "SHIPPED")
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Invalid status transition from PENDING to SHIPPED",
+      });
+      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+    });
+
+    it("rejects transitions out of terminal DELIVERED", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(
+        mockOrder({ status: "DELIVERED" }) as never
       );
+
+      await expect(
+        ordersService.updateStatus("order-1", "admin-id", "ADMIN", "CANCELLED")
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Invalid status transition from DELIVERED to CANCELLED",
+      });
+      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+    });
+
+    it("rejects transitions out of terminal CANCELLED", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(
+        mockOrder({ status: "CANCELLED" }) as never
+      );
+
+      await expect(
+        ordersService.updateStatus("order-1", "admin-id", "ADMIN", "PENDING")
+      ).rejects.toMatchObject({
+        statusCode: 400,
+        message: "Invalid status transition from CANCELLED to PENDING",
+      });
+    });
+
+    it("CUSTOMER can cancel their own PENDING order", async () => {
+      const pending = mockOrder();
+      const cancelled = { ...mockOrder(), status: "CANCELLED" };
+      vi.mocked(ordersRepository.findById)
+        .mockResolvedValueOnce(pending as never)
+        .mockResolvedValueOnce(cancelled as never);
+      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(1);
+
+      const result = await ordersService.updateStatus("order-1", "user-1", "CUSTOMER", "CANCELLED");
+      expect(ordersRepository.transitionStatus).toHaveBeenCalledWith("order-1", "PENDING", "CANCELLED");
+      expect(result.status).toBe("CANCELLED");
+    });
+
+    it("CUSTOMER cannot mark their own order CONFIRMED", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
+
+      await expect(
+        ordersService.updateStatus("order-1", "user-1", "CUSTOMER", "CONFIRMED")
+      ).rejects.toMatchObject({
+        statusCode: 403,
+        message: "Role CUSTOMER cannot transition order from PENDING to CONFIRMED",
+      });
+      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+    });
+
+    it("returns 409 when a concurrent transition already moved the row", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
+      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(0);
+
+      await expect(
+        ordersService.updateStatus("order-1", "admin-id", "ADMIN", "CANCELLED")
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: "Order status changed concurrently",
+      });
     });
   });
 

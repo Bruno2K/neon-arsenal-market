@@ -4,6 +4,10 @@ import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
+import {
+  assertOrderStatusTransition,
+  parseOrderStatus,
+} from "./order-status.js";
 import { Prisma } from "@prisma/client";
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
@@ -229,23 +233,19 @@ export const ordersService = {
     if (role === "SELLER") throw new AppError(403, "Sellers cannot edit orders");
     if (role === "CUSTOMER" && order.customer.id !== userId)
       throw new AppError(403, "Not your order");
-    return prisma.order.update({
-      where: { id: orderId },
-      data: { status: status as "PENDING" | "CONFIRMED" | "SHIPPED" | "DELIVERED" | "CANCELLED" },
-      include: {
-        customer: { select: { id: true, name: true, email: true } },
-        items: {
-          include: {
-            listing: {
-              include: {
-                product: { select: { id: true, weapon: true, skinName: true, exterior: true } },
-              },
-            },
-            seller: { select: { id: true, storeName: true } },
-          },
-        },
-      },
-    });
+
+    const fromStatus = parseOrderStatus(order.status);
+    const toStatus = parseOrderStatus(status);
+    assertOrderStatusTransition(fromStatus, toStatus, role);
+
+    const moved = await ordersRepository.transitionStatus(orderId, fromStatus, toStatus);
+    if (moved !== 1) {
+      throw new AppError(409, "Order status changed concurrently");
+    }
+
+    const updated = await ordersRepository.findById(orderId);
+    if (!updated) throw new AppError(404, "Order not found");
+    return updated;
   },
 
   async updateTracking(orderId: string, userId: string, role: string, input: UpdateOrderTrackingInput) {

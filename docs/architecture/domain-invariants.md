@@ -29,6 +29,13 @@ Rules:
 
 ## Orders
 
+Allowed fulfillment lifecycle:
+
+```text
+PENDING → CONFIRMED → SHIPPED → DELIVERED
+       ↘ CANCELLED ↙
+```
+
 1. An order belongs to one customer.
 2. Each listing may appear at most once in an order.
 3. Order item price is a snapshot of the price at purchase/reservation time.
@@ -37,6 +44,9 @@ Rules:
 6. `POST /orders` requires a customer-scoped `Idempotency-Key`; repeated requests with the same key and canonical listing set must return the original order without creating another order or reservation.
 7. Reusing the same `Idempotency-Key` for a different canonical listing set must be rejected deterministically.
 8. The idempotency record must commit in the same transaction as order creation and reservation so crash-before-commit leaves no business effect and crash-after-commit can be retried safely.
+9. `Order.status` follows an explicit state machine. Allowed transitions: `PENDING → CONFIRMED | CANCELLED`, `CONFIRMED → SHIPPED | CANCELLED`, `SHIPPED → DELIVERED`. `DELIVERED` and `CANCELLED` are terminal.
+10. A client must never force an arbitrary order status. `PATCH /orders/:id/status` applies only a valid transition, atomically (`UPDATE … WHERE id = $id AND status = $from`). A concurrent winner leaves the loser with HTTP 409 and exactly one committed successor.
+11. Role rules for `PATCH /orders/:id/status`: SELLER cannot change fulfillment status. CUSTOMER may cancel their own `PENDING` or `CONFIRMED` order and may mark their own `SHIPPED` order `DELIVERED`. ADMIN may apply any graph edge. `PENDING → CONFIRMED` for payment remains the trusted payment-confirmation path, not a customer PATCH. Cancelling a `CONFIRMED` order does not invent a PayPal refund; `paymentStatus` is unchanged.
 
 ## Payments
 
