@@ -24,11 +24,20 @@ app.use(requestId);
 app.use(httpTelemetry);
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
+function normalizeOrigin(origin: string): string | null {
+  try {
+    return new URL(origin).origin;
+  } catch {
+    const trimmed = origin.trim().replace(/\/+$/, "");
+    return trimmed === "" ? null : trimmed;
+  }
+}
+
 // Restrict to the configured frontend origin (defaults to localhost:5173 for dev)
 const fromEnv = (process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+  .map((o) => normalizeOrigin(o))
+  .filter((origin): origin is string => Boolean(origin));
 const devOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",

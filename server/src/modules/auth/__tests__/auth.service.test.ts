@@ -25,13 +25,17 @@ vi.mock("../../../shared/utils/jwt.js", () => ({
   verifyRefreshToken: vi.fn().mockReturnValue({ sub: "u1", email: "u@test.com", role: "CUSTOMER" }),
 }));
 vi.mock("../../../shared/utils/sendVerificationCode.js", () => ({
+  assertVerificationEmailDeliveryConfigured: vi.fn(),
   sendVerificationCode: vi.fn().mockResolvedValue(undefined),
 }));
 
 import { authService } from "../auth.service.js";
 import { authRepository } from "../auth.repository.js";
 import { prisma } from "../../../shared/database/index.js";
-import { sendVerificationCode } from "../../../shared/utils/sendVerificationCode.js";
+import {
+  assertVerificationEmailDeliveryConfigured,
+  sendVerificationCode,
+} from "../../../shared/utils/sendVerificationCode.js";
 
 describe("authService", () => {
   beforeEach(() => {
@@ -75,6 +79,7 @@ describe("authService", () => {
           where: { email: "new@test.com" },
         })
       );
+      expect(assertVerificationEmailDeliveryConfigured).toHaveBeenCalled();
       expect(sendVerificationCode).toHaveBeenCalledWith("new@test.com", expect.any(String));
       expect(result).toHaveProperty("message");
       expect(result).not.toHaveProperty("accessToken");

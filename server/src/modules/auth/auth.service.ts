@@ -8,7 +8,10 @@ import {
   getRefreshExpiresAt,
 } from "../../shared/utils/jwt.js";
 import { generateVerificationCode, getVerificationExpiresAt } from "../../shared/utils/verificationCode.js";
-import { sendVerificationCode } from "../../shared/utils/sendVerificationCode.js";
+import {
+  assertVerificationEmailDeliveryConfigured,
+  sendVerificationCode,
+} from "../../shared/utils/sendVerificationCode.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import type { RegisterInput, VerifyEmailInput, LoginInput } from "./auth.dto.js";
 import type { Role } from "../../shared/types/roles.js";
@@ -35,6 +38,7 @@ export const authService = {
   async register(input: RegisterInput) {
     const existingUser = await authRepository.findByEmail(input.email);
     if (existingUser) throw new AppError(409, "Email already registered");
+    assertVerificationEmailDeliveryConfigured();
 
     const code = generateVerificationCode();
     const expiresAt = getVerificationExpiresAt();

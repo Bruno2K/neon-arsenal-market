@@ -36,9 +36,29 @@ services:
         value: sandbox
       - key: PAYPAL_WEBHOOK_ID
         sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      - key: EMAIL_API_TIMEOUT_MS
+        value: "10000"
       - key: FRONTEND_URL
         sync: false
     healthCheckPath: /health
+    autoDeploy: true
+
+  - type: web
+    name: neon-arsenal-web
+    runtime: static
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
     autoDeploy: true
 
 databases:
