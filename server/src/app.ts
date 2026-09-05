@@ -21,6 +21,8 @@ import { getAllowedCorsOrigins, isCorsOriginAllowed } from "./shared/config/cors
 
 const app = express();
 
+app.set("trust proxy", true);
+
 app.use(requestId);
 app.use(httpTelemetry);
 
