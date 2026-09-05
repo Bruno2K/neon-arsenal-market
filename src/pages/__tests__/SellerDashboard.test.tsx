@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SellerDashboard from "../SellerDashboard";
-import type { Listing, Order } from "@/types/api";
+import type { Listing, Order, Role, User } from "@/types/api";
 
 const getSellerListings = vi.fn();
 const listOrders = vi.fn();
+const authState = {
+  user: {
+    id: "seller-user",
+    name: "Seller",
+    email: "seller@test.com",
+    role: "SELLER",
+  } as User,
+};
 
 vi.mock("@/api/listings", () => ({
   getSellerListings: (...args: unknown[]) => getSellerListings(...args),
@@ -14,6 +22,10 @@ vi.mock("@/api/listings", () => ({
 
 vi.mock("@/api/orders", () => ({
   listOrders: (...args: unknown[]) => listOrders(...args),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => authState,
 }));
 
 function listing(status: Listing["status"] = "ACTIVE"): Listing {
@@ -71,14 +83,23 @@ function order(id: string, amount: number): Order {
   };
 }
 
-function renderDashboard() {
+function renderDashboard(role: Role = "SELLER") {
+  authState.user = {
+    id: `${role}-user`,
+    name: role,
+    email: `${role.toLowerCase()}@test.com`,
+    role,
+  };
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <SellerDashboard />
+      <MemoryRouter initialEntries={["/seller"]}>
+        <Routes>
+          <Route path="/seller" element={<SellerDashboard />} />
+          <Route path="/admin" element={<div>admin-home</div>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -97,7 +118,7 @@ describe("SellerDashboard", () => {
     });
     listOrders.mockResolvedValue([order("ord-1", 42)]);
 
-    renderDashboard();
+    renderDashboard("SELLER");
 
     expect(await screen.findByText("Visão geral")).toBeTruthy();
     expect(screen.getByText("Listings ativos")).toBeTruthy();
@@ -106,5 +127,18 @@ describe("SellerDashboard", () => {
     expect(screen.getByText("AK-47 | Redline")).toBeTruthy();
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
     expect(screen.queryByText(/CS2 Skin Marketplace/i)).toBeNull();
+  });
+
+  it("redirects ADMIN to /admin instead of showing Seller not found", async () => {
+    getSellerListings.mockRejectedValue(new Error("Seller not found"));
+    listOrders.mockRejectedValue(new Error("Seller not found"));
+
+    renderDashboard("ADMIN");
+
+    expect(await screen.findByText("admin-home")).toBeTruthy();
+    expect(screen.queryByText("Erro ao carregar o painel")).toBeNull();
+    expect(screen.queryByText("Seller not found")).toBeNull();
+    expect(getSellerListings).not.toHaveBeenCalled();
+    expect(listOrders).not.toHaveBeenCalled();
   });
 });

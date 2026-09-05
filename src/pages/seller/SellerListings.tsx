@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Navigate } from "react-router-dom";
 import {
   Package,
   Pencil,
@@ -47,6 +48,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, ErrorState } from "@/components/page-state";
+import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -67,6 +69,8 @@ const emptyForm = {
 };
 
 export default function SellerListings() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [seller, setSeller] = useState<Seller | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -128,10 +132,15 @@ export default function SellerListings() {
   };
 
   useEffect(() => {
+    if (isAdmin) return;
     void reload();
     // Mount + explicit retry via reload(); load helpers close over setters only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isAdmin]);
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   const openCreate = () => {
     setEditingListing(null);

@@ -12,7 +12,7 @@ import type { User } from "@/types/api";
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
   /** Step 1: send verification code to email. Returns message and optional code (dev). */
   startRegistration: (params: {
     name: string;
@@ -62,6 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const data = await authApi.login({ email, password });
       setUser(data.user);
+      return data.user;
     } catch (e) {
       const message = e instanceof Error ? e.message : "Login failed";
       setError(message);
@@ -86,20 +87,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw e;
       }
     },
-    []
+    [],
   );
 
-  const confirmRegistration = useCallback(async (email: string, code: string) => {
-    setError(null);
-    try {
-      const data = await authApi.verifyEmail({ email, code });
-      setUser(data.user);
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Invalid or expired code";
-      setError(message);
-      throw e;
-    }
-  }, []);
+  const confirmRegistration = useCallback(
+    async (email: string, code: string) => {
+      setError(null);
+      try {
+        const data = await authApi.verifyEmail({ email, code });
+        setUser(data.user);
+      } catch (e) {
+        const message =
+          e instanceof Error ? e.message : "Invalid or expired code";
+        setError(message);
+        throw e;
+      }
+    },
+    [],
+  );
 
   const logout = useCallback(() => {
     authApi.logout();

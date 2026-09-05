@@ -1,8 +1,9 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Package, ShoppingBag, DollarSign } from "lucide-react";
 import { listOrders } from "@/api/orders";
 import { getSellerListings } from "@/api/listings";
+import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -36,13 +37,18 @@ function orderSummary(order: Order): string {
 }
 
 export default function SellerDashboard() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
+
   const listingsQuery = useQuery({
     queryKey: ["sellerListings"],
     queryFn: () => getSellerListings(),
+    enabled: !isAdmin,
   });
   const ordersQuery = useQuery({
     queryKey: ["orders"],
     queryFn: () => listOrders(),
+    enabled: !isAdmin,
   });
 
   const listings = listingsQuery.data?.items ?? [];
@@ -50,6 +56,10 @@ export default function SellerDashboard() {
   const isLoading = listingsQuery.isLoading || ordersQuery.isLoading;
   const isError = listingsQuery.isError || ordersQuery.isError;
   const error = listingsQuery.error ?? ordersQuery.error;
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   const activeListings = listings.filter(
     (listing) => listing.status === "ACTIVE",
