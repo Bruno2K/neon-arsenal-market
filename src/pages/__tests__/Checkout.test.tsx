@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Checkout from "../Checkout";
 import type { Listing, Order, User } from "@/types/api";
 import { PRE_ORDER_HOLD_COPY } from "@/lib/orderPaymentView";
@@ -9,12 +10,15 @@ const createOrder = vi.fn();
 const createPaymentLink = vi.fn();
 const redirectToExternal = vi.fn();
 const reserveListing = vi.fn();
+const getListing = vi.fn();
 
 const cartState = {
-  items: [] as { listing: Listing }[],
+  items: [] as { listing: Listing; priceWhenAdded?: Listing["price"] }[],
   totalPrice: 0,
   clearCart: vi.fn(),
   removeItems: vi.fn(),
+  removeItem: vi.fn(),
+  updateListing: vi.fn(),
 };
 
 const authState = {
@@ -44,6 +48,7 @@ vi.mock("@/lib/redirect", () => ({
 
 vi.mock("@/api/listings", () => ({
   reserveListing: (...args: unknown[]) => reserveListing(...args),
+  getListing: (...args: unknown[]) => getListing(...args),
 }));
 
 function listing(price = 100, id = "listing-ak"): Listing {
@@ -114,17 +119,31 @@ function expectedPaypalUrls(orderId: string) {
   };
 }
 
+let queryClient = new QueryClient({
+  defaultOptions: { queries: { retry: false } },
+});
+
 function CheckoutHarness({ nonce = 0 }: { nonce?: number }) {
   void nonce;
   return (
-    <MemoryRouter initialEntries={["/checkout"]}>
-      <Routes>
-        <Route path="/checkout" element={<Checkout />} />
-        <Route path="/orders/:id" element={<div>Pedido destino</div>} />
-        <Route path="/login" element={<div>Login</div>} />
-      </Routes>
-    </MemoryRouter>
+    <QueryClientProvider client={queryClient}>
+      <MemoryRouter initialEntries={["/checkout"]}>
+        <Routes>
+          <Route path="/checkout" element={<Checkout />} />
+          <Route path="/orders/:id" element={<div>Pedido destino</div>} />
+          <Route path="/login" element={<div>Login</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>
   );
+}
+
+async function waitForPayable() {
+  await waitFor(() => {
+    expect(
+      screen.getByRole("button", { name: /Pagar com PayPal/ }),
+    ).not.toBeDisabled();
+  });
 }
 
 function renderCheckout(nonce = 0) {
@@ -154,16 +173,27 @@ describe("Checkout", () => {
   ];
 
   beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     cartState.items = [];
     cartState.totalPrice = 0;
     cartState.clearCart.mockReset();
     cartState.removeItems.mockReset();
+    cartState.removeItem.mockReset();
+    cartState.updateListing.mockReset();
     authState.user = null;
     authState.isAuthenticated = false;
     createOrder.mockReset();
     createPaymentLink.mockReset();
     redirectToExternal.mockReset();
     reserveListing.mockReset();
+    getListing.mockReset();
+    getListing.mockImplementation(async (id: string) => {
+      const found = cartState.items.find((item) => item.listing.id === id);
+      if (!found) throw new Error("Listing not found");
+      return found.listing;
+    });
     let uuidIndex = 0;
     vi.spyOn(crypto, "randomUUID").mockImplementation(
       () => uuidKeys[uuidIndex++] ?? "overflow-uuid",
@@ -190,12 +220,13 @@ describe("Checkout", () => {
     expect(screen.queryByText(/Pagar com PayPal/)).toBeNull();
   });
 
-  it("shows 5% fee and does not claim payment succeeded", () => {
+  it("shows 5% fee and does not claim payment succeeded", async () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;
     asCustomer();
 
     renderCheckout();
+    await waitForPayable();
 
     expect(screen.getAllByText("$100.00").length).toBe(2);
     expect(screen.getByText("$5.00")).toBeTruthy();
@@ -208,6 +239,7 @@ describe("Checkout", () => {
     expect(
       screen.getByText(/só é confirmado depois que o provedor retornar/i),
     ).toBeTruthy();
+    expect(reserveListing).not.toHaveBeenCalled();
   });
 
   it("sends absolute returnUrl and cancelUrl and prunes ordered listings", async () => {
@@ -220,6 +252,7 @@ describe("Checkout", () => {
     });
 
     renderCheckout();
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => {
@@ -261,6 +294,7 @@ describe("Checkout", () => {
     createPaymentLink.mockResolvedValue({});
 
     renderCheckout();
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => {
@@ -280,6 +314,7 @@ describe("Checkout", () => {
     createOrder.mockRejectedValue(new Error("Falha de rede"));
 
     renderCheckout();
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
@@ -296,6 +331,7 @@ describe("Checkout", () => {
     createOrder.mockRejectedValue(new Error("Falha de rede"));
 
     renderCheckout();
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
@@ -313,6 +349,7 @@ describe("Checkout", () => {
     createOrder.mockRejectedValue(new Error("Falha de rede"));
 
     renderCheckout();
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => {
@@ -338,6 +375,7 @@ describe("Checkout", () => {
     createOrder.mockRejectedValue(new Error("Falha de rede"));
 
     const view = renderCheckout(0);
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
 
@@ -348,7 +386,18 @@ describe("Checkout", () => {
     cartState.totalPrice = 100;
     view.rerender(<CheckoutHarness nonce={1} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    await waitFor(() => {
+      const retry = screen.queryByRole("button", { name: "Tentar novamente" });
+      const pay = screen.queryByRole("button", { name: /Pagar com PayPal/ });
+      const cta = retry ?? pay;
+      expect(cta).toBeTruthy();
+      expect(cta).not.toBeDisabled();
+    });
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Tentar novamente|Pagar com PayPal/,
+      }),
+    );
     await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(2));
 
     expect(idempotencyKeyOf(createOrder.mock.calls[0])).toBe(uuidKeys[0]);
@@ -373,6 +422,7 @@ describe("Checkout", () => {
     createPaymentLink.mockResolvedValue({});
 
     renderCheckout();
+    await waitForPayable();
     const button = screen.getByRole("button", { name: /Pagar com PayPal/ });
     fireEvent.click(button);
     fireEvent.click(button);
@@ -414,6 +464,7 @@ describe("Checkout", () => {
     expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
 
+    await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     expect(await screen.findAllByText(/Reservado para você/)).toHaveLength(2);
@@ -430,5 +481,73 @@ describe("Checkout", () => {
         "https://www.paypal.com/checkoutnow?token=EC-1",
       );
     });
+  });
+
+  it("does not let a SOLD listing stay payable", async () => {
+    cartState.items = [{ listing: listing(100) }];
+    cartState.totalPrice = 100;
+    asCustomer();
+    getListing.mockResolvedValue({ ...listing(100), status: "SOLD" });
+
+    renderCheckout();
+
+    expect(
+      await screen.findByText("AK-47 | Redline não está mais disponível"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Pagar com PayPal/ }),
+    ).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
+    expect(createOrder).not.toHaveBeenCalled();
+    expect(reserveListing).not.toHaveBeenCalled();
+  });
+
+  it("shows a price change before createOrder", async () => {
+    cartState.items = [{ listing: listing(210), priceWhenAdded: 210 }];
+    cartState.totalPrice = 210;
+    asCustomer();
+    getListing.mockResolvedValue(listing(230));
+    createOrder.mockResolvedValue({ id: "order-1" });
+    createPaymentLink.mockResolvedValue({});
+
+    renderCheckout();
+
+    expect(
+      await screen.findByText("Preço atualizado: $210.00 → $230.00"),
+    ).toBeTruthy();
+    await waitForPayable();
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    expect(cartState.updateListing).toHaveBeenCalled();
+  });
+
+  it("keeps a successful line when another listing fetch fails", async () => {
+    const awp = listing(20, "listing-awp");
+    awp.product = {
+      ...awp.product,
+      weapon: "AWP",
+      skinName: "Asiimov",
+    };
+    cartState.items = [
+      { listing: listing(80, "listing-ak") },
+      { listing: awp },
+    ];
+    cartState.totalPrice = 100;
+    asCustomer();
+    getListing.mockImplementation(async (id: string) => {
+      if (id === "listing-ak") throw new Error("network");
+      return awp;
+    });
+
+    renderCheckout();
+
+    expect(await screen.findByText(/AWP \| Asiimov/)).toBeTruthy();
+    expect(screen.getByText("Erro ao atualizar")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: /Pagar com PayPal/ }),
+    ).toBeDisabled();
+    expect(createOrder).not.toHaveBeenCalled();
   });
 });

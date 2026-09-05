@@ -1,13 +1,22 @@
-import { createContext, useContext, useState, ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useState,
+  ReactNode,
+} from "react";
 import type { Listing } from "@/types/api";
+import { cartSnapshotNeedsUpdate } from "@/lib/cartListingStatus";
 
 export interface CartItem {
   listing: Listing;
+  priceWhenAdded: Listing["price"];
 }
 
 interface CartContextType {
   items: CartItem[];
   addItem: (listing: Listing) => void;
+  updateListing: (listing: Listing) => void;
   removeItem: (listingId: string) => void;
   removeItems: (listingIds: string[]) => void;
   clearCart: () => void;
@@ -29,8 +38,20 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (listing.status !== "ACTIVE") {
       return; // Cannot add non-active listings
     }
-    setItems((prev) => [...prev, { listing }]);
+    setItems((prev) => [...prev, { listing, priceWhenAdded: listing.price }]);
   };
+
+  const updateListing = useCallback((listing: Listing) => {
+    setItems((prev) => {
+      const index = prev.findIndex((item) => item.listing.id === listing.id);
+      if (index === -1) return prev;
+      const current = prev[index].listing;
+      if (!cartSnapshotNeedsUpdate(current, listing)) return prev;
+      const next = [...prev];
+      next[index] = { ...next[index], listing };
+      return next;
+    });
+  }, []);
 
   const removeItem = (listingId: string) =>
     setItems((prev) => prev.filter((i) => i.listing.id !== listingId));
@@ -49,6 +70,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       value={{
         items,
         addItem,
+        updateListing,
         removeItem,
         removeItems,
         clearCart,

@@ -39,6 +39,7 @@ function CartConsumer() {
   const {
     items,
     addItem,
+    updateListing,
     removeItem,
     removeItems,
     clearCart,
@@ -147,6 +148,16 @@ function CartConsumer() {
       </button>
       <button data-testid="clear" onClick={clearCart}>
         Clear
+      </button>
+      <button
+        data-testid="update-ak-price"
+        onClick={() =>
+          updateListing(
+            makeListing({ id: "listing-ak", price: 230, status: "ACTIVE" }),
+          )
+        }
+      >
+        Update AK price
       </button>
     </div>
   );
@@ -295,6 +306,15 @@ describe("CartContext", () => {
     it("returns 0 when cart is empty", () => {
       renderCart();
       expect(screen.getByTestId("price").textContent).toBe("0.00");
+    });
+
+    it("updates an existing snapshot price without adding a new row", () => {
+      renderCart();
+      fireEvent.click(screen.getByTestId("add-ak"));
+      fireEvent.click(screen.getByTestId("update-ak-price"));
+
+      expect(screen.getByTestId("count").textContent).toBe("1");
+      expect(screen.getByTestId("price").textContent).toBe("230.00");
     });
   });
 
