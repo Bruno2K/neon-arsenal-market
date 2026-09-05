@@ -136,8 +136,16 @@ Maintain:
 
 Documentation is part of the implementation whenever a design or operational decision changes.
 
+## P-front — Frontend rebuild (parallel to P1, `src/` only)
+
+Rebuild the existing Vite/React client. No new product features. Locked decisions and activity graph: `docs/frontend-sprint.md`. Agent loop: `docs/agents/p-front-orchestrator.md`. Next activity: `python3 scripts/p-front/next.py`.
+
+May run beside backend P1 only while PRs stay disjoint (`src/` vs `server/`).
+
 ## Agent execution rule
 
 Only one roadmap item should normally be in active implementation at a time. Split a roadmap item into small tasks when it is too large for one reviewable change.
 
 A lower-priority item must not distract the team from a known unresolved correctness problem.
+
+P-front is an explicit exception for **file-disjoint** parallelism with P1: frontend agents own `src/` and `docs/frontend-sprint.md`; backend agents own `server/`.

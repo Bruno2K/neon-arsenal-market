@@ -26,6 +26,8 @@ If code and documentation disagree, the agent must inspect the code and flag the
 
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
+The P-front UI rebuild is one explicit parallel track (`src/` only). Agents must follow `docs/agents/p-front-orchestrator.md` and pick work with `python3 scripts/p-front/next.py` instead of hand-pasted issue prompts.
+
 Recommended roles:
 
 - **Planner** — converts a roadmap item into an implementation plan and acceptance criteria.
