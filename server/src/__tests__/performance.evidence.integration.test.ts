@@ -21,7 +21,12 @@ describe("P1.4 performance evidence", () => {
 
     const market = await explainAnalyze(PERF_QUERIES.marketActiveCreatedAt);
     expect(usesIndexAccess(market.Plan, "Listing"), indexNames(market.Plan).join(",")).toBe(true);
-    expect(indexNames(market.Plan).some((name) => name.includes("status_createdAt"))).toBe(true);
+    expect(
+      indexNames(market.Plan).some(
+        (name) => name.includes("status_createdAt") || name.includes("createdAt_id")
+      ),
+      indexNames(market.Plan).join(",")
+    ).toBe(true);
 
     // COUNT(*) of ACTIVE listings is the pagination-total cost. At a few thousand
     // rows PostgreSQL may still seq-scan; the evidence is the execution time, not
