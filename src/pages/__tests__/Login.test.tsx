@@ -25,5 +25,9 @@ describe("Login", () => {
     expect(
       screen.getByRole("link", { name: "Neon Arsenal, página inicial" }),
     ).toHaveAttribute("href", "/");
+    expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
+    expect(screen.queryByText(/CS2 Skin Marketplace/i)).toBeNull();
+    expect(document.querySelector(".scan-lines")).toBeNull();
+    expect(document.querySelector(".neon-text")).toBeNull();
   });
 });

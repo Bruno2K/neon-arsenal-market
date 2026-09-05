@@ -117,15 +117,6 @@ export default function Login() {
               Criar conta
             </Link>
           </p>
-          <p className="mt-4 text-xs text-muted-foreground">
-            Contas seed: buyer@skinmarket.gg / buyer123 · seller@skinmarket.gg /
-            seller123 · admin@skinmarket.gg / admin123
-          </p>
-          <p className="mt-2 text-xs text-muted-foreground">
-            Mais: collector@ e casual@ / buyer123 · pro_trader@ / seller456 ·
-            rustking@ / seller123 · pending_seller@ / seller123 (aguardando
-            aprovação)
-          </p>
         </div>
       </div>
     </div>
