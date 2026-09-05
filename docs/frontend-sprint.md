@@ -78,4 +78,4 @@ In progress = an open PR whose title contains `[P-front] <ID>`.
 
 ## Parallelism with backend
 
-Backend P1 (`server/` only) may run in a separate agent/PR at the same time. Do not mix `src/` and `server/` in one PR.
+Backend uses its own control plane: `docs/backend-sprint.md` and `python3 scripts/p-back/next.py`. A P-back agent/PR may run at the same time. Do not mix `src/` and `server/` in one PR. Do not edit `docs/backend-sprint.md` or `scripts/p-back/` from P-front.

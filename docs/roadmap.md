@@ -109,18 +109,7 @@ Secrets Manager
 CloudWatch + OpenTelemetry
 ```
 
-Implement progressively:
-
-- production Docker image;
-- CI/CD;
-- AWS deployment;
-- RDS;
-- Secrets Manager;
-- health/readiness checks;
-- centralized logs;
-- Terraform;
-- migration strategy;
-- rollback/runbook.
+Do **not** start AWS/Terraform from this list. Remaining backend work is the P-back catalog (`docs/backend-sprint.md`): payment-link idempotency, capture-after-expiry ops, Render runbook, threat model, C4, then a **cloud-target ADR (C1)**. Implement AWS only if that ADR selects it (C2). Render (`render.yaml`) is the current production deploy.
 
 ## Documentation deliverables
 
@@ -138,11 +127,15 @@ Maintain:
 
 Documentation is part of the implementation whenever a design or operational decision changes.
 
-## P-front — Frontend rebuild (parallel to P1, `src/` only)
+## P-back — Backend sprint (control plane)
+
+Post-P1 remaining work is **not** AWS next. Catalog and agent loop: `docs/backend-sprint.md`, `docs/agents/p-back-orchestrator.md`. Next activity: `python3 scripts/p-back/next.py`.
+
+## P-front — Frontend rebuild (parallel, `src/` only)
 
 Rebuild the existing Vite/React client. No new product features. Locked decisions and activity graph: `docs/frontend-sprint.md`. Agent loop: `docs/agents/p-front-orchestrator.md`. Next activity: `python3 scripts/p-front/next.py`.
 
-May run beside backend P1 only while PRs stay disjoint (`src/` vs `server/`).
+May run beside P-back only while PRs stay disjoint (`src/` vs `server/`).
 
 ## Agent execution rule
 
@@ -150,4 +143,4 @@ Only one roadmap item should normally be in active implementation at a time. Spl
 
 A lower-priority item must not distract the team from a known unresolved correctness problem.
 
-P-front is an explicit exception for **file-disjoint** parallelism with P1: frontend agents own `src/` and `docs/frontend-sprint.md`; backend agents own `server/`.
+P-front / P-back are an explicit exception for **file-disjoint** parallelism: frontend agents own `src/` and `docs/frontend-sprint.md`; backend agents own `server/` and `docs/backend-sprint.md`.

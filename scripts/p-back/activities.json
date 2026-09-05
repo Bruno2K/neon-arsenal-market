@@ -1,0 +1,232 @@
+{
+  "sprint": "P-back",
+  "prTitlePrefix": "[P-back]",
+  "commitConvention": "[P-back] <ID> — <short title>",
+  "forbiddenGlobally": [
+    "src/",
+    "docs/frontend-sprint.md",
+    "scripts/p-front/"
+  ],
+  "lockedDecisions": {
+    "architecture": "Modular monolith. PostgreSQL is the source of truth. Do not add Redis, Kafka, RabbitMQ, SQS, or microservices.",
+    "payments": "Do not invent PayPal APIs, refunds, or environment variables. OrdersCreate and OrdersCapture are not retried.",
+    "cloud": "Render is current production (render.yaml). Do not implement AWS/Terraform until C2, and only if C1 selected AWS."
+  },
+  "activities": [
+    {
+      "id": "P0.1",
+      "title": "Reservation lifecycle",
+      "dependsOn": [],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/modules/listings/", "server/src/modules/orders/"],
+      "roles": ["Backend", "Database/Concurrency", "Test", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P0.2",
+      "title": "PayPal webhook reliability",
+      "dependsOn": ["P0.1"],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/modules/payments/", "docs/adr/0002-paypal-webhook-reliability.md"],
+      "roles": ["Backend", "Reliability", "Security", "Test", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P0.3",
+      "title": "Order creation idempotency",
+      "dependsOn": ["P0.2"],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/modules/orders/", "docs/adr/0003-order-creation-idempotency.md"],
+      "roles": ["Backend", "Database/Concurrency", "Test", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P1.1",
+      "title": "PostgreSQL integration tests",
+      "dependsOn": ["P0.3"],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/__tests__/", "docs/testing.md"],
+      "roles": ["Test", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P1.2",
+      "title": "Observability",
+      "dependsOn": ["P1.1"],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/shared/observability/", "docs/observability.md"],
+      "roles": ["Backend", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P1.3",
+      "title": "Resilience",
+      "dependsOn": ["P1.2"],
+      "legacyDone": true,
+      "ownerFiles": ["server/src/shared/resilience/", "docs/adr/0005-external-retry-and-graceful-shutdown.md"],
+      "roles": ["Reliability", "Test", "Verification"],
+      "verify": [],
+      "acceptance": ["Historical. Already on origin/main."]
+    },
+    {
+      "id": "P1.4",
+      "title": "Performance evidence",
+      "dependsOn": ["P1.3"],
+      "legacyDone": true,
+      "doneMarkers": [
+        "[P-back] P1.4",
+        "P1.4: Performance",
+        "add P1.4 query-plan"
+      ],
+      "busyMarkers": ["[P-back] P1.4", "P1.4:"],
+      "ownerFiles": [
+        "server/prisma/migrations/",
+        "server/src/shared/perf/",
+        "docs/performance.md",
+        "docs/adr/0006-hot-path-indexes.md"
+      ],
+      "roles": ["Backend", "Verification"],
+      "verify": ["npm run perf:evidence --prefix server"],
+      "acceptance": ["Historical. Merged as PR #33 before the [P-back] marker existed."]
+    },
+    {
+      "id": "B0.1",
+      "title": "Contrato e orquestrador P-back",
+      "dependsOn": [],
+      "ownerFiles": [
+        "docs/backend-sprint.md",
+        "docs/agents/p-back-orchestrator.md",
+        "scripts/p-back/",
+        "scripts/p-back-next.sh",
+        "docs/roadmap.md",
+        "docs/agents/README.md",
+        "docs/agents/orchestrator.md",
+        "AGENTS.md",
+        "docs/frontend-sprint.md"
+      ],
+      "roles": ["Planner", "Verification"],
+      "verify": [
+        "python3 scripts/p-back/next.py --json",
+        "python3 -m unittest scripts/p-back/test_next.py"
+      ],
+      "acceptance": [
+        "Later agents can run python3 scripts/p-back/next.py and implement one activity without inventing AWS/Terraform.",
+        "Catalog encodes AGENTS.md priority: remaining payment/ops/docs before cloud.",
+        "P-front isolation is explicit: no src/, docs/frontend-sprint.md, or scripts/p-front/ edits.",
+        "Done/busy detection covers legacy P0/P1 commits that predate [P-back] <ID>."
+      ]
+    },
+    {
+      "id": "R1",
+      "title": "Idempotência do link de pagamento",
+      "dependsOn": ["B0.1", "P0.3"],
+      "ownerFiles": [
+        "server/src/modules/payments/",
+        "server/prisma/schema.prisma",
+        "docs/architecture/failure-modes.md",
+        "docs/architecture/domain-invariants.md"
+      ],
+      "roles": ["Backend", "Reliability", "Database/Concurrency", "Test", "Verification"],
+      "verify": [
+        "cd server && npx vitest run src/modules/payments/__tests__/payments.service.test.ts",
+        "cd server && npm run test:integration"
+      ],
+      "acceptance": [
+        "Retrying POST /payments for the same unpaid order does not call PayPal OrdersCreate a second time once a paypalOrderId exists (or a durable idempotency record exists).",
+        "Concurrent identical POST /payments have one business effect.",
+        "OrdersCreate remains unretried inside the PayPal client.",
+        "No src/ changes. Do not invent a new PayPal API."
+      ]
+    },
+    {
+      "id": "R2",
+      "title": "Operação de capture após expiração",
+      "dependsOn": ["B0.1", "P0.2"],
+      "ownerFiles": [
+        "docs/architecture/failure-modes.md",
+        "docs/operations/runbook.md"
+      ],
+      "roles": ["Reliability", "Verification"],
+      "verify": ["docs-only unless an existing PayPal refund/void contract is already in this repo"],
+      "acceptance": [
+        "Inspect server/src/shared/utils/paypal.ts and payments code for any existing refund/void helper. Do not invent a PayPal refund API or env var.",
+        "If no provider contract exists, document the operational gap (webhook 200, listing not SOLD, money captured) and the human steps. Stop and ask HUMAN rather than guessing refund semantics.",
+        "Do not mark listings SOLD after expiry. Do not edit src/."
+      ]
+    },
+    {
+      "id": "O1",
+      "title": "Runbook Render e alinhamento health/ready",
+      "dependsOn": ["B0.1", "P1.3"],
+      "ownerFiles": [
+        "render.yaml",
+        "docs/operations/runbook.md",
+        "server/src/shared/"
+      ],
+      "roles": ["Reliability", "Verification"],
+      "verify": ["docs and render.yaml review; targeted tests if /ready vs /health mapping changes"],
+      "acceptance": [
+        "docs/operations/runbook.md exists and covers deploy, health vs ready, shutdown drain, seed-on-boot (SEED_DEMO_DATA), and how to inspect payments/reservations.",
+        "Render healthCheckPath is aligned with the documented liveness vs readiness intent. Do not invent new env vars.",
+        "No AWS/Terraform. No src/ changes."
+      ]
+    },
+    {
+      "id": "D1",
+      "title": "Threat model",
+      "dependsOn": ["B0.1"],
+      "parallelGroup": "interview-docs",
+      "ownerFiles": ["docs/architecture/threat-model.md"],
+      "roles": ["Security", "Verification"],
+      "verify": ["docs-only diff"],
+      "acceptance": [
+        "docs/architecture/threat-model.md exists and covers auth, webhooks, secrets, trust boundaries, and abuse controls that already exist in code.",
+        "Do not invent controls that are not implemented. Do not edit src/ or server/ behavior."
+      ]
+    },
+    {
+      "id": "D2",
+      "title": "Diagramas C4",
+      "dependsOn": ["B0.1"],
+      "parallelGroup": "interview-docs",
+      "ownerFiles": ["docs/architecture/c4.md"],
+      "roles": ["Architecture", "Verification"],
+      "verify": ["docs-only diff"],
+      "acceptance": [
+        "docs/architecture/c4.md describes the current modular monolith + Render + PostgreSQL + PayPal/Resend, not a hypothetical ECS topology as if it were live.",
+        "Do not edit src/ or server/ behavior."
+      ]
+    },
+    {
+      "id": "C1",
+      "title": "ADR do alvo de cloud (Render vs ECS)",
+      "dependsOn": ["O1", "D1"],
+      "ownerFiles": ["docs/adr/", "docs/roadmap.md"],
+      "roles": ["Planner", "Architecture", "Verification"],
+      "verify": ["docs-only diff"],
+      "acceptance": [
+        "One ADR states the current production target (Render today) and whether the portfolio ECS/Fargate diagram is a future option or a committed migration.",
+        "The ADR is the artifact. Do not provision AWS, write Terraform, or change render.yaml except to reference the decision.",
+        "If the choice is materially architectural, stop for HUMAN per docs/agents/decision-policy.md rather than silently picking ECS."
+      ]
+    },
+    {
+      "id": "C2",
+      "title": "AWS/Terraform (condicional)",
+      "dependsOn": ["C1"],
+      "ownerFiles": ["infra/", "docs/adr/"],
+      "roles": ["Planner", "Infra/Backend", "Security", "Reliability", "Verification"],
+      "verify": ["only if C1 selected AWS; otherwise a skip commit with [P-back] C2"],
+      "acceptance": [
+        "If C1 selected AWS: implement only what that ADR scoped. Do not invent Secrets Manager/VPC layout beyond the ADR.",
+        "If C1 kept Render: do not add Terraform. Land a skip commit whose subject contains [P-back] C2 so the queue can close.",
+        "No src/ changes."
+      ]
+    }
+  ]
+}

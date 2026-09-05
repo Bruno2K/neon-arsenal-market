@@ -26,7 +26,12 @@ If code and documentation disagree, the agent must inspect the code and flag the
 
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
-The P-front UI rebuild is one explicit parallel track (`src/` only). Agents must follow `docs/agents/p-front-orchestrator.md` and pick work with `python3 scripts/p-front/next.py` instead of hand-pasted issue prompts.
+Two file-disjoint control-plane tracks may run in parallel. They are sprint catalogs, not application orchestrators:
+
+- **P-back** (`server/`, backend docs): `docs/agents/p-back-orchestrator.md` — `python3 scripts/p-back/next.py`
+- **P-front** (`src/` only): `docs/agents/p-front-orchestrator.md` — `python3 scripts/p-front/next.py`
+
+Do not hand-paste issue prompts for those tracks. Unqualified `next` on a backend agent means P-back only.
 
 Recommended roles:
 
