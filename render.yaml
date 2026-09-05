@@ -17,6 +17,8 @@ services:
       - key: PORT
         value: "3001"
       - key: SEED_DEMO_DATA
+        # Demo catalog for the public portfolio. Idempotent upserts. Set false
+        # on a real marketplace so boots do not re-run seed. See docs/operations/runbook.md.
         value: "true"
       - key: DATABASE_URL
         fromDatabase:
@@ -46,7 +48,12 @@ services:
         value: "10000"
       - key: FRONTEND_URL
         sync: false
-    healthCheckPath: /health
+    # Render has a single probe. Use readiness: Postgres reachable and not draining.
+    # Docker HEALTHCHECK in server/Dockerfile stays on /health (liveness) so a
+    # SIGTERM drain does not look like a dead container.
+    healthCheckPath: /ready
+    # App drain is 10s (SHUTDOWN_DRAIN_MS). Default platform delay is 30s.
+    maxShutdownDelaySeconds: 30
     autoDeploy: true
 
   - type: web

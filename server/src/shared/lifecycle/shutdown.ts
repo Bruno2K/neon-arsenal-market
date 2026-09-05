@@ -4,7 +4,8 @@ import { disconnectPrisma } from "../database/prisma.js";
 import { shutdownTelemetry } from "../observability/sdk.js";
 import { beginShutdown, isProcessShuttingDown } from "./state.js";
 
-/** Bound wait for in-flight HTTP requests before connections are forced closed. */
+/** Bound wait for in-flight HTTP requests before connections are forced closed.
+ * Keep this below Render `maxShutdownDelaySeconds` (30 in render.yaml). */
 export const SHUTDOWN_DRAIN_MS = 10_000;
 
 export type GracefulShutdownParams = {
