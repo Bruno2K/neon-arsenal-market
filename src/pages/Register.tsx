@@ -53,8 +53,6 @@ export default function Register() {
       await confirmRegistration(email, code);
       navigate(homePathForRole(role), { replace: true });
     } catch {
-      // error shown via context
-    } finally {
       setLoading(false);
     }
   };

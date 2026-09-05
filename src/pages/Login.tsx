@@ -32,8 +32,6 @@ export default function Login() {
       }
       navigate(destination.path, { replace: true });
     } catch {
-      // error shown via context
-    } finally {
       setLoading(false);
     }
   };
