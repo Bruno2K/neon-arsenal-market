@@ -287,7 +287,7 @@ The main areas explored are:
 Potential next iterations include:
 
 - Stronger concurrency control around listing reservation
-- Idempotency for payment and order operations
+- Idempotency for remaining payment initiation flows
 - Improved monetary precision using database-native decimal operations
 - Asynchronous processing for non-critical workflows
 - Distributed rate limiting

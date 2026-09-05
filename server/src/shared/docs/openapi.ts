@@ -298,6 +298,17 @@ export const openApiSpec = {
       post: {
         tags: ["Orders"],
         summary: "Create a new order",
+        description:
+          "Creates an order and atomically reserves the requested listings. Clients must send an `Idempotency-Key` header. Reusing the same key with the same listing set returns the original order; reusing it with a different request returns 409.",
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: true,
+            schema: { type: "string", minLength: 1, maxLength: 128 },
+            description: "Customer-scoped key used to make order creation safe to retry.",
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -322,6 +333,7 @@ export const openApiSpec = {
         responses: {
           201: { description: "Order created", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
           400: { description: "Listing unavailable or trade locked" },
+          409: { description: "Idempotency key was reused with a different order request" },
           404: { description: "Listing not found" },
         },
       },

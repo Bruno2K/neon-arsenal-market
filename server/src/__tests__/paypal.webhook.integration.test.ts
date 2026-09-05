@@ -109,6 +109,10 @@ async function destroyFixture(fixture: Fixture) {
   });
 }
 
+function orderKey(label: string) {
+  return `order-${label}-${randomUUID()}`;
+}
+
 function captureEvent(eventId: string, localOrderId: string, paypalOrderId = `PAYPAL-${localOrderId}`) {
   return {
     id: eventId,
@@ -167,7 +171,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("approved"));
       const eventId = `WH-${fixture.listingId}-dup`;
       const payload = captureEvent(eventId, order.id);
 
@@ -199,7 +203,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("capture"));
       const payload = captureEvent(`WH-${fixture.listingId}-concurrent`, order.id);
 
       const results = await Promise.allSettled([
@@ -229,7 +233,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("duplicate"));
 
       const results = await Promise.allSettled([
         paymentsService.handleWebhook(approvedEvent(`WH-${fixture.listingId}-approved`, order.id)),
@@ -255,7 +259,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("concurrent"));
       await paymentsService.handleWebhook(captureEvent(`WH-${fixture.listingId}-first-capture`, order.id));
       await paymentsService.handleWebhook(approvedEvent(`WH-${fixture.listingId}-late-approved`, order.id));
 
@@ -271,7 +275,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("ignored"));
       await paymentsService.handleWebhook(approvedEvent(`WH-${fixture.listingId}-approved-first`, order.id));
 
       const afterApproved = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
@@ -293,7 +297,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("expired"));
       await paymentsService.confirmPayment(order.id);
 
       await paymentsService.handleWebhook(captureEvent(`WH-${fixture.listingId}-after-paid`, order.id));
@@ -312,7 +316,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("no-duplicate"));
       await prisma.listing.update({
         where: { id: fixture.listingId },
         data: { reservationExpiresAt: new Date(Date.now() - 1000) },
@@ -347,7 +351,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("approved-first"));
       await prisma.listing.update({
         where: { id: fixture.listingId },
         data: { reservationExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
@@ -376,7 +380,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("unknown-first"));
       await prisma.listing.update({
         where: { id: fixture.listingId },
         data: { reservationExpiresAt: new Date(Date.now() - 1000) },
@@ -414,7 +418,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const orderA = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("stale-a"));
 
       // Crash window: listing released, unpaid order A not cancelled yet.
       await prisma.listing.update({
@@ -429,7 +433,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
 
       const orderB = await ordersService.create(otherBuyer.id, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("stale-b"));
 
       await paymentsService.handleWebhook(captureEvent(`WH-${fixture.listingId}-stale-a`, orderA.id));
 
@@ -463,7 +467,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("rollback"));
       await prisma.listing.update({
         where: { id: fixture.listingId },
         data: { status: "CANCELED", reservedByOrderId: null },
@@ -489,7 +493,7 @@ describe.skipIf(!databaseAvailable)("PayPal webhook reliability (postgres)", () 
     try {
       const order = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("crash"));
       const eventId = `WH-${fixture.listingId}-crash`;
       await prisma.paymentWebhookEvent.create({
         data: {

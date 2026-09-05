@@ -68,6 +68,8 @@ The schema contains the main marketplace entities: users, pending registrations,
 
 Order creation currently uses a PostgreSQL transaction and an atomic conditional listing update. The transition to `RESERVED` is guarded by `status = ACTIVE` and trade-lock conditions, preventing two concurrent requests from both reserving the same listing. The same update persists `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. The order and order items are then created inside the same transaction.
 
+`POST /orders` requires a customer-scoped `Idempotency-Key` header. Order creation persists an `OrderIdempotencyKey` row with a canonical request hash and links it to the committed order in the same PostgreSQL transaction that reserves listings and creates order items. Concurrent retries with the same key block on the unique `(customerId, key)` constraint and return the original order after the first transaction commits. Reusing a key with a different listing set returns HTTP 409. If the process crashes before commit, no key/order/reservation persists; if it crashes after commit but before the response is delivered, retrying with the same key returns the committed order.
+
 Expired reservations are released by an in-process sweep that calls `listingsService.expireReservations()`. The listing UPDATE is conditional on `status = RESERVED` and `reservationExpiresAt <= now`, so it cannot overwrite `SOLD`. Payment confirmation requires `status = RESERVED`, `reservedByOrderId = orderId` and `reservationExpiresAt > now`; if that UPDATE does not cover every order item, the payment transaction rolls back. Unpaid orders are cancelled when they no longer hold their listings, including the case where the listing was reserved by a later order.
 
 ### Payment confirmation

@@ -34,7 +34,9 @@ Rules:
 3. Order item price is a snapshot of the price at purchase/reservation time.
 4. Order total must equal the sum of its item price snapshots.
 5. Order creation and reservation must have an atomic consistency boundary.
-6. Repeated order-creation requests must not create duplicate business effects when idempotency is required.
+6. `POST /orders` requires a customer-scoped `Idempotency-Key`; repeated requests with the same key and canonical listing set must return the original order without creating another order or reservation.
+7. Reusing the same `Idempotency-Key` for a different canonical listing set must be rejected deterministically.
+8. The idempotency record must commit in the same transaction as order creation and reservation so crash-before-commit leaves no business effect and crash-after-commit can be retried safely.
 
 ## Payments
 

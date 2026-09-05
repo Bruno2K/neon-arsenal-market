@@ -6,7 +6,8 @@ export const ordersController = {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const order = await ordersService.create(user.id, req.body);
+      const idempotencyKey = req.get("Idempotency-Key") ?? "";
+      const order = await ordersService.create(user.id, req.body, idempotencyKey);
       res.status(201).json(order);
     } catch (e) {
       next(e);
