@@ -395,7 +395,21 @@ export const openApiSpec = {
               schema: {
                 type: "object",
                 required: ["orderId"],
-                properties: { orderId: { type: "string" } },
+                properties: {
+                  orderId: { type: "string" },
+                  returnUrl: {
+                    type: "string",
+                    format: "uri",
+                    description:
+                      "Optional absolute URL forwarded to PayPal OrdersCreate as application_context.return_url. Omitted when absent. Does not confirm payment.",
+                  },
+                  cancelUrl: {
+                    type: "string",
+                    format: "uri",
+                    description:
+                      "Optional absolute URL forwarded to PayPal OrdersCreate as application_context.cancel_url. Omitted when absent. Does not confirm payment.",
+                  },
+                },
               },
             },
           },

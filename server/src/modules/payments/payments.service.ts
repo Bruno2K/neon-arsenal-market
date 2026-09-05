@@ -56,7 +56,11 @@ export const paymentsService = {
         const amount = order.totalAmount.toFixed(2);
         // OrdersCreate is not retried by the PayPal client. This call happens
         // only after a durable PaymentLink claim is inserted.
-        const paypalOrder = await createPayPalOrder(amount, "BRL", order.id);
+        const checkoutUrls =
+          input.returnUrl || input.cancelUrl
+            ? { returnUrl: input.returnUrl, cancelUrl: input.cancelUrl }
+            : undefined;
+        const paypalOrder = await createPayPalOrder(amount, "BRL", order.id, checkoutUrls);
         openedPaypalOrderId = (paypalOrder as { id?: string }).id;
         if (!openedPaypalOrderId) {
           throw new AppError(500, "Failed to create PayPal order");

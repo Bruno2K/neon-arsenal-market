@@ -83,9 +83,35 @@ describe("paymentsService", () => {
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
-      expect(createPayPalOrder).toHaveBeenCalledWith("150.00", "BRL", "order-1");
+      expect(createPayPalOrder).toHaveBeenCalledWith("150.00", "BRL", "order-1", undefined);
       expect(result.approvalUrl).toBe("https://paypal.com/approve/123");
       expect(result.orderId).toBe("order-1");
+    });
+
+    it("forwards validated returnUrl and cancelUrl to OrdersCreate", async () => {
+      setupCreateLink();
+      const returnUrl = "https://app.example/orders/order-1/return";
+      const cancelUrl = "https://app.example/orders/order-1/cancel";
+
+      await paymentsService.createPaymentLink("user-1", {
+        orderId: "order-1",
+        returnUrl,
+        cancelUrl,
+      });
+
+      expect(createPayPalOrder).toHaveBeenCalledWith("150.00", "BRL", "order-1", {
+        returnUrl,
+        cancelUrl,
+      });
+    });
+
+    it("does not invent PayPal checkout URLs when the request omits them", async () => {
+      setupCreateLink();
+
+      await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
+
+      const urls = vi.mocked(createPayPalOrder).mock.calls[0]?.[3];
+      expect(urls).toBeUndefined();
     });
 
     it("throws 404 when order not found", async () => {
@@ -151,7 +177,11 @@ describe("paymentsService", () => {
         }) as never
       );
 
-      const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
+      const result = await paymentsService.createPaymentLink("user-1", {
+        orderId: "order-1",
+        returnUrl: "https://app.example/orders/order-1/return",
+        cancelUrl: "https://app.example/orders/order-1/cancel",
+      });
 
       expect(createPayPalOrder).not.toHaveBeenCalled();
       expect(prisma.paymentLink.create).not.toHaveBeenCalled();

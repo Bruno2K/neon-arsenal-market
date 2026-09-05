@@ -42,10 +42,31 @@ async function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   }
 }
 
-export async function createPayPalOrder(amount: string, currency = "BRL", orderId: string) {
-  const request = new paypal.orders.OrdersCreateRequest();
-  request.prefer("return=representation");
-  request.requestBody({
+export type PayPalCheckoutUrls = {
+  returnUrl?: string;
+  cancelUrl?: string;
+};
+
+type PayPalOrdersCreateBody = {
+  intent: "CAPTURE";
+  purchase_units: Array<{
+    reference_id: string;
+    amount: { currency_code: string; value: string };
+  }>;
+  application_context?: {
+    return_url?: string;
+    cancel_url?: string;
+  };
+};
+
+/** PayPal Orders v2 body. Omits application_context unless client URLs were supplied. */
+export function buildPayPalOrdersCreateBody(
+  amount: string,
+  currency: string,
+  orderId: string,
+  urls?: PayPalCheckoutUrls
+): PayPalOrdersCreateBody {
+  const body: PayPalOrdersCreateBody = {
     intent: "CAPTURE",
     purchase_units: [
       {
@@ -56,7 +77,25 @@ export async function createPayPalOrder(amount: string, currency = "BRL", orderI
         },
       },
     ],
-  });
+  };
+  const application_context: { return_url?: string; cancel_url?: string } = {};
+  if (urls?.returnUrl) application_context.return_url = urls.returnUrl;
+  if (urls?.cancelUrl) application_context.cancel_url = urls.cancelUrl;
+  if (application_context.return_url || application_context.cancel_url) {
+    body.application_context = application_context;
+  }
+  return body;
+}
+
+export async function createPayPalOrder(
+  amount: string,
+  currency = "BRL",
+  orderId: string,
+  urls?: PayPalCheckoutUrls
+) {
+  const request = new paypal.orders.OrdersCreateRequest();
+  request.prefer("return=representation");
+  request.requestBody(buildPayPalOrdersCreateBody(amount, currency, orderId, urls));
   return withPaypalOperation("orders_create", async () => {
     // OrdersCreate is not retried: a retry can create a second PayPal order.
     const response = await withTimeout(client.execute(request), "PayPal OrdersCreate");
