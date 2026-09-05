@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { homePathForRole } from "@/lib/postLoginPath";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,7 +51,7 @@ export default function Register() {
     setLoading(true);
     try {
       await confirmRegistration(email, code);
-      navigate("/", { replace: true });
+      navigate(homePathForRole(role), { replace: true });
     } catch {
       // error shown via context
     } finally {

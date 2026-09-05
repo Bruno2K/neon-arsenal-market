@@ -2,16 +2,18 @@ import { useState } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useToast } from "@/hooks/use-toast";
+import { fromPathFromState, postLoginPath } from "@/lib/postLoginPath";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 export default function Login() {
   const { login, error, clearError } = useAuth();
+  const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname ?? "/";
+  const from = fromPathFromState(location.state);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -23,8 +25,12 @@ export default function Login() {
     clearError();
     setLoading(true);
     try {
-      await login(email, password);
-      navigate(from, { replace: true });
+      const user = await login(email, password);
+      const destination = postLoginPath(user.role, from);
+      if (destination.notice) {
+        toast({ description: destination.notice });
+      }
+      navigate(destination.path, { replace: true });
     } catch {
       // error shown via context
     } finally {

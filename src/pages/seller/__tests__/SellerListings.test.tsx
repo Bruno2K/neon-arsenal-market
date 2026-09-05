@@ -1,12 +1,20 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SellerListings from "../SellerListings";
-import type { Listing, Seller } from "@/types/api";
+import type { Listing, Seller, User } from "@/types/api";
 
 const getSellerMe = vi.fn();
 const getSellerListings = vi.fn();
 const listProducts = vi.fn();
+const authState = {
+  user: {
+    id: "seller-user",
+    name: "Seller",
+    email: "seller@test.com",
+    role: "SELLER",
+  } as User,
+};
 
 vi.mock("@/api", () => ({
   getSellerMe: (...args: unknown[]) => getSellerMe(...args),
@@ -23,6 +31,10 @@ vi.mock("@/api/products", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast: vi.fn() }),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => authState,
 }));
 
 function seller(): Seller {
@@ -77,6 +89,12 @@ describe("SellerListings", () => {
       page: 1,
       limit: 100,
     });
+    authState.user = {
+      id: "seller-user",
+      name: "Seller",
+      email: "seller@test.com",
+      role: "SELLER",
+    };
   });
 
   it("keeps unique-item listing CRUD on /seller/listings", async () => {
@@ -125,5 +143,30 @@ describe("SellerListings", () => {
     expect(
       screen.getByRole("button", { name: "Tentar novamente" }),
     ).toBeTruthy();
+  });
+
+  it("redirects ADMIN to /admin instead of showing Seller not found", async () => {
+    authState.user = {
+      id: "admin-user",
+      name: "Admin",
+      email: "admin@test.com",
+      role: "ADMIN",
+    };
+    getSellerMe.mockRejectedValue(new Error("Seller not found"));
+
+    render(
+      <MemoryRouter initialEntries={["/seller/listings"]}>
+        <Routes>
+          <Route path="/seller/listings" element={<SellerListings />} />
+          <Route path="/admin" element={<div>admin-home</div>} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("admin-home")).toBeTruthy();
+    expect(screen.queryByText("Erro ao carregar listings")).toBeNull();
+    expect(screen.queryByText("Seller not found")).toBeNull();
+    expect(getSellerMe).not.toHaveBeenCalled();
+    expect(getSellerListings).not.toHaveBeenCalled();
   });
 });
