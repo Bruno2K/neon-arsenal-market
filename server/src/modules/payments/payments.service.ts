@@ -21,6 +21,8 @@ import { PaymentProvider, type WebhookEventStatus } from "../../shared/types/rol
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
+import { auditRepository } from "../audit/audit.repository.js";
+import { AuditAction, AuditResourceType } from "../audit/audit.types.js";
 
 const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
@@ -259,6 +261,19 @@ export const paymentsService = {
       if (sold.count !== listingIds.length) {
         throw new AppError(409, "Reservation expired or listing is no longer reserved");
       }
+
+      await auditRepository.create(
+        {
+          actorId: null,
+          actorRole: null,
+          action: AuditAction.PAYMENT_CONFIRMED,
+          resourceType: AuditResourceType.Order,
+          resourceId: orderId,
+          before: { paymentStatus: "PENDING", status: "PENDING" },
+          after: { paymentStatus: "PAID", status: "CONFIRMED" },
+        },
+        tx
+      );
 
       const bySeller = new Map<string, { grossAmount: Prisma.Decimal; commissionRate: Prisma.Decimal }>();
       for (const item of order.items) {

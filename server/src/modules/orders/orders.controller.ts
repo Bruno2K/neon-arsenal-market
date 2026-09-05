@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { auditActorFromRequest } from "../audit/audit.service.js";
 import type { ListOrdersQuery } from "./orders.dto.js";
 
 export const ordersController = {
@@ -49,7 +50,8 @@ export const ordersController = {
         req.params.id,
         user.id,
         user.role,
-        req.body.status
+        req.body.status,
+        auditActorFromRequest(req)
       );
       res.json(order);
     } catch (e) {

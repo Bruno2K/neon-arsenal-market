@@ -85,6 +85,7 @@ Rules:
 2. Sellers can access order information only when they own an item in the order.
 3. Administrative operations require the appropriate role.
 4. Authentication and authorization cannot be bypassed for testing convenience.
+5. Sensitive mutations persist an append-only `AuditLog` row (actor, action, resource, non-sensitive before/after, timestamp, optional IP/user-agent). Read access is ADMIN-only (`GET /admin/audit-logs`). Retention is 365 days; see `docs/adr/0010-audit-log.md`. Credentials, JWT/refresh tokens, passwords, PayPal secrets, and full payment payloads must not be stored on the trail.
 
 ## Database integrity
 

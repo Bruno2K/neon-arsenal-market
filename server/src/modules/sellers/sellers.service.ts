@@ -2,6 +2,8 @@ import { prisma } from "../../shared/database/index.js";
 import { sellersRepository } from "./sellers.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import type { ApplySellerInput, UpdateSellerInput } from "./sellers.dto.js";
+import { auditRepository } from "../audit/audit.repository.js";
+import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 
 export const sellersService = {
   async list(filters?: { isApproved?: boolean }) {
@@ -52,9 +54,32 @@ export const sellersService = {
     return sellersRepository.update(sellerId, input);
   },
 
-  async approve(sellerId: string, isApproved: boolean) {
+  async approve(sellerId: string, isApproved: boolean, actor?: AuditActor) {
     const seller = await sellersRepository.findById(sellerId);
     if (!seller) throw new AppError(404, "Seller not found");
-    return sellersRepository.update(sellerId, { isApproved });
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.seller.update({
+        where: { id: sellerId },
+        data: { isApproved },
+        include: {
+          user: { select: { id: true, name: true, email: true } },
+        },
+      });
+      await auditRepository.create(
+        {
+          actorId: actor?.actorId,
+          actorRole: actor?.actorRole,
+          ip: actor?.ip,
+          userAgent: actor?.userAgent,
+          action: AuditAction.SELLER_APPROVAL_CHANGED,
+          resourceType: AuditResourceType.Seller,
+          resourceId: sellerId,
+          before: { isApproved: seller.isApproved },
+          after: { isApproved },
+        },
+        tx
+      );
+      return updated;
+    });
   },
 };

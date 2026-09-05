@@ -11,7 +11,11 @@ vi.mock("../../../shared/database/index.js", () => ({
     order: {
       create: vi.fn(),
       update: vi.fn(),
+      updateMany: vi.fn(),
       findUnique: vi.fn(),
+    },
+    auditLog: {
+      create: vi.fn(),
     },
     orderItem: {
       create: vi.fn(),
@@ -81,6 +85,11 @@ describe("ordersService", () => {
     vi.mocked(prisma.order.update).mockResolvedValue({ id: "order-1" } as never);
     vi.mocked(prisma.orderIdempotencyKey.create).mockResolvedValue({} as never);
     vi.mocked(prisma.orderIdempotencyKey.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) =>
+      fn(prisma)
+    );
   });
 
   describe("create()", () => {
@@ -443,10 +452,24 @@ describe("ordersService", () => {
       vi.mocked(ordersRepository.findById)
         .mockResolvedValueOnce(pending as never)
         .mockResolvedValueOnce(confirmed as never);
-      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(1);
 
       const result = await ordersService.updateStatus("order-1", "admin-id", "ADMIN", "CONFIRMED");
-      expect(ordersRepository.transitionStatus).toHaveBeenCalledWith("order-1", "PENDING", "CONFIRMED");
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: "order-1", status: "PENDING" },
+        data: { status: "CONFIRMED" },
+      });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: "ORDER_STATUS_CHANGE",
+            resourceType: "Order",
+            resourceId: "order-1",
+            actorId: "admin-id",
+            before: { status: "PENDING" },
+            after: { status: "CONFIRMED" },
+          }),
+        })
+      );
       expect(result.status).toBe("CONFIRMED");
     });
 
@@ -459,7 +482,7 @@ describe("ordersService", () => {
         statusCode: 400,
         message: "Invalid status transition from PENDING to SHIPPED",
       });
-      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
     });
 
     it("rejects transitions out of terminal DELIVERED", async () => {
@@ -473,7 +496,7 @@ describe("ordersService", () => {
         statusCode: 400,
         message: "Invalid status transition from DELIVERED to CANCELLED",
       });
-      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
     });
 
     it("rejects transitions out of terminal CANCELLED", async () => {
@@ -495,10 +518,12 @@ describe("ordersService", () => {
       vi.mocked(ordersRepository.findById)
         .mockResolvedValueOnce(pending as never)
         .mockResolvedValueOnce(cancelled as never);
-      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(1);
 
       const result = await ordersService.updateStatus("order-1", "user-1", "CUSTOMER", "CANCELLED");
-      expect(ordersRepository.transitionStatus).toHaveBeenCalledWith("order-1", "PENDING", "CANCELLED");
+      expect(prisma.order.updateMany).toHaveBeenCalledWith({
+        where: { id: "order-1", status: "PENDING" },
+        data: { status: "CANCELLED" },
+      });
       expect(result.status).toBe("CANCELLED");
     });
 
@@ -511,12 +536,12 @@ describe("ordersService", () => {
         statusCode: 403,
         message: "Role CUSTOMER cannot transition order from PENDING to CONFIRMED",
       });
-      expect(ordersRepository.transitionStatus).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
     });
 
     it("returns 409 when a concurrent transition already moved the row", async () => {
       vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
-      vi.mocked(ordersRepository.transitionStatus).mockResolvedValue(0);
+      vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 0 } as never);
 
       await expect(
         ordersService.updateStatus("order-1", "admin-id", "ADMIN", "CANCELLED")

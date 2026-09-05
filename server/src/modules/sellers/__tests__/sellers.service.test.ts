@@ -8,7 +8,12 @@ vi.mock("../../../shared/database/index.js", () => ({
     },
     seller: {
       create: vi.fn(),
+      update: vi.fn(),
     },
+    auditLog: {
+      create: vi.fn(),
+    },
+    $transaction: vi.fn(),
   },
 }));
 
@@ -48,6 +53,10 @@ const mockSeller = (overrides = {}) => ({
 describe("sellersService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) =>
+      fn(prisma)
+    );
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
   });
 
   describe("apply()", () => {
@@ -115,13 +124,32 @@ describe("sellersService", () => {
 
     it("approves a seller", async () => {
       vi.mocked(sellersRepository.findById).mockResolvedValue(mockSeller() as any);
-      vi.mocked(sellersRepository.update).mockResolvedValue(
-        mockSeller({ isApproved: true }) as any
+      vi.mocked(prisma.seller.update).mockResolvedValue(mockSeller({ isApproved: true }) as any);
+
+      const result = await sellersService.approve("seller-1", true, {
+        actorId: "admin-1",
+        actorRole: "ADMIN",
+      });
+
+      expect(prisma.seller.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "seller-1" },
+          data: { isApproved: true },
+        })
       );
-
-      const result = await sellersService.approve("seller-1", true);
-
-      expect(sellersRepository.update).toHaveBeenCalledWith("seller-1", { isApproved: true });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: "SELLER_APPROVAL_CHANGED",
+            resourceType: "Seller",
+            resourceId: "seller-1",
+            actorId: "admin-1",
+            actorRole: "ADMIN",
+            before: { isApproved: false },
+            after: { isApproved: true },
+          }),
+        })
+      );
       expect(result.isApproved).toBe(true);
     });
 
@@ -129,13 +157,16 @@ describe("sellersService", () => {
       vi.mocked(sellersRepository.findById).mockResolvedValue(
         mockSeller({ isApproved: true }) as any
       );
-      vi.mocked(sellersRepository.update).mockResolvedValue(
-        mockSeller({ isApproved: false }) as any
-      );
+      vi.mocked(prisma.seller.update).mockResolvedValue(mockSeller({ isApproved: false }) as any);
 
       const result = await sellersService.approve("seller-1", false);
 
-      expect(sellersRepository.update).toHaveBeenCalledWith("seller-1", { isApproved: false });
+      expect(prisma.seller.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "seller-1" },
+          data: { isApproved: false },
+        })
+      );
       expect(result.isApproved).toBe(false);
     });
   });
