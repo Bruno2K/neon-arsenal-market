@@ -36,7 +36,7 @@ Rejected alternatives:
 
 ## Consequences
 
-- **C2 (AWS/Terraform) is a skip:** land a commit whose subject contains `[P-back] C2` and add no `infra/` Terraform. Do not invent VPC/Secrets Manager layouts.
+- **C2 (AWS/Terraform) is a skip:** see `docs/adr/0008-c2-skip-terraform.md`. Do not invent VPC/Secrets Manager layouts.
 - Interview drawings should start from `docs/architecture/c4.md` (Render + Postgres + PayPal/Resend). The P2 ECS boxes are labeled **optional future**, not current.
 - Cost, TLS, deploys, and logs stay on Render (and Vercel for the common SPA). Optional OpenTelemetry (`OTEL_ENABLED`) is not CloudWatch.
 - A later owner who wants AWS should change this ADR’s status to **Superseded** with a new ADR that scopes the migration; only then may C2-style Terraform exist.
