@@ -1,25 +1,26 @@
-import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Crosshair } from 'lucide-react';
-import { motion } from 'framer-motion';
-import { useAuth } from '@/contexts/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { Eye, EyeOff } from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
-type Role = 'CUSTOMER' | 'SELLER';
+type Role = "CUSTOMER" | "SELLER";
 
 export default function Register() {
-  const { startRegistration, confirmRegistration, error, clearError } = useAuth();
+  const { startRegistration, confirmRegistration, error, clearError } =
+    useAuth();
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState<Role>('CUSTOMER');
-  const [storeName, setStoreName] = useState('');
-  const [code, setCode] = useState('');
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [role, setRole] = useState<Role>("CUSTOMER");
+  const [storeName, setStoreName] = useState("");
+  const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
 
   const handleStep1 = async (e: React.FormEvent) => {
@@ -32,10 +33,12 @@ export default function Register() {
         email,
         password,
         role,
-        ...(role === 'SELLER' ? { storeName: storeName || undefined } : {}),
+        ...(role === "SELLER" ? { storeName: storeName || undefined } : {}),
       });
       setDevCode(result.code ?? null);
       setStep(2);
+    } catch {
+      // error shown via context
     } finally {
       setLoading(false);
     }
@@ -47,165 +50,220 @@ export default function Register() {
     setLoading(true);
     try {
       await confirmRegistration(email, code);
-      navigate('/', { replace: true });
+      navigate("/", { replace: true });
+    } catch {
+      // error shown via context
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center relative overflow-hidden">
-      <div className="absolute inset-0 grid-pattern" />
-      <div className="absolute inset-0 bg-gradient-to-b from-primary/5 via-transparent to-transparent" />
+    <div className="flex min-h-screen flex-col bg-background">
+      <div className="flex flex-1 items-center justify-center px-4 py-12">
+        <div className="w-full max-w-sm">
+          <Link to="/" className="mb-8 flex items-center gap-2.5">
+            <span className="h-4 w-4 rounded-sm bg-primary" aria-hidden />
+            <span className="text-[15px] font-semibold tracking-tight text-foreground">
+              Neon Arsenal
+            </span>
+          </Link>
 
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="relative z-10 w-full max-w-md p-8"
-      >
-        <div className="text-center mb-10">
-          <Crosshair className="h-10 w-10 text-primary mx-auto mb-4" />
-          <h1 className="text-3xl font-heading text-primary neon-text">SKINMARKET</h1>
-          <p className="text-muted-foreground text-sm mt-2">
-            {step === 1 ? 'Criar conta' : 'Confirmar e-mail'}
+          <p className="text-xs text-muted-foreground">Passo {step} de 2</p>
+          <h1 className="mt-1 text-2xl font-semibold tracking-tight">
+            {step === 1 ? "Criar conta" : "Confirmar e-mail"}
+          </h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            {step === 1
+              ? "Comprador ou vendedor. Sem senha compartilhada."
+              : `Código de 6 dígitos enviado para ${email}`}
+          </p>
+
+          {step === 1 ? (
+            <form onSubmit={handleStep1} className="mt-8 space-y-4">
+              <div>
+                <Label htmlFor="name">Nome</Label>
+                <Input
+                  id="name"
+                  type="text"
+                  placeholder="Seu nome"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="mt-1.5"
+                  required
+                  autoComplete="name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">E-mail</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="mt-1.5"
+                  required
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <Label htmlFor="password">Senha</Label>
+                <div className="relative mt-1.5">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Mín. 6 caracteres"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                    required
+                    minLength={6}
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                    onClick={() => setShowPassword((open) => !open)}
+                    aria-label={
+                      showPassword ? "Ocultar senha" : "Mostrar senha"
+                    }
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 w-4" />
+                    ) : (
+                      <Eye className="h-4 w-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+              <fieldset>
+                <legend className="text-sm font-medium">Tipo de conta</legend>
+                <div className="mt-2 flex gap-2">
+                  <label
+                    className={`flex h-10 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
+                      role === "CUSTOMER"
+                        ? "border-primary bg-accent text-accent-foreground"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      className="sr-only"
+                      checked={role === "CUSTOMER"}
+                      onChange={() => setRole("CUSTOMER")}
+                    />
+                    Comprador
+                  </label>
+                  <label
+                    className={`flex h-10 flex-1 cursor-pointer items-center justify-center rounded-md border text-sm ${
+                      role === "SELLER"
+                        ? "border-primary bg-accent text-accent-foreground"
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="role"
+                      className="sr-only"
+                      checked={role === "SELLER"}
+                      onChange={() => setRole("SELLER")}
+                    />
+                    Vendedor
+                  </label>
+                </div>
+              </fieldset>
+              {role === "SELLER" ? (
+                <div>
+                  <Label htmlFor="storeName">Nome da loja</Label>
+                  <Input
+                    id="storeName"
+                    type="text"
+                    placeholder="Minha Loja"
+                    value={storeName}
+                    onChange={(e) => setStoreName(e.target.value)}
+                    className="mt-1.5"
+                    required={role === "SELLER"}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Sua conta ficará pendente até aprovação do administrador.
+                  </p>
+                </div>
+              ) : null}
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <Button type="submit" className="w-full" disabled={loading}>
+                {loading ? "Enviando..." : "Enviar código por e-mail"}
+              </Button>
+            </form>
+          ) : (
+            <form onSubmit={handleStep2} className="mt-8 space-y-4">
+              {devCode ? (
+                <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+                  Ambiente de desenvolvimento: código ={" "}
+                  <strong className="text-foreground">{devCode}</strong>
+                </p>
+              ) : null}
+              <div>
+                <Label htmlFor="code">Código</Label>
+                <Input
+                  id="code"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="000000"
+                  value={code}
+                  onChange={(e) =>
+                    setCode(e.target.value.replace(/\D/g, "").slice(0, 6))
+                  }
+                  className="mt-1.5 font-mono text-lg tracking-[0.3em]"
+                  maxLength={6}
+                  required
+                  autoComplete="one-time-code"
+                  aria-invalid={error ? true : undefined}
+                />
+              </div>
+              {error ? (
+                <p className="text-sm text-destructive" role="alert">
+                  {error}
+                </p>
+              ) : null}
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setStep(1);
+                    setCode("");
+                    clearError();
+                  }}
+                  disabled={loading}
+                >
+                  Voltar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={loading || code.length !== 6}
+                >
+                  {loading ? "Confirmando..." : "Confirmar"}
+                </Button>
+              </div>
+            </form>
+          )}
+
+          <p className="mt-8 text-sm text-muted-foreground">
+            Já tem conta?{" "}
+            <Link to="/login" className="text-foreground hover:underline">
+              Entrar
+            </Link>
           </p>
         </div>
-
-        {step === 1 ? (
-          <form onSubmit={handleStep1} className="space-y-4">
-            <div>
-              <Label htmlFor="name">Nome</Label>
-              <Input
-                id="name"
-                type="text"
-                placeholder="Seu nome"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1"
-                required
-                autoComplete="name"
-              />
-            </div>
-            <div>
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="mt-1"
-                required
-                autoComplete="email"
-              />
-            </div>
-            <div>
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Mín. 6 caracteres"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="mt-1"
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
-            </div>
-            <div>
-              <Label>Tipo de conta</Label>
-              <div className="flex gap-4 mt-2">
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    checked={role === 'CUSTOMER'}
-                    onChange={() => setRole('CUSTOMER')}
-                    className="rounded-full"
-                  />
-                  <span className="text-sm">Comprador</span>
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="role"
-                    checked={role === 'SELLER'}
-                    onChange={() => setRole('SELLER')}
-                    className="rounded-full"
-                  />
-                  <span className="text-sm">Vendedor</span>
-                </label>
-              </div>
-            </div>
-            {role === 'SELLER' && (
-              <div>
-                <Label htmlFor="storeName">Nome da loja</Label>
-                <Input
-                  id="storeName"
-                  type="text"
-                  placeholder="Minha Loja"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  className="mt-1"
-                  required={role === 'SELLER'}
-                />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Sua conta ficará pendente até aprovação do administrador.
-                </p>
-              </div>
-            )}
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Enviando...' : 'Enviar código por e-mail'}
-            </Button>
-          </form>
-        ) : (
-          <form onSubmit={handleStep2} className="space-y-4">
-            <p className="text-sm text-muted-foreground">
-              Digite o código de 6 dígitos enviado para <strong>{email}</strong>
-            </p>
-            {devCode && (
-              <p className="text-xs text-muted-foreground bg-muted p-2 rounded">
-                Dev: código = <strong>{devCode}</strong>
-              </p>
-            )}
-            <div>
-              <Label htmlFor="code">Código</Label>
-              <Input
-                id="code"
-                type="text"
-                placeholder="000000"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                className="mt-1 font-mono text-lg tracking-widest"
-                maxLength={6}
-                required
-                autoComplete="one-time-code"
-              />
-            </div>
-            {error && <p className="text-sm text-destructive">{error}</p>}
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                className="flex-1"
-                onClick={() => { setStep(1); setCode(''); clearError(); }}
-                disabled={loading}
-              >
-                Voltar
-              </Button>
-              <Button type="submit" className="flex-1" disabled={loading || code.length !== 6}>
-                {loading ? 'Confirmando...' : 'Confirmar'}
-              </Button>
-            </div>
-          </form>
-        )}
-
-        <p className="text-center text-xs text-muted-foreground mt-8">
-          Já tem conta? <Link to="/login" className="text-primary hover:underline">Entrar</Link>
-        </p>
-      </motion.div>
+      </div>
     </div>
   );
 }
