@@ -21,3 +21,20 @@ export function resolveApiBaseUrl(env: ApiUrlEnv = {}): string {
     DEFAULT_API_BASE
   );
 }
+
+export function isLocalApiBaseUrl(apiUrl: string): boolean {
+  try {
+    const { hostname } = new URL(apiUrl);
+    return hostname === "localhost" || hostname === "127.0.0.1";
+  } catch {
+    return false;
+  }
+}
+
+export function assertProductionApiBaseUrl(apiUrl: string): void {
+  if (isLocalApiBaseUrl(apiUrl)) {
+    throw new Error(
+      "Production frontend builds must set API_URL to the public Render API origin, for example https://neon-arsenal-market-api.onrender.com",
+    );
+  }
+}

@@ -63,7 +63,13 @@ async function request<T>(
     return fetch(url, { ...init, headers });
   };
 
-  let res = await doFetch(access);
+  let res: Response;
+  try {
+    res = await doFetch(access);
+  } catch (err) {
+    const reason = err instanceof Error ? err.message : "Failed to fetch";
+    throw new Error(`Could not reach API at ${url}: ${reason}`);
+  }
 
   if (res.status === 401 && !skipAuth && access) {
     try {
