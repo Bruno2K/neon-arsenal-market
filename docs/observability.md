@@ -42,6 +42,7 @@ Inbound W3C `traceparent` / `tracestate` are accepted. Do not introduce a second
 | `payments.confirm.transaction` | Claim order, sell listings, write seller transactions |
 | `payments.reconcile` | PayPal GET reconciliation batch |
 | `seller.ledger.reconcile` | Seller.balance vs PAID ledger SUM |
+| `outbox.dispatch` | Claim and publish transactional outbox rows |
 | `paypal.webhook.verify` | Webhook signature verification |
 | `paypal.webhook.handle` | Event claim, ignore, confirm or fail |
 | `paypal.orders_create` / `orders_get` / `orders_capture` / `oauth_token` | PayPal HTTP |
@@ -77,6 +78,7 @@ Business counters (no labels):
 - `payments.confirmed`, `payments.failed`
 - `paypal.webhooks.received`, `paypal.webhooks.duplicate`, `paypal.webhooks.ignored`, `paypal.webhooks.failed`
 - `seller.ledger.drift_detected`, `seller.ledger.corrected`
+- `outbox.published`, `outbox.retry`, `outbox.failed`
 
 There is no `orders.pending` gauge. That would scrape PostgreSQL on a timer; query `Order` where `paymentStatus = PENDING` when you need the count.
 

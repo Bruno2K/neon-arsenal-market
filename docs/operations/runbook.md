@@ -36,7 +36,7 @@ A new Render deploy does not take traffic until `GET /ready` is 2xx/3xx (Postgre
 On SIGTERM/SIGINT (`docs/adr/0005-external-retry-and-graceful-shutdown.md`):
 
 1. Mark shutting down → `GET /ready` is 503 `shutting_down`.
-2. Stop reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation timers (in-flight sweeps may finish).
+2. Stop reservation-expiry, PayPal-reconciliation, seller-ledger-reconciliation, and outbox-dispatcher timers (in-flight sweeps may finish).
 3. `server.close()`: no new HTTP connections; in-flight requests get **10s** (`SHUTDOWN_DRAIN_MS`), then remaining connections are closed.
 4. Disconnect Prisma.
 5. Shut down OpenTelemetry exporters.

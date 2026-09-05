@@ -34,6 +34,9 @@ vi.mock("../../../shared/database/index.js", () => ({
     auditLog: {
       create: vi.fn(),
     },
+    outboxEvent: {
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -267,6 +270,7 @@ describe("paymentsService", () => {
         vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
         vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
         vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.outboxEvent.create).mockResolvedValue({} as never);
         return fn(prisma);
       });
     };
@@ -289,6 +293,27 @@ describe("paymentsService", () => {
             actorId: null,
             before: { paymentStatus: "PENDING", status: "PENDING" },
             after: { paymentStatus: "PAID", status: "CONFIRMED" },
+          }),
+        })
+      );
+      expect(prisma.outboxEvent.create).toHaveBeenCalledTimes(2);
+      expect(prisma.outboxEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: "PAYMENT_CONFIRMED",
+            aggregateId: "order-1",
+            payload: { orderId: "order-1", paymentStatus: "PAID", status: "CONFIRMED" },
+            status: "PENDING",
+          }),
+        })
+      );
+      expect(prisma.outboxEvent.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            type: "ORDER_CONFIRMED",
+            aggregateId: "order-1",
+            payload: { orderId: "order-1", status: "CONFIRMED" },
+            status: "PENDING",
           }),
         })
       );
@@ -328,6 +353,7 @@ describe("paymentsService", () => {
         vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
         vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
         vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.outboxEvent.create).mockResolvedValue({} as never);
         return fn(prisma);
       });
 
@@ -403,6 +429,7 @@ describe("paymentsService", () => {
       expect(prisma.seller.update).not.toHaveBeenCalled();
       expect(prisma.listing.updateMany).not.toHaveBeenCalled();
       expect(prisma.auditLog.create).not.toHaveBeenCalled();
+      expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
     });
 
     it("does not perform seller payout when payment claim fails", async () => {
@@ -411,6 +438,7 @@ describe("paymentsService", () => {
       await paymentsService.confirmPayment("order-1");
 
       expect(prisma.sellerTransaction.create).not.toHaveBeenCalled();
+      expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
     });
 
     it("throws and skips payout when reserved listings cannot be sold", async () => {
@@ -426,6 +454,7 @@ describe("paymentsService", () => {
         message: expect.stringContaining("expired"),
       });
       expect(prisma.sellerTransaction.create).not.toHaveBeenCalled();
+      expect(prisma.outboxEvent.create).not.toHaveBeenCalled();
     });
   });
 
@@ -562,6 +591,7 @@ function setupWebhookTransaction() {
     vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
     vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.outboxEvent.create).mockResolvedValue({} as never);
     return fn(prisma);
   });
 }

@@ -7,13 +7,14 @@ import {
   ClaimStatus,
   ListingStatus as PrismaListingStatus,
   OrderStatus as PrismaOrderStatus,
+  OutboxEventStatus,
   PaymentProvider,
   PaymentStatus as PrismaPaymentStatus,
   UserRole,
   WebhookEventStatus,
 } from "@prisma/client";
 
-export { ClaimStatus, PaymentProvider, UserRole, WebhookEventStatus };
+export { ClaimStatus, OutboxEventStatus, PaymentProvider, UserRole, WebhookEventStatus };
 
 export const ROLES = [UserRole.ADMIN, UserRole.SELLER, UserRole.CUSTOMER] as const;
 export type Role = UserRole;
@@ -60,3 +61,10 @@ export const WEBHOOK_EVENT_STATUSES = [
 ] as const;
 
 export const PAYMENT_PROVIDERS = [PaymentProvider.PAYPAL] as const;
+
+export const OUTBOX_EVENT_STATUSES = [
+  OutboxEventStatus.PENDING,
+  OutboxEventStatus.PROCESSING,
+  OutboxEventStatus.PUBLISHED,
+  OutboxEventStatus.FAILED,
+] as const;

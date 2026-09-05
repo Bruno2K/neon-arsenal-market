@@ -53,6 +53,13 @@ enum PaymentProvider {
   PAYPAL
 }
 
+enum OutboxEventStatus {
+  PENDING
+  PROCESSING
+  PUBLISHED
+  FAILED
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -329,4 +336,26 @@ model AuditLog {
   @@index([createdAt])
   @@index([resourceType, resourceId])
   @@index([actorId])
+}
+
+// Transactional outbox (issue #46 / ADR 0012). Inserted in the same local
+// PostgreSQL transaction as the domain mutation. PayPal HTTP stays outside.
+// Payload is non-secret JSON (order ids, statuses). No tokens, passwords,
+// or provider secrets. Unique (type, aggregateId) makes a second insert for
+// the same confirmation a constraint violation rather than a duplicate event.
+model OutboxEvent {
+  id          String            @id @default(cuid())
+  type        String
+  aggregateId String
+  payload     Json
+  status      OutboxEventStatus @default(PENDING)
+  attempts    Int               @default(0)
+  availableAt DateTime          @default(now())
+  claimedAt   DateTime?
+  lastError   String?
+  createdAt   DateTime          @default(now())
+
+  @@unique([type, aggregateId])
+  @@index([status, availableAt])
+  @@index([aggregateId])
 }

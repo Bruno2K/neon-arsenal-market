@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { logger } from "../logger.js";
 import { startPaypalReconciliationJob } from "../jobs/paypalReconciliationJob.js";
 import { startReservationExpiryJob } from "../jobs/reservationExpiryJob.js";
+import { startOutboxDispatcherJob } from "../jobs/outboxDispatcherJob.js";
 import { startSellerLedgerReconciliationJob } from "../jobs/sellerLedgerReconciliationJob.js";
 import { installProcessShutdownHandlers } from "./shutdown.js";
 
@@ -20,7 +21,8 @@ export function startApiProcess(
     jobs.push(
       startReservationExpiryJob(),
       startPaypalReconciliationJob(),
-      startSellerLedgerReconciliationJob()
+      startSellerLedgerReconciliationJob(),
+      startOutboxDispatcherJob()
     );
   });
 

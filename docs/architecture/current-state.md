@@ -32,7 +32,7 @@ Express API --> PayPal
 Express API --> Resend
 ```
 
-The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling. `startApiProcess` binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins.
+The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling. `startApiProcess` binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry, PayPal-reconciliation, seller-ledger-reconciliation, and outbox-dispatcher jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins.
 
 Observability is optional. `OTEL_ENABLED` defaults to off so `npm run dev` does not need a collector. See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
 
@@ -62,7 +62,7 @@ This is not an emergency rewrite target. Agents should avoid broad refactors. Wh
 
 PostgreSQL is the source of truth for business state. Prisma is the data-access layer.
 
-The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews, revoked tokens and an append-only `AuditLog`. Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint. Critical lifecycle columns (`User.role`, `Order.status`, `Order.paymentStatus`, `Listing.status`, payment-link and idempotency claim status, webhook processing status/provider, seller-transaction status) are PostgreSQL enums. PayPal `eventType` stays text so unknown provider events can be persisted and ignored. See `docs/adr/0009-prisma-domain-enums.md`. `AuditLog` records ADMIN/seller listing/order/payment mutations with ADMIN-only read access and a 365-day retention policy (`docs/adr/0010-audit-log.md`).
+The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews, revoked tokens, an append-only `AuditLog`, and a transactional `OutboxEvent` table. Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint. Critical lifecycle columns (`User.role`, `Order.status`, `Order.paymentStatus`, `Listing.status`, payment-link and idempotency claim status, webhook processing status/provider, seller-transaction status, outbox processing status) are PostgreSQL enums. PayPal `eventType` stays text so unknown provider events can be persisted and ignored. See `docs/adr/0009-prisma-domain-enums.md`. `AuditLog` records ADMIN/seller listing/order/payment mutations with ADMIN-only read access and a 365-day retention policy (`docs/adr/0010-audit-log.md`). `OutboxEvent` is inserted in the same local transaction as payment confirmation and published by an in-process skip-locked dispatcher (`docs/adr/0012-transactional-outbox.md`).
 
 ## Critical workflows
 
@@ -87,11 +87,11 @@ Webhook handling:
 1. Capture the raw body and verify RSA-SHA256 using `PAYPAL_WEBHOOK_ID` and the certificate at `paypal-cert-url`. `paypal-transmission-time` must be within 5 minutes of the server clock.
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
-4. `confirmPayment` claims the pending order, sells held listings, and writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection in one PostgreSQL transaction (ADR 0011).
+4. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012).
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20) and reuses `confirmPayment`.
 
-Critical workflows emit explicit spans (`orders.create`, `listings.reserve`, `payments.confirm`, `paypal.webhook.*`, `payments.reconcile`, `seller.ledger.reconcile`) and low-cardinality business counters. Expected 4xx results use `app.outcome` and are not marked span `ERROR`. Prisma calls get `db.prisma` spans without SQL text or parameters. PayPal HTTP uses stable operation names such as `paypal.orders_create`.
+Critical workflows emit explicit spans (`orders.create`, `listings.reserve`, `payments.confirm`, `paypal.webhook.*`, `payments.reconcile`, `seller.ledger.reconcile`, `outbox.dispatch`) and low-cardinality business counters. Expected 4xx results use `app.outcome` and are not marked span `ERROR`. Prisma calls get `db.prisma` spans without SQL text or parameters. PayPal HTTP uses stable operation names such as `paypal.orders_create`.
 
 ## Testing
 

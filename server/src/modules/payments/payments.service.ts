@@ -24,6 +24,8 @@ import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType } from "../audit/audit.types.js";
 import { computeSellerLedgerAmounts } from "../../shared/money/sellerLedger.js";
+import { outboxRepository } from "../../shared/outbox/outbox.repository.js";
+import { OutboxEventType } from "../../shared/outbox/outbox.types.js";
 
 const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
@@ -321,6 +323,20 @@ export const paymentsService = {
           data: { balance: { increment: netAmount } },
         });
       }
+
+      // Same local transaction as the domain mutation (ADR 0012). PayPal HTTP
+      // is not in this transaction. Duplicate confirm never reaches here
+      // (claimed.count === 0). Unique (type, aggregateId) is defense in depth.
+      await outboxRepository.enqueue(tx, {
+        type: OutboxEventType.PAYMENT_CONFIRMED,
+        aggregateId: orderId,
+        payload: { orderId, paymentStatus: "PAID", status: "CONFIRMED" },
+      });
+      await outboxRepository.enqueue(tx, {
+        type: OutboxEventType.ORDER_CONFIRMED,
+        aggregateId: orderId,
+        payload: { orderId, status: "CONFIRMED" },
+      });
     })
     );
       if (claimedCount === 0) {

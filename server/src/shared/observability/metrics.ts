@@ -28,6 +28,9 @@ type Instruments = {
   webhooksFailed: Counter;
   sellerLedgerDriftDetected: Counter;
   sellerLedgerCorrected: Counter;
+  outboxPublished: Counter;
+  outboxRetry: Counter;
+  outboxFailed: Counter;
 };
 
 let instruments: Instruments | undefined;
@@ -107,6 +110,15 @@ function createInstruments(meter: Meter): Instruments {
     sellerLedgerCorrected: meter.createCounter("seller.ledger.corrected", {
       description: "Seller.balance set to PAID ledger SUM",
     }),
+    outboxPublished: meter.createCounter("outbox.published", {
+      description: "Outbox events published",
+    }),
+    outboxRetry: meter.createCounter("outbox.retry", {
+      description: "Outbox handler retries scheduled",
+    }),
+    outboxFailed: meter.createCounter("outbox.failed", {
+      description: "Outbox events moved to FAILED",
+    }),
   };
 }
 
@@ -179,4 +191,7 @@ export const appMetrics = {
   webhooksFailed: (value = 1) => add(getInstruments().webhooksFailed, undefined, value),
   sellerLedgerDriftDetected: (value = 1) => add(getInstruments().sellerLedgerDriftDetected, undefined, value),
   sellerLedgerCorrected: (value = 1) => add(getInstruments().sellerLedgerCorrected, undefined, value),
+  outboxPublished: (value = 1) => add(getInstruments().outboxPublished, undefined, value),
+  outboxRetry: (value = 1) => add(getInstruments().outboxRetry, undefined, value),
+  outboxFailed: (value = 1) => add(getInstruments().outboxFailed, undefined, value),
 };

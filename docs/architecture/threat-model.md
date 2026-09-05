@@ -109,7 +109,7 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
   - `PAYPAL_WEBHOOK_ID` **required in production** (missing → verify returns false). **Skipped outside production if unset** (local/test convenience — a real gap if a public URL runs with non-production `NODE_ENV`).
 - Duplicate events: unique `(provider, externalEventId)` on `PaymentWebhookEvent`.
 - Only `PAYMENT.CAPTURE.COMPLETED` confirms sale. `CHECKOUT.ORDER.APPROVED` is stored as **IGNORED** (buyer approval ≠ capture).
-- Payment confirmation uses a conditional claim (unpaid order + still-held reservation) inside one PostgreSQL transaction with listing `SOLD` and seller ledger (ADR 0002).
+- Payment confirmation uses a conditional claim (unpaid order + still-held reservation) inside one PostgreSQL transaction with listing `SOLD`, seller ledger, and outbox rows (ADR 0002, ADR 0012).
 - Capture after reservation expiry: local conflict; HTTP **200** to PayPal so the provider stops retrying; listing is **not** SOLD. Manual PayPal refund/void is an **open human decision** — there is **no** refund API in this codebase.
 - Lost captures may be recovered by an **in-process PayPal order GET** sweep (ADR 0002). That path still cannot sell an expired reservation.
 
