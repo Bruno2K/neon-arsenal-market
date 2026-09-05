@@ -8,7 +8,7 @@ This is not a production load test. Absolute milliseconds will move with hardwar
 
 | Path | What actually runs | Dominant cost today |
 |---|---|---|
-| `GET /listings?status=ACTIVE` | `Listing` page `ORDER BY createdAt DESC LIMIT 20` plus `COUNT(*)` and joins to Product/Seller/User | `COUNT(*)` + joins, not the page index scan |
+| `GET /listings?status=ACTIVE` | `Listing` page `ORDER BY createdAt DESC, id DESC LIMIT 20` plus `COUNT(*)` (offset mode) and joins to Product/Seller/User. Cursor mode skips `COUNT(*)`. | `COUNT(*)` + joins in offset mode, not the page index scan |
 | `GET /listings/:id` | PK lookup + joins | Primary key |
 | `POST /orders` | Transaction: unique idempotency insert, per-listing conditional `UPDATE` by PK, order items | Row lock on the listing, not a scan |
 | `confirmPayment` | Conditional order claim by PK, conditional listing sell, seller transactions | Same: PK/conditional updates |
@@ -17,16 +17,16 @@ This is not a production load test. Absolute milliseconds will move with hardwar
 
 PayPal HTTP (`PAYPAL_API_TIMEOUT_MS` = 10s) dominates `POST /payments` latency. Database work on that path is a PK update of `paypalOrderId`.
 
-The market UI sorts price/float **in the browser on the current page**. SQL still orders by `createdAt`. A `(status, price)` index would be unused until the API accepts a sort field.
+The market UI sorts price/float **in the browser on the current page**. SQL still orders by `createdAt`, then `id`. A `(status, price)` index would be unused until the API accepts a sort field.
 
 ## EXPLAIN ANALYZE (representative)
 
 | Query | Plan | Execution |
 |---|---|---|
-| Market page (`status = ACTIVE ORDER BY createdAt DESC LIMIT 20`) | Index Scan `Listing_status_createdAt_idx` | 0.017 ms |
+| Market page (`status = ACTIVE ORDER BY createdAt DESC, id DESC LIMIT 20`) | Index Scan `Listing_status_createdAt_id_idx` | 0.017 ms |
 | Market `COUNT(*)` where `status = ACTIVE` | Seq Scan | 0.425 ms |
-| Market page plus price range | Index Scan `Listing_status_createdAt_idx` (filter on price) | 0.018 ms |
-| Expiry predicate including `OR expires IS NULL` | Index Scan `Listing_status_createdAt_idx` (status prefix) | 0.030 ms |
+| Market page plus price range | Index Scan `Listing_status_createdAt_id_idx` (filter on price) | 0.018 ms |
+| Expiry predicate including `OR expires IS NULL` | Index Scan `Listing_status_createdAt_id_idx` (status prefix) | 0.030 ms |
 | Expiry predicate `status = RESERVED AND expires <= now()` | `Listing_status_reservationExpiresAt_idx` | proven in CI |
 | Reconciliation pending PayPal orders | Index Scan `Order_paymentStatus_status_updatedAt_idx` | 0.034 ms |
 | Unpaid orders that no longer hold listings | Nested loop on `OrderItem` / `Listing_pkey` | 0.023 ms |
@@ -39,7 +39,8 @@ Index-only/unique lookups for `OrderIdempotencyKey(customerId, key)` and `Paymen
 
 | Index | Decision | Why |
 |---|---|---|
-| `Listing(status, createdAt)` | **Added** (replaces `Listing(status)`) | Real market SQL |
+| `Listing(status, createdAt, id)` | **Added** (replaces `Listing(status, createdAt)`) | Market SQL + keyset tie-breaker (ADR 0013) |
+| `Listing(createdAt, id)` | **Added** | Unfiltered listing keyset |
 | `Order(paymentStatus, status, updatedAt)` | **Added** (replaces `Order(paymentStatus)`) | Reconciliation SQL |
 | `Listing(status, reservationExpiresAt)` | Keep | Expiry without the NULL branch |
 | `Listing(productId, status)`, `sellerId`, `price`, `floatValue` | Keep | Filters / FKs |
@@ -58,7 +59,7 @@ Index-only/unique lookups for `OrderIdempotencyKey(customerId, key)` and `Paymen
 
 - One modular-monolith API process + one PostgreSQL. In-process expiry/reconciliation timers. Horizontal API replicas are safe because invariants live in PostgreSQL.
 - Current catalog size (demo seed / a few thousand listings) is well inside the plans above.
-- OFFSET pagination is used (`page * limit`). Deep offsets are not a current product need (`limit` max 100).
+- OFFSET pagination remains the Market default (`page` / `limit`). `GET /listings` and `GET /products` also accept an opaque `createdAt`+`id` cursor (ADR 0013). Deep offsets are not a current product need (`limit` max 100).
 
 ## Scaling triggers
 

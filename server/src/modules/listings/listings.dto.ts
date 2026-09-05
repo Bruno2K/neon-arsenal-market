@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURSOR_MAX_LENGTH } from "../../shared/pagination/cursor.js";
 import { LISTING_STATUSES } from "../../shared/types/roles.js";
 
 export const createListingDto = z.object({
@@ -34,6 +35,11 @@ export const listListingsQueryDto = z.object({
   maxFloat: z.coerce.number().min(0).max(1).optional(),
   exterior: z.string().optional(),
   isStattrak: z.coerce.boolean().optional(),
+  /**
+   * Opaque keyset cursor (`createdAt` + `id`). When present (including empty = first
+   * keyset page), `page` is ignored. Limit remains 1–100, default 20.
+   */
+  cursor: z.string().max(CURSOR_MAX_LENGTH).optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });

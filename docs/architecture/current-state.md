@@ -108,7 +108,7 @@ See `docs/testing.md`.
 
 ## Performance
 
-Market browse (`status = ACTIVE ORDER BY createdAt DESC`) and PayPal reconciliation have composite indexes chosen from `EXPLAIN ANALYZE`. `COUNT(*)` for listing pagination is the slower sibling of the page query and is still cheap at a few thousand rows. Scaling triggers: `docs/architecture/scaling-path.md`. Measurements: `docs/performance.md`.
+Market browse (`status = ACTIVE ORDER BY createdAt DESC, id DESC`) and PayPal reconciliation have composite indexes chosen from `EXPLAIN ANALYZE`. Offset `COUNT(*)` for listing pagination is the slower sibling of the page query and is still cheap at a few thousand rows. Cursor mode on `GET /listings` and `GET /products` skips that count (ADR 0013). Scaling triggers: `docs/architecture/scaling-path.md`. Measurements: `docs/performance.md`.
 
 ## Runtime configuration
 

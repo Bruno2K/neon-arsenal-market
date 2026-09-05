@@ -53,12 +53,14 @@ describe("P1.4 performance evidence", () => {
         AND tablename IN ('Listing', 'Order', 'OrderIdempotencyKey', 'PaymentWebhookEvent')
     `;
     const names = tableIndexes.map((row) => row.indexname);
-    expect(names).toContain("Listing_status_createdAt_idx");
+    expect(names).toContain("Listing_status_createdAt_id_idx");
+    expect(names).toContain("Listing_createdAt_id_idx");
     expect(names).toContain("Listing_status_reservationExpiresAt_idx");
     expect(names).toContain("Order_paymentStatus_status_updatedAt_idx");
     expect(names).toContain("OrderIdempotencyKey_customerId_key_key");
     expect(names).toContain("PaymentWebhookEvent_provider_externalEventId_key");
     expect(names).not.toContain("Listing_status_idx");
+    expect(names).not.toContain("Listing_status_createdAt_idx");
     expect(names).not.toContain("Order_paymentStatus_idx");
 
     await prisma.orderIdempotencyKey.create({

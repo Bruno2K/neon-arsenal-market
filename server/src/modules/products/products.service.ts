@@ -1,10 +1,12 @@
 import { productsRepository } from "./products.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import type { Prisma } from "@prisma/client";
 import type { CreateProductInput, UpdateProductInput, ListProductsQuery } from "./products.dto.js";
+import { decodeCreatedAtIdCursor, nextCreatedAtIdCursor } from "../../shared/pagination/cursor.js";
 
 export const productsService = {
   async list(query: ListProductsQuery) {
-    const where: any = {};
+    const where: Prisma.ProductWhereInput = {};
 
     if (query.game) where.game = query.game;
     if (query.weapon) where.weapon = { contains: query.weapon, mode: "insensitive" };
@@ -20,13 +22,35 @@ export const productsService = {
       ];
     }
 
+    const filters = Object.keys(where).length ? where : undefined;
+
+    if (query.cursor !== undefined) {
+      const after = query.cursor === "" ? undefined : decodeCreatedAtIdCursor(query.cursor);
+      const { items, hasMore } = await productsRepository.findManyByKeyset({
+        take: query.limit,
+        where: filters,
+        after,
+      });
+      return {
+        items,
+        limit: query.limit,
+        nextCursor: nextCreatedAtIdCursor(items, hasMore),
+      };
+    }
+
     const skip = (query.page - 1) * query.limit;
     const { items, total } = await productsRepository.findMany({
       skip,
       take: query.limit,
-      where: Object.keys(where).length ? where : undefined,
+      where: filters,
     });
-    return { items, total, page: query.page, limit: query.limit };
+    return {
+      items,
+      total,
+      page: query.page,
+      limit: query.limit,
+      nextCursor: nextCreatedAtIdCursor(items, skip + items.length < total),
+    };
   },
 
   async getById(id: string) {

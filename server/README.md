@@ -85,7 +85,8 @@ Variáveis: `OTEL_ENABLED`, `OTEL_EXPORTER` (`none` | `console` | `otlp`), `OTEL
 | `POST /sellers/apply` | Virar vendedor (auth)              |
 | `GET/PATCH /sellers/:id` | Detalhe/atualizar (auth)        |
 | `PATCH /sellers/:id/approve` | Aprovar (ADMIN)                |
-| `GET /products`       | Listar produtos (query: sellerId, isActive, search, page, limit) |
+| `GET /products`       | Listar produtos (query: game, weapon, search, page, limit, cursor) |
+| `GET /listings`       | Listar listings (query: status, filtros, page, limit, cursor). Sem `cursor`: `{ items, total, page, limit }`. Com `cursor`: `{ items, limit, nextCursor }`, ordem `createdAt DESC, id DESC`. |
 | `GET/POST/PATCH/DELETE /products` | CRUD (POST/PATCH/DELETE = SELLER/ADMIN) |
 | `POST /orders`        | Criar pedido (CUSTOMER, body: items: [{ productId, quantity }]) |
 | `GET /orders`, `GET /orders/:id` | Listar/detalhe (auth)        |

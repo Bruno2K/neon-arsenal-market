@@ -15,6 +15,11 @@ import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
+import {
+  createdAtIdDescOrderBy,
+  decodeCreatedAtIdCursor,
+  nextCreatedAtIdCursor,
+} from "../../shared/pagination/cursor.js";
 
 // INV-LISTING-SOLD-IRREVERSIBLE: SOLD and CANCELED have no outgoing edges.
 const VALID_STATUS_TRANSITIONS: Record<ListingStatus, readonly ListingStatus[]> = {
@@ -50,15 +55,38 @@ export const listingsService = {
       if (query.isStattrak !== undefined) where.product.isStattrak = query.isStattrak;
     }
 
+    const filters = Object.keys(where).length ? where : undefined;
+
+    // Cursor mode: ignore `page`, skip COUNT(*), keyset on createdAt+id.
+    if (query.cursor !== undefined) {
+      const after = query.cursor === "" ? undefined : decodeCreatedAtIdCursor(query.cursor);
+      const { items, hasMore } = await listingsRepository.findManyByKeyset({
+        take: query.limit,
+        where: filters,
+        after,
+      });
+      return {
+        items,
+        limit: query.limit,
+        nextCursor: nextCreatedAtIdCursor(items, hasMore),
+      };
+    }
+
     const skip = (query.page - 1) * query.limit;
     const { items, total } = await listingsRepository.findMany({
       skip,
       take: query.limit,
-      where: Object.keys(where).length ? where : undefined,
-      orderBy: { createdAt: "desc" },
+      where: filters,
+      orderBy: createdAtIdDescOrderBy,
     });
 
-    return { items, total, page: query.page, limit: query.limit };
+    return {
+      items,
+      total,
+      page: query.page,
+      limit: query.limit,
+      nextCursor: nextCreatedAtIdCursor(items, skip + items.length < total),
+    };
   },
 
   async getById(id: string) {
