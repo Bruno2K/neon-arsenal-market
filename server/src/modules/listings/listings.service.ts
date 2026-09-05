@@ -16,6 +16,7 @@ import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 
+// INV-LISTING-SOLD-IRREVERSIBLE: SOLD and CANCELED have no outgoing edges.
 const VALID_STATUS_TRANSITIONS: Record<ListingStatus, readonly ListingStatus[]> = {
   ACTIVE: ["RESERVED", "CANCELED"],
   RESERVED: ["ACTIVE", "SOLD", "CANCELED"],
@@ -108,7 +109,7 @@ export const listingsService = {
     const listing = await listingsRepository.findById(listingId);
     if (!listing) throw new AppError(404, "Listing not found");
 
-    // Authorization check
+    // INV-AUTH-OWNERSHIP: only the listing seller (or ADMIN) may mutate.
     if (role !== "ADMIN") {
       const seller = await prisma.seller.findUnique({ where: { userId } });
       if (!seller || listing.sellerId !== seller.id) {
@@ -269,8 +270,8 @@ export const listingsService = {
    * Release expired reservations back to ACTIVE and cancel unpaid orders
    * that no longer hold a RESERVED listing.
    *
-   * The listing UPDATE is conditional on `status = RESERVED`, so a concurrent
-   * payment that already moved the row to SOLD cannot be overwritten.
+   * The listing UPDATE is conditional on `status = RESERVED` (INV-LISTING-SOLD-IRREVERSIBLE),
+   * so a concurrent payment that already moved the row to SOLD cannot be overwritten.
    * Order cancellation is a separate statement so lock order (listings vs
    * orders) cannot deadlock against payment confirmation.
    */

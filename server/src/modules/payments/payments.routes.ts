@@ -12,6 +12,7 @@ router.post(
   validateBody(createPaymentDto),
   paymentsController.create
 );
+// INV-PAYMENT-TRUSTED-CONFIRM: no client confirm route. PAID is webhook/reconciliation only.
 router.post("/webhook", paymentsController.webhook);
 
 export const paymentsRoutes = router;

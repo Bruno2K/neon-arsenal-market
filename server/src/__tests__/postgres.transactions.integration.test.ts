@@ -108,4 +108,25 @@ describe("PostgreSQL transactions", () => {
     expect(listing?.status).toBe("RESERVED");
     expect(["order-a", "order-b"]).toContain(listing?.reservedByOrderId);
   });
+
+  it("persists order total as the Decimal sum of listing price snapshots", async () => {
+    const fixture = await createCheckoutGraph(2);
+    const listingIds = fixture.listings.map((listing) => listing.id);
+
+    const created = await createOrder(fixture.customer.id, listingIds, orderKey("total"));
+
+    const items = await prisma.orderItem.findMany({
+      where: { orderId: created.id },
+      orderBy: { listingId: "asc" },
+    });
+    const expected = items.reduce(
+      (sum, item) => sum.plus(item.priceSnapshot),
+      new Prisma.Decimal(0)
+    );
+    const order = await prisma.order.findUnique({ where: { id: created.id } });
+
+    expect(items).toHaveLength(2);
+    expect(order?.totalAmount.toString()).toBe(expected.toString());
+    expect(order?.totalAmount.toString()).toBe("201.00");
+  });
 });

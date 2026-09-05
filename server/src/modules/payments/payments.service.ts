@@ -215,6 +215,7 @@ export const paymentsService = {
     );
   },
 
+  // INV-PAYMENT-TRUSTED-CONFIRM: webhook/reconciliation only. Clients have no confirm route.
   async confirmPayment(orderId: string) {
     return withSpan("payments.confirm", {}, async (span) => {
     let claimedCount = 0;
@@ -294,6 +295,7 @@ export const paymentsService = {
         }
       }
 
+      // INV-SELLER-COMMISSION-DECIMAL: Prisma.Decimal, not JavaScript number.
       for (const [sellerId, data] of bySeller) {
         const commissionAmount = data.grossAmount.mul(data.commissionRate);
         const netAmount = data.grossAmount.minus(commissionAmount);

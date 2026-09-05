@@ -65,8 +65,8 @@ export const ordersService = {
           { attributes: { "app.listing_count": listingIds.length } },
           async () => {
         for (const listingId of listingIds) {
-          // The status transition is conditional, so two concurrent orders cannot
-          // both reserve the same listing. PostgreSQL performs this atomically.
+          // INV-LISTING-EXCLUSIVE-RESERVE: conditional ACTIVE → RESERVED.
+          // Two concurrent orders cannot both succeed; PostgreSQL applies this atomically.
           const reserved = await tx.listing.updateMany({
             where: {
               id: listingId,
@@ -106,6 +106,7 @@ export const ordersService = {
             throw new AppError(404, `Listing not found: ${listingId}`);
           }
 
+          // INV-ORDER-TOTAL-COMPOSITION / INV-ORDER-PRICE-SNAPSHOT: Decimal sum of snapshots.
           totalAmount = totalAmount.plus(listing.price);
           orderItems.push({
             listingId: listing.id,
@@ -202,6 +203,7 @@ export const ordersService = {
   async getById(orderId: string, userId: string, role: string) {
     const order = await ordersRepository.findById(orderId);
     if (!order) throw new AppError(404, "Order not found");
+    // INV-AUTH-OWNERSHIP: customer sees own orders; seller sees orders that include their items.
     if (role === "CUSTOMER" && order.customer.id !== userId)
       throw new AppError(403, "Not your order");
     if (role === "SELLER") {

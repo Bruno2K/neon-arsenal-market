@@ -312,6 +312,39 @@ describe("paymentsService", () => {
       );
     });
 
+    it("sums item snapshots with Decimal so IEEE-754 0.1+0.2 cannot drift commission", async () => {
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+        vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
+        vi.mocked(prisma.order.findUnique).mockResolvedValue(
+          mockOrder({
+            items: [
+              { listingId: "listing-1", sellerId: "seller-1", priceSnapshot: new Prisma.Decimal("0.10") },
+              { listingId: "listing-2", sellerId: "seller-1", priceSnapshot: new Prisma.Decimal("0.20") },
+            ],
+          }) as never
+        );
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 2 } as never);
+        vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as never);
+        vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
+        vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+        return fn(prisma);
+      });
+
+      await paymentsService.confirmPayment("order-1");
+
+      expect(prisma.sellerTransaction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            grossAmount: new Prisma.Decimal("0.30"),
+            commissionAmount: new Prisma.Decimal("0.030"),
+            netAmount: new Prisma.Decimal("0.270"),
+          }),
+        })
+      );
+      expect(0.1 + 0.2).not.toBe(0.3);
+    });
+
     it("calculates commission using Decimal arithmetic", async () => {
       setupTransaction();
 
