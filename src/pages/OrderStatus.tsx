@@ -19,6 +19,7 @@ import {
   orderTotalAmount,
 } from "@/lib/orderPaymentView";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
+import { redirectToExternal } from "@/lib/redirect";
 import type { Order } from "@/types/api";
 
 function OrderHeadline({
@@ -107,8 +108,7 @@ export default function OrderStatusPage() {
     queryKey: ["order", id],
     queryFn: () => getOrder(id!),
     enabled: Boolean(id),
-    retry: (failureCount, queryError) =>
-      !isOrderAccessError(queryError) && failureCount < 1,
+    retry: false,
     refetchInterval: (query) => orderPollIntervalMs(query.state.data, intent),
   });
 
@@ -190,7 +190,7 @@ export default function OrderStatusPage() {
         ...paypalCheckoutUrls(order.id),
       });
       if (payment.approvalUrl) {
-        window.location.assign(payment.approvalUrl);
+        redirectToExternal(payment.approvalUrl);
         return;
       }
       setRetryError(

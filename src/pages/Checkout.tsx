@@ -11,6 +11,7 @@ import {
   type CheckoutIdempotencyState,
 } from "@/lib/checkoutIdempotency";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
+import { redirectToExternal } from "@/lib/redirect";
 
 export default function Checkout() {
   const { items, totalPrice, removeItems } = useCart();
@@ -88,7 +89,7 @@ export default function Checkout() {
       });
       if (payment.approvalUrl) {
         leftCheckout = true;
-        window.location.assign(payment.approvalUrl);
+        redirectToExternal(payment.approvalUrl);
         return;
       }
       leftCheckout = true;

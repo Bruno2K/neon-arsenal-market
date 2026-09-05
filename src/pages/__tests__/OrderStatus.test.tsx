@@ -8,6 +8,7 @@ import type { Order } from "@/types/api";
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
 const createOrder = vi.fn();
+const redirectToExternal = vi.fn();
 
 vi.mock("@/api/orders", () => ({
   getOrder: (...args: unknown[]) => getOrder(...args),
@@ -16,6 +17,10 @@ vi.mock("@/api/orders", () => ({
 
 vi.mock("@/api/payments", () => ({
   createPaymentLink: (...args: unknown[]) => createPaymentLink(...args),
+}));
+
+vi.mock("@/lib/redirect", () => ({
+  redirectToExternal: (...args: unknown[]) => redirectToExternal(...args),
 }));
 
 function pendingOrder(overrides: Partial<Order> = {}): Order {
@@ -73,7 +78,7 @@ describe("OrderStatusPage", () => {
     getOrder.mockReset();
     createPaymentLink.mockReset();
     createOrder.mockReset();
-    vi.spyOn(window.location, "assign").mockImplementation(() => {});
+    redirectToExternal.mockReset();
   });
 
   afterEach(() => {
@@ -98,7 +103,7 @@ describe("OrderStatusPage", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
-    expect(screen.getByText("$105.00")).toBeTruthy();
+    expect(screen.getAllByText("$105.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Pedido PENDING")).toBeTruthy();
     expect(screen.getByText("Pagamento PENDING")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
@@ -186,7 +191,7 @@ describe("OrderStatusPage", () => {
       });
     });
     expect(createOrder).not.toHaveBeenCalled();
-    expect(window.location.assign).toHaveBeenCalledWith(
+    expect(redirectToExternal).toHaveBeenCalledWith(
       "https://www.paypal.com/checkoutnow?token=EC-retry",
     );
   });

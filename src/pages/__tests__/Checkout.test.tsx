@@ -6,6 +6,7 @@ import type { Listing, User } from "@/types/api";
 
 const createOrder = vi.fn();
 const createPaymentLink = vi.fn();
+const redirectToExternal = vi.fn();
 
 const cartState = {
   items: [] as { listing: Listing }[],
@@ -33,6 +34,10 @@ vi.mock("@/contexts/CartContext", () => ({
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState,
+}));
+
+vi.mock("@/lib/redirect", () => ({
+  redirectToExternal: (...args: unknown[]) => redirectToExternal(...args),
 }));
 
 function listing(price = 100, id = "listing-ak"): Listing {
@@ -120,11 +125,11 @@ describe("Checkout", () => {
     authState.isAuthenticated = false;
     createOrder.mockReset();
     createPaymentLink.mockReset();
+    redirectToExternal.mockReset();
     let uuidIndex = 0;
     vi.spyOn(crypto, "randomUUID").mockImplementation(
       () => uuidKeys[uuidIndex++] ?? "overflow-uuid",
     );
-    vi.spyOn(window.location, "assign").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -198,7 +203,7 @@ describe("Checkout", () => {
     expect(urls.cancelUrl.startsWith("http")).toBe(true);
     expect(cartState.removeItems).toHaveBeenCalledWith(["listing-ak"]);
     expect(cartState.clearCart).not.toHaveBeenCalled();
-    expect(window.location.assign).toHaveBeenCalledWith(
+    expect(redirectToExternal).toHaveBeenCalledWith(
       "https://www.paypal.com/checkoutnow?token=EC-1",
     );
     expect(screen.queryByText(/Pedido Confirmado/i)).toBeNull();
