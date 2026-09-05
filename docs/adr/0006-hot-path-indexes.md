@@ -19,7 +19,11 @@ Existing single-column `Listing(status)` and `Order(paymentStatus)` indexes do n
 
 ## Consequences
 
-- Market `LIMIT 20` uses `Listing_status_createdAt_idx` (measured).
+- Market `LIMIT 20` uses `Listing_status_createdAt_id_idx` (issue #49 extended the tie-breaker; see Later change).
 - Reconciliation uses `Order_paymentStatus_status_updatedAt_idx` (measured).
-- `COUNT(*)` for `total` may still seq-scan. That is the documented scaling trigger for cursor pagination, not a cache.
+- `COUNT(*)` for `total` may still seq-scan in offset mode. Cursor pagination (issue #49 / ADR 0013) skips that count.
 - Expiry `OR reservationExpiresAt IS NULL` may not pick the reservation-expiry index; reserved cardinality is small. Split that predicate only if expiry scans become a measured problem.
+
+## Later change (issue #49)
+
+`GET /listings` now orders by `createdAt DESC, id DESC`. `Listing(status, createdAt)` was replaced by `Listing(status, createdAt, id)` so the market keyset uses the same index. `Listing(createdAt, id)` covers unfiltered lists. See ADR 0013.

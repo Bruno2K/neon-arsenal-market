@@ -35,6 +35,35 @@ export const openApiSpec = {
           statusCode: { type: "integer", example: 404 },
         },
       },
+      OffsetPage: {
+        type: "object",
+        required: ["items", "total", "page", "limit"],
+        properties: {
+          items: { type: "array", items: { type: "object" } },
+          total: { type: "integer" },
+          page: { type: "integer" },
+          limit: { type: "integer" },
+          nextCursor: {
+            type: "string",
+            nullable: true,
+            description:
+              "Opaque createdAt+id cursor for the next keyset page. Null when this offset page is the last. Additive; existing Market clients ignore it.",
+          },
+        },
+      },
+      CursorPage: {
+        type: "object",
+        required: ["items", "limit", "nextCursor"],
+        properties: {
+          items: { type: "array", items: { type: "object" } },
+          limit: { type: "integer" },
+          nextCursor: {
+            type: "string",
+            nullable: true,
+            description: "Opaque createdAt+id cursor. Null on the last page.",
+          },
+        },
+      },
       User: {
         type: "object",
         properties: {
@@ -292,34 +321,101 @@ export const openApiSpec = {
       get: {
         tags: ["Listings"],
         summary: "Browse listings with filters",
+        description:
+          "Public listing browse. Offset pagination (`page`/`limit`) remains the default so existing Market clients keep working. " +
+          "When `cursor` is present (empty string = first keyset page), `page` is ignored and the response is `{ items, limit, nextCursor }` " +
+          "ordered by `createdAt DESC, id DESC`. The cursor is opaque base64url of those two keys; clients must not parse it. " +
+          "Limit is 1–100 (default 20). Concurrent inserts do not skip or duplicate rows already walked by a cursor.",
         security: [],
         parameters: [
-          { name: "page", in: "query", schema: { type: "integer", default: 1 } },
-          { name: "limit", in: "query", schema: { type: "integer", default: 20 } },
-          { name: "weapon", in: "query", schema: { type: "string" } },
-          { name: "exterior", in: "query", schema: { type: "string" } },
-          { name: "rarity", in: "query", schema: { type: "string" } },
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            schema: { type: "string", maxLength: 512 },
+            description:
+              "Opaque keyset cursor. Omit for offset mode. Empty value starts keyset mode from the newest row. " +
+              "A previous `nextCursor` continues the walk. Invalid values return 400.",
+          },
+          {
+            name: "page",
+            in: "query",
+            schema: { type: "integer", minimum: 1, default: 1 },
+            description: "Offset page. Ignored when `cursor` is present. Default 1 in offset mode.",
+          },
+          {
+            name: "limit",
+            in: "query",
+            schema: { type: "integer", minimum: 1, maximum: 100, default: 20 },
+          },
+          { name: "productId", in: "query", schema: { type: "string" } },
+          { name: "sellerId", in: "query", schema: { type: "string" } },
+          { name: "status", in: "query", schema: { type: "string", enum: ["ACTIVE", "RESERVED", "SOLD", "CANCELED"] } },
           { name: "minPrice", in: "query", schema: { type: "number" } },
           { name: "maxPrice", in: "query", schema: { type: "number" } },
+          { name: "minFloat", in: "query", schema: { type: "number" } },
+          { name: "maxFloat", in: "query", schema: { type: "number" } },
+          { name: "exterior", in: "query", schema: { type: "string" } },
           { name: "isStattrak", in: "query", schema: { type: "boolean" } },
         ],
         responses: {
           200: {
-            description: "Paginated listings",
+            description: "Paginated listings (offset or cursor mode)",
             content: {
               "application/json": {
                 schema: {
-                  type: "object",
-                  properties: {
-                    data: { type: "array", items: { $ref: "#/components/schemas/Listing" } },
-                    total: { type: "integer" },
-                    page: { type: "integer" },
-                    totalPages: { type: "integer" },
-                  },
+                  oneOf: [
+                    { $ref: "#/components/schemas/OffsetPage" },
+                    { $ref: "#/components/schemas/CursorPage" },
+                  ],
                 },
               },
             },
           },
+          400: { description: "Invalid cursor or query" },
+        },
+      },
+    },
+    "/products": {
+      get: {
+        tags: ["Products"],
+        summary: "Browse product catalog",
+        description:
+          "Public catalog list. Same dual pagination as GET /listings: omit `cursor` for `{ items, total, page, limit }`; " +
+          "pass `cursor` for `{ items, limit, nextCursor }`. Order is `createdAt DESC, id DESC`. Limit 1–100, default 20.",
+        security: [],
+        parameters: [
+          {
+            name: "cursor",
+            in: "query",
+            required: false,
+            schema: { type: "string", maxLength: 512 },
+            description: "Opaque keyset cursor. Empty starts from the newest product. Invalid values return 400.",
+          },
+          { name: "page", in: "query", schema: { type: "integer", minimum: 1, default: 1 } },
+          { name: "limit", in: "query", schema: { type: "integer", minimum: 1, maximum: 100, default: 20 } },
+          { name: "game", in: "query", schema: { type: "string" } },
+          { name: "weapon", in: "query", schema: { type: "string" } },
+          { name: "exterior", in: "query", schema: { type: "string" } },
+          { name: "rarity", in: "query", schema: { type: "string" } },
+          { name: "isStattrak", in: "query", schema: { type: "boolean" } },
+          { name: "search", in: "query", schema: { type: "string" } },
+        ],
+        responses: {
+          200: {
+            description: "Paginated products (offset or cursor mode)",
+            content: {
+              "application/json": {
+                schema: {
+                  oneOf: [
+                    { $ref: "#/components/schemas/OffsetPage" },
+                    { $ref: "#/components/schemas/CursorPage" },
+                  ],
+                },
+              },
+            },
+          },
+          400: { description: "Invalid cursor or query" },
         },
       },
     },

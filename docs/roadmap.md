@@ -85,7 +85,7 @@ See `docs/adr/0005-external-retry-and-graceful-shutdown.md` and `docs/architectu
 Implemented:
 
 - Repeatable `EXPLAIN ANALYZE` + workflow timings (`npm run perf:evidence`, CI in `performance.evidence.integration.test.ts`);
-- Market page uses `Listing(status, createdAt)`; reconciliation uses `Order(paymentStatus, status, updatedAt)`;
+- Market page uses `Listing(status, createdAt, id)`; reconciliation uses `Order(paymentStatus, status, updatedAt)`;
 - `COUNT(*)` identified as the listing-list cost, not a reason to add Redis;
 - Capacity assumptions and scaling triggers documented.
 

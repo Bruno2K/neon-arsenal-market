@@ -130,6 +130,7 @@ model Product {
   @@index([rarity])
   @@index([isStattrak])
   @@index([game, weapon, exterior, isStattrak])
+  @@index([createdAt, id])
 }
 
 model Order {
@@ -227,7 +228,8 @@ model Listing {
   @@index([floatValue])
   @@index([sellerId])
   @@index([productId, status])
-  @@index([status, createdAt])
+  @@index([createdAt, id])
+  @@index([status, createdAt, id])
   @@index([status, reservationExpiresAt])
   @@index([reservedByOrderId])
 }

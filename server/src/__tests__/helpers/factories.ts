@@ -41,14 +41,20 @@ export async function createSeller(userId?: string) {
   });
 }
 
-export async function createProduct(overrides: { skinName?: string } = {}) {
+export async function createProduct(overrides: {
+  skinName?: string;
+  createdAt?: Date;
+  id?: string;
+} = {}) {
   return prisma.product.create({
     data: {
+      ...(overrides.id ? { id: overrides.id } : {}),
       game: "CS2",
       weapon: "AK-47",
       skinName: overrides.skinName ?? `Skin ${uniqueSuffix()}`,
       rarity: "Classified",
       exterior: "Field-Tested",
+      ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
     },
   });
 }
@@ -59,14 +65,18 @@ export async function createListing(input: {
   price?: string;
   status?: ListingStatus;
   floatValue?: string;
+  createdAt?: Date;
+  id?: string;
 }) {
   return prisma.listing.create({
     data: {
+      ...(input.id ? { id: input.id } : {}),
       productId: input.productId,
       sellerId: input.sellerId,
       floatValue: new Prisma.Decimal(input.floatValue ?? "0.15"),
       price: new Prisma.Decimal(input.price ?? "100.00"),
       status: input.status ?? "ACTIVE",
+      ...(input.createdAt ? { createdAt: input.createdAt } : {}),
     },
   });
 }

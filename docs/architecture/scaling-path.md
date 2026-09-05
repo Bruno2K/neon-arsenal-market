@@ -20,7 +20,7 @@ At ~2.5k `ACTIVE` listings, market page index scans are ~0.02 ms; `listingsSer
 
 | Signal | First mitigation | Still not justified |
 |---|---|---|
-| `GET /listings` p95 > ~50 ms and EXPLAIN shows `COUNT(*)` or deep `OFFSET` | Drop or cache `total`, or cursor pagination | Redis for the whole listing payload |
+| `GET /listings` p95 > ~50 ms and EXPLAIN shows `COUNT(*)` or deep `OFFSET` | Prefer cursor mode (`cursor` query; already shipped, ADR 0013) or drop `total` | Redis for the whole listing payload |
 | Market must sort by price/float in SQL, not in the browser | `ORDER BY` in the API + matching `(status, price)` index | Elasticsearch |
 | Expiry sweep time grows with `RESERVED` rows and the `OR expires IS NULL` plan ignores `reservationExpiresAt` | Two predicates (range vs null) | Dedicated worker queue |
 | PayPal GET reconciliation lags captured orders | Tune batch/interval; keep GET retries | Kafka/SQS |

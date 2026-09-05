@@ -8,7 +8,7 @@ export const PERF_QUERIES = {
     SELECT l.id
     FROM "Listing" l
     WHERE l.status = 'ACTIVE'
-    ORDER BY l."createdAt" DESC
+    ORDER BY l."createdAt" DESC, l.id DESC
     LIMIT 20
   `,
   marketActiveCount: `
@@ -22,7 +22,7 @@ export const PERF_QUERIES = {
     WHERE l.status = 'ACTIVE'
       AND l.price >= 50
       AND l.price <= 500
-    ORDER BY l."createdAt" DESC
+    ORDER BY l."createdAt" DESC, l.id DESC
     LIMIT 20
   `,
   expireReserved: `

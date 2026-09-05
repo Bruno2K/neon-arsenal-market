@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { CURSOR_MAX_LENGTH } from "../../shared/pagination/cursor.js";
 
 const EXTERIOR_TYPES = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"] as const;
 const RARITY_TYPES = ["Consumer Grade", "Industrial Grade", "Mil-Spec Grade", "Restricted", "Classified", "Covert", "Exceedingly Rare"] as const;
@@ -34,6 +35,7 @@ export const listProductsQueryDto = z.object({
   rarity: z.enum(RARITY_TYPES).optional(),
   isStattrak: z.coerce.boolean().optional(),
   search: z.string().optional(),
+  cursor: z.string().max(CURSOR_MAX_LENGTH).optional(),
   page: z.coerce.number().int().min(1).optional().default(1),
   limit: z.coerce.number().int().min(1).max(100).optional().default(20),
 });
