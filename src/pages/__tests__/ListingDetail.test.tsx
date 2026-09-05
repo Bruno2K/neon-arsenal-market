@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ListingDetail from "../ListingDetail";
@@ -154,7 +154,7 @@ describe("ListingDetail", () => {
     })[0];
     expect(addButton).not.toHaveProperty("disabled", true);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
-    addButton.click();
+    fireEvent.click(addButton);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
     expect(toast).toHaveBeenCalledWith({ title: CART_ADDED_MESSAGE });
     expect(screen.getByText(CART_ADDED_MESSAGE)).toHaveAttribute(
@@ -175,7 +175,7 @@ describe("ListingDetail", () => {
     expect(screen.getAllByText("Vendido").length).toBeGreaterThan(0);
     const similar = screen.getByRole("link", { name: CART_CTA_SIMILAR });
     expect(similar).toHaveAttribute("href", "/products");
-    similar.click();
+    fireEvent.click(similar);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
     expect(toast).not.toHaveBeenCalled();
   });
@@ -196,13 +196,13 @@ describe("ListingDetail", () => {
     renderDetail();
 
     const addButton = await screen.findByRole("button", { name: CART_CTA_ADD });
-    addButton.click();
+    fireEvent.click(addButton);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
     expect(screen.getByText(CART_CTA_IN_CART)).toBeTruthy();
     expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
     const viewCart = screen.getByRole("link", { name: CART_CTA_VIEW_CART });
     expect(viewCart).toHaveAttribute("href", "/cart");
-    viewCart.click();
+    fireEvent.click(viewCart);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
     expect(toast).toHaveBeenCalledTimes(1);
   });
