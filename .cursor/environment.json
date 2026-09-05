@@ -1,0 +1,15 @@
+{
+  "name": "Neon Arsenal Market",
+  "install": "bash .cursor/install.sh",
+  "start": "bash .cursor/start.sh",
+  "terminals": [
+    {
+      "name": "dev:fullstack",
+      "command": "npm run dev:fullstack"
+    }
+  ],
+  "ports": [
+    { "name": "frontend", "port": 5173 },
+    { "name": "api", "port": 3001 }
+  ]
+}
