@@ -1,6 +1,7 @@
 import { prisma } from "../../shared/database/index.js";
 import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
 import { Prisma } from "@prisma/client";
 
@@ -18,6 +19,7 @@ export const ordersService = {
         priceSnapshot: Prisma.Decimal;
       }> = [];
       let totalAmount = new Prisma.Decimal(0);
+      const reservation = buildReservationWindow();
 
       for (const listingId of listingIds) {
         // The status transition is conditional, so two concurrent orders cannot
@@ -31,7 +33,11 @@ export const ordersService = {
               { tradeLockUntil: { lte: new Date() } },
             ],
           },
-          data: { status: "RESERVED" },
+          data: {
+            status: "RESERVED",
+            reservedAt: reservation.reservedAt,
+            reservationExpiresAt: reservation.reservationExpiresAt,
+          },
         });
 
         if (reserved.count !== 1) {

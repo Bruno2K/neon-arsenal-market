@@ -61,12 +61,13 @@ export const paymentsService = {
 
   async confirmPayment(orderId: string) {
     await prisma.$transaction(async (tx) => {
-      // Claim the payment confirmation atomically. A repeated/concurrent webhook
-      // sees count = 0 and exits without issuing another seller payout.
+      // Claim unpaid pending orders only. Duplicate webhooks and cancelled
+      // expired orders see count = 0 and do not issue another seller payout.
       const claimed = await tx.order.updateMany({
         where: {
           id: orderId,
           paymentStatus: "PENDING",
+          status: "PENDING",
         },
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
@@ -80,13 +81,22 @@ export const paymentsService = {
       if (!order) throw new AppError(404, "Order not found");
 
       const soldAt = new Date();
-      await tx.listing.updateMany({
+      const listingIds = order.items.map((item) => item.listingId);
+      const sold = await tx.listing.updateMany({
         where: {
-          id: { in: order.items.map((item) => item.listingId) },
+          id: { in: listingIds },
           status: "RESERVED",
+          reservationExpiresAt: { gt: soldAt },
         },
         data: { status: "SOLD", soldAt },
       });
+
+      // If any listing has expired (or was released), roll back the order claim.
+      // Expiration uses `status = RESERVED AND reservationExpiresAt <= now`, so
+      // the two UPDATEs are mutually exclusive under row locking.
+      if (sold.count !== listingIds.length) {
+        throw new AppError(409, "Reservation expired or listing is no longer reserved");
+      }
 
       const bySeller = new Map<string, { grossAmount: Prisma.Decimal; commissionRate: Prisma.Decimal }>();
       for (const item of order.items) {

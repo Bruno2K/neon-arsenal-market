@@ -2,6 +2,8 @@ import { prisma } from "../../shared/database/index.js";
 import { listingsRepository } from "./listings.repository.js";
 import { priceHistoryRepository } from "./price-history.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { buildReservationWindow } from "../../shared/config/reservation.js";
+import type { Prisma } from "@prisma/client";
 import type {
   CreateListingInput,
   UpdateListingInput,
@@ -18,7 +20,7 @@ const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
 
 export const listingsService = {
   async list(query: ListListingsQuery) {
-    const where: any = {};
+    const where: Prisma.ListingWhereInput = {};
 
     if (query.productId) where.productId = query.productId;
     if (query.sellerId) where.sellerId = query.sellerId;
@@ -117,7 +119,7 @@ export const listingsService = {
       }
     }
 
-    const updateData: any = {};
+    const updateData: Prisma.ListingUpdateInput = {};
     if (input.price !== undefined) updateData.price = input.price;
     if (input.status !== undefined) updateData.status = input.status;
     if (input.tradeLockUntil !== undefined) {
@@ -164,29 +166,95 @@ export const listingsService = {
   },
 
   async reserve(listingId: string) {
-    const listing = await listingsRepository.findById(listingId);
-    if (!listing) throw new AppError(404, "Listing not found");
+    const now = new Date();
+    const reservation = buildReservationWindow(now);
+    const reserved = await prisma.listing.updateMany({
+      where: {
+        id: listingId,
+        status: "ACTIVE",
+        OR: [{ tradeLockUntil: null }, { tradeLockUntil: { lte: now } }],
+      },
+      data: {
+        status: "RESERVED",
+        reservedAt: reservation.reservedAt,
+        reservationExpiresAt: reservation.reservationExpiresAt,
+      },
+    });
 
-    if (listing.status !== "ACTIVE") {
+    if (reserved.count !== 1) {
+      const listing = await listingsRepository.findById(listingId);
+      if (!listing) throw new AppError(404, "Listing not found");
+      if (listing.tradeLockUntil && new Date(listing.tradeLockUntil) > now) {
+        throw new AppError(400, "Listing is trade locked");
+      }
       throw new AppError(400, `Listing is not ACTIVE (current status: ${listing.status})`);
     }
 
-    if (listing.tradeLockUntil && new Date(listing.tradeLockUntil) > new Date()) {
-      throw new AppError(400, "Listing is trade locked");
-    }
-
-    return listingsRepository.updateStatus(listingId, "RESERVED");
+    const listing = await listingsRepository.findById(listingId);
+    if (!listing) throw new AppError(404, "Listing not found");
+    return listing;
   },
 
   async markAsSold(listingId: string) {
-    const listing = await listingsRepository.findById(listingId);
-    if (!listing) throw new AppError(404, "Listing not found");
+    const now = new Date();
+    const sold = await prisma.listing.updateMany({
+      where: {
+        id: listingId,
+        status: "RESERVED",
+        reservationExpiresAt: { gt: now },
+      },
+      data: { status: "SOLD", soldAt: now },
+    });
 
-    if (listing.status !== "RESERVED") {
-      throw new AppError(400, `Listing must be RESERVED to mark as SOLD (current status: ${listing.status})`);
+    if (sold.count !== 1) {
+      const listing = await listingsRepository.findById(listingId);
+      if (!listing) throw new AppError(404, "Listing not found");
+      if (listing.status !== "RESERVED") {
+        throw new AppError(400, `Listing must be RESERVED to mark as SOLD (current status: ${listing.status})`);
+      }
+      throw new AppError(409, "Reservation expired or listing is no longer reserved");
     }
 
-    return listingsRepository.updateStatus(listingId, "SOLD", new Date());
+    const listing = await listingsRepository.findById(listingId);
+    if (!listing) throw new AppError(404, "Listing not found");
+    return listing;
+  },
+
+  /**
+   * Release expired reservations back to ACTIVE and cancel unpaid orders
+   * that no longer hold a RESERVED listing.
+   *
+   * The listing UPDATE is conditional on `status = RESERVED`, so a concurrent
+   * payment that already moved the row to SOLD cannot be overwritten.
+   * Order cancellation is a separate statement so lock order (listings vs
+   * orders) cannot deadlock against payment confirmation.
+   */
+  async expireReservations(now = new Date()) {
+    const expiredListings = await prisma.listing.updateMany({
+      where: {
+        status: "RESERVED",
+        OR: [{ reservationExpiresAt: { lte: now } }, { reservationExpiresAt: null }],
+      },
+      data: {
+        status: "ACTIVE",
+        reservedAt: null,
+        reservationExpiresAt: null,
+      },
+    });
+
+    const cancelledOrders = await prisma.order.updateMany({
+      where: {
+        paymentStatus: "PENDING",
+        status: "PENDING",
+        items: { some: { listing: { status: { not: "RESERVED" } } } },
+      },
+      data: { status: "CANCELLED" },
+    });
+
+    return {
+      expiredListingCount: expiredListings.count,
+      cancelledOrderCount: cancelledOrders.count,
+    };
   },
 
   async cancel(listingId: string, userId: string, role: string) {

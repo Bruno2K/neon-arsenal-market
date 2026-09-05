@@ -59,6 +59,7 @@ services:
       PAYPAL_MODE: ${PAYPAL_MODE:-sandbox}
       PAYPAL_WEBHOOK_ID: ${PAYPAL_WEBHOOK_ID:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost:5173}
+      RESERVATION_TTL_MINUTES: ${RESERVATION_TTL_MINUTES:-15}
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]
       interval: 30s

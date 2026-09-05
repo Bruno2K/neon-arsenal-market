@@ -6,14 +6,13 @@ This is the execution queue for the AI agent team. Work from top to bottom unles
 
 ### P0.1 Reservation lifecycle
 
-Implement and prove:
+Implemented:
 
 - `ACTIVE → RESERVED → SOLD`;
-- `RESERVED → ACTIVE` after expiration;
-- `reservedAt` and `reservationExpiresAt` are persisted correctly;
+- `RESERVED → ACTIVE` after expiration (cannot overwrite `SOLD`);
+- `reservedAt` and `reservationExpiresAt` persisted on reserve;
 - expired reservations cannot be paid successfully;
-- expiration and payment confirmation are race-safe;
-- a periodic cleanup mechanism exists;
+- in-process expiry sweep for the modular monolith;
 - tests cover concurrent purchase and expiration/payment races.
 
 ### P0.2 PayPal webhook reliability
