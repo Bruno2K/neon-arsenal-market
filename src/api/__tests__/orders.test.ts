@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createOrder, getOrder } from "../orders";
+import { createOrder, getOrder, listOrders } from "../orders";
 
 const post = vi.fn();
 const get = vi.fn();
@@ -44,5 +44,17 @@ describe("getOrder", () => {
   it("GETs /orders/:id without inventing a paid state", async () => {
     await getOrder("order-1");
     expect(get).toHaveBeenCalledWith("/orders/order-1");
+  });
+});
+
+describe("listOrders", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue([]);
+  });
+
+  it("GETs /orders without a client-side customer filter", async () => {
+    await listOrders();
+    expect(get).toHaveBeenCalledWith("/orders");
   });
 });

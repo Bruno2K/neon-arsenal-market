@@ -14,6 +14,9 @@ import ListingDetail from "./pages/ListingDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
 import OrderStatusPage from "./pages/OrderStatus";
+import AccountOrdersPage, {
+  AccountOrderDetailRedirect,
+} from "./pages/AccountOrders";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import SellerDashboard from "./pages/SellerDashboard";
@@ -64,6 +67,22 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <OrderStatusPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/account/orders"
+                    element={
+                      <ProtectedRoute>
+                        <AccountOrdersPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/account/orders/:id"
+                    element={
+                      <ProtectedRoute>
+                        <AccountOrderDetailRedirect />
                       </ProtectedRoute>
                     }
                   />

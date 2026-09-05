@@ -12,15 +12,30 @@ import {
   USER_FACING_NETWORK,
   USER_FACING_ORDER_CANCELLED,
 } from "@/lib/userFacingApiError";
+import type { Role, User } from "@/types/api";
 
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
 const createOrder = vi.fn();
 const redirectToExternal = vi.fn();
+const updateOrderStatus = vi.fn();
+const authState = {
+  user: {
+    id: "customer-1",
+    name: "Buyer",
+    email: "buyer@test.com",
+    role: "CUSTOMER",
+  } as User,
+};
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => authState,
+}));
 
 vi.mock("@/api/orders", () => ({
   getOrder: (...args: unknown[]) => getOrder(...args),
   createOrder: (...args: unknown[]) => createOrder(...args),
+  updateOrderStatus: (...args: unknown[]) => updateOrderStatus(...args),
 }));
 
 vi.mock("@/api/payments", () => ({
@@ -74,6 +89,8 @@ function renderPage(path: string) {
           <Route path="/orders/:id" element={<OrderStatusPage />} />
           <Route path="/orders/:id/return" element={<OrderStatusPage />} />
           <Route path="/orders/:id/cancel" element={<OrderStatusPage />} />
+          <Route path="/account/orders" element={<div>Histórico</div>} />
+          <Route path="/listing/:id" element={<div>Listing</div>} />
           <Route path="/products" element={<div>Market</div>} />
         </Routes>
       </MemoryRouter>
@@ -87,6 +104,13 @@ describe("OrderStatusPage", () => {
     createPaymentLink.mockReset();
     createOrder.mockReset();
     redirectToExternal.mockReset();
+    updateOrderStatus.mockReset();
+    authState.user = {
+      id: "customer-1",
+      name: "Buyer",
+      email: "buyer@test.com",
+      role: "CUSTOMER",
+    };
   });
 
   afterEach(() => {
@@ -169,6 +193,12 @@ describe("OrderStatusPage", () => {
     renderPage("/orders/order-missing");
 
     expect(await screen.findByText("Pedido não encontrado")).toBeTruthy();
+    expect(
+      screen.getByText("Este pedido não existe ou não pertence à sua conta."),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Voltar aos pedidos" }),
+    ).toHaveAttribute("href", "/account/orders");
     expect(screen.getByRole("link", { name: "Ir ao Market" })).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
   });
@@ -309,5 +339,43 @@ describe("OrderStatusPage", () => {
     expect(await screen.findByText(USER_FACING_ORDER_CANCELLED)).toBeTruthy();
     expect(createOrder).not.toHaveBeenCalled();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
+  });
+
+  it("links items to the listing and returns CUSTOMER to the order history", async () => {
+    getOrder.mockResolvedValue(
+      pendingOrder({
+        trackingCode: "BR123456789",
+        trackingCarrier: "Correios",
+      }),
+    );
+    renderPage("/orders/order-1");
+
+    expect(
+      await screen.findByRole("link", {
+        name: "AK-47 | Redline (Field-Tested)",
+      }),
+    ).toHaveAttribute("href", "/listing/listing-ak");
+    expect(
+      screen.getByRole("link", { name: "Voltar aos pedidos" }),
+    ).toHaveAttribute("href", "/account/orders");
+    expect(screen.getByText("Transportadora")).toBeTruthy();
+    expect(screen.getByText("Correios")).toBeTruthy();
+    expect(screen.getByText("Rastreio")).toBeTruthy();
+    expect(screen.getByText("BR123456789")).toBeTruthy();
+    expect(updateOrderStatus).not.toHaveBeenCalled();
+    expect(
+      screen.queryByRole("button", { name: /atualizar status|enviar/i }),
+    ).toBeNull();
+  });
+
+  it("does not show the buyer history shortcut for SELLER or ADMIN", async () => {
+    authState.user.role = "SELLER" as Role;
+    getOrder.mockResolvedValue(pendingOrder());
+    renderPage("/orders/order-1");
+
+    expect(await screen.findByText("Pedido Pendente")).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: "Voltar aos pedidos" }),
+    ).toBeNull();
   });
 });

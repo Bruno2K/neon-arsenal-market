@@ -40,6 +40,7 @@ describe("Header", () => {
     expect(screen.getByText("Market")).toBeTruthy();
     expect(screen.getByText("Login")).toBeTruthy();
     expect(screen.queryByText("SKINMARKET")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
     expect(screen.getByLabelText("Carrinho")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Menu" })).toHaveAttribute(
       "aria-haspopup",
@@ -58,7 +59,25 @@ describe("Header", () => {
     renderHeader();
     expect(screen.getByText("Dashboard")).toBeTruthy();
     expect(screen.queryByText("Admin")).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
     expect(screen.getByText("Sair")).toBeTruthy();
+  });
+
+  it("shows Pedidos for an authenticated customer", () => {
+    authState.user = {
+      id: "c1",
+      name: "Buyer",
+      email: "buyer@test.com",
+      role: "CUSTOMER",
+    };
+    authState.isAuthenticated = true;
+    renderHeader();
+    expect(screen.getByRole("link", { name: "Pedidos" })).toHaveAttribute(
+      "href",
+      "/account/orders",
+    );
+    expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
   });
 
   it("shows Admin for an admin", () => {
@@ -75,5 +94,6 @@ describe("Header", () => {
       "/admin",
     );
     expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
   });
 });
