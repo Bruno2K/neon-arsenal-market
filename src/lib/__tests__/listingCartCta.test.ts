@@ -3,6 +3,7 @@ import {
   CART_CTA_IN_CART,
   formatTradeLockUntil,
   resolveListingCartCta,
+  similarItemsMarketPath,
 } from "../listingCartCta";
 
 describe("resolveListingCartCta", () => {
@@ -67,5 +68,14 @@ describe("resolveListingCartCta", () => {
         false,
       ),
     ).toEqual({ kind: "unavailable", reason: "Indisponível", canAdd: false });
+  });
+});
+
+describe("similarItemsMarketPath", () => {
+  it("builds a Market href filtered by the listing productId", () => {
+    expect(similarItemsMarketPath("ak-redline-ft")).toBe(
+      "/products?productId=ak-redline-ft",
+    );
+    expect(similarItemsMarketPath("  ")).toBe("/products");
   });
 });

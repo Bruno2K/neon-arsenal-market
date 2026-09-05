@@ -7,6 +7,16 @@ export const CART_CTA_IN_CART = "No carrinho";
 export const CART_CTA_VIEW_CART = "Ver carrinho";
 export const CART_CTA_SIMILAR = "Ver itens semelhantes";
 export const CART_ADDED_MESSAGE = "Adicionado ao carrinho";
+export const MARKET_SIMILAR_EMPTY_TITLE = "Nenhum listing ativo desta skin";
+export const MARKET_SIMILAR_EMPTY_DESCRIPTION =
+  "Não há outro listing disponível desta skin no momento.";
+export const MARKET_VIEW_CTA = "Ver Market";
+
+export function similarItemsMarketPath(productId: string): string {
+  const trimmed = productId.trim();
+  if (!trimmed) return "/products";
+  return `/products?${new URLSearchParams({ productId: trimmed }).toString()}`;
+}
 
 export type ListingCartCtaKind =
   | "available"

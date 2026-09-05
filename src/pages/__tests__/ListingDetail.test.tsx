@@ -174,7 +174,10 @@ describe("ListingDetail", () => {
     expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
     expect(screen.getAllByText("Vendido").length).toBeGreaterThan(0);
     const similar = screen.getByRole("link", { name: CART_CTA_SIMILAR });
-    expect(similar).toHaveAttribute("href", "/products");
+    expect(similar).toHaveAttribute(
+      "href",
+      "/products?productId=ak-redline-ft",
+    );
     fireEvent.click(similar);
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
     expect(toast).not.toHaveBeenCalled();
