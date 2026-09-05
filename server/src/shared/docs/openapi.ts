@@ -114,6 +114,19 @@ export const openApiSpec = {
         },
       },
     },
+    "/ready": {
+      get: {
+        tags: ["Health"],
+        summary: "Readiness check",
+        description:
+          "Returns 200 when PostgreSQL is reachable. Returns 503 `unavailable` when the database check fails, or 503 `shutting_down` after SIGTERM/SIGINT so load balancers can drain the instance.",
+        security: [],
+        responses: {
+          200: { description: "Process can serve traffic", content: { "application/json": { schema: { type: "object", properties: { status: { type: "string", example: "ready" } } } } } },
+          503: { description: "Database unreachable or process shutting down" },
+        },
+      },
+    },
     "/auth/register": {
       post: {
         tags: ["Auth"],

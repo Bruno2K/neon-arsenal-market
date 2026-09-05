@@ -6,6 +6,22 @@ import {
   getResendApiKey,
   isVerificationEmailConfigured,
 } from "../config/email.js";
+import {
+  classifyHttpStatus,
+  DEFAULT_RETRY_BASE_DELAY_MS,
+  DEFAULT_RETRY_MAX_ATTEMPTS,
+  isTimeoutError,
+  withRetry,
+} from "../resilience/retry.js";
+
+export const EMAIL_HTTP_POLICY = {
+  verification_send: {
+    retry: true,
+    maxAttempts: DEFAULT_RETRY_MAX_ATTEMPTS,
+    baseDelayMs: DEFAULT_RETRY_BASE_DELAY_MS,
+    reason: "Resend 5xx/429/timeout may be retried; 4xx is not. A timeout after accept can duplicate the same code.",
+  },
+} as const;
 
 /**
  * Sends the verification code to the user (e.g. by email).
@@ -19,33 +35,55 @@ export async function sendVerificationCode(email: string, code: string): Promise
 
   assertVerificationEmailDeliveryConfigured();
 
-  let response: Response;
   try {
-    response = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${getResendApiKey()}`,
-        "Content-Type": "application/json",
+    await withRetry(
+      async () => {
+        let response: Response;
+        try {
+          response = await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${getResendApiKey()}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              from: getEmailFrom(),
+              to: [email],
+              subject: "Seu código de verificação - SkinMarket",
+              text: `Seu código de verificação é ${code}. Ele expira em 10 minutos.`,
+            }),
+            signal: AbortSignal.timeout(getEmailApiTimeoutMs()),
+          });
+        } catch (err) {
+          if (isTimeoutError(err)) {
+            throw new AppError(504, "Verification email request timed out");
+          }
+          logger.warn({ err }, "verification email request failed");
+          throw Object.assign(new AppError(502, "Failed to send verification email"), {
+            retryable: true,
+            reason: "network" as const,
+          });
+        }
+
+        if (!response.ok) {
+          const classified = classifyHttpStatus(response.status);
+          logger.warn({ statusCode: response.status }, "verification email provider rejected request");
+          throw Object.assign(new AppError(502, "Failed to send verification email"), classified);
+        }
       },
-      body: JSON.stringify({
-        from: getEmailFrom(),
-        to: [email],
-        subject: "Seu código de verificação - SkinMarket",
-        text: `Seu código de verificação é ${code}. Ele expira em 10 minutos.`,
-      }),
-      signal: AbortSignal.timeout(getEmailApiTimeoutMs()),
-    });
+      {
+        maxAttempts: EMAIL_HTTP_POLICY.verification_send.maxAttempts,
+        baseDelayMs: EMAIL_HTTP_POLICY.verification_send.baseDelayMs,
+        onRetry: ({ attempt, reason }) => {
+          logger.warn({ attempt, reason }, "verification email retrying");
+        },
+      }
+    );
   } catch (err) {
-    if (err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError")) {
+    if (isTimeoutError(err)) {
       throw new AppError(504, "Verification email request timed out");
     }
-    logger.warn({ err }, "verification email request failed");
-    throw new AppError(502, "Failed to send verification email");
-  }
-
-  if (!response.ok) {
-    logger.warn({ statusCode: response.status }, "verification email provider rejected request");
-    throw new AppError(502, "Failed to send verification email");
+    throw err;
   }
 }
 

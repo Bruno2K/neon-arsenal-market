@@ -1,1 +1,1 @@
-export { prisma } from "./prisma.js";
+export { prisma, disconnectPrisma } from "./prisma.js";

@@ -1,7 +1,8 @@
 import { createSign, generateKeyPairSync } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   computePaypalCrc32,
+  downloadPayPalCertificate,
   parsePayPalWebhookEvent,
   verifyPayPalWebhookSignature,
 } from "../paypalWebhook.js";
@@ -211,5 +212,35 @@ describe("parsePayPalWebhookEvent", () => {
       paypalOrderId: "PAYPAL-ORDER-2",
       referenceOrderId: "local-order",
     });
+  });
+});
+
+describe("downloadPayPalCertificate", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("does not retry HTTP 4xx", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response("missing", { status: 404 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      downloadPayPalCertificate("https://api.sandbox.paypal.com/v1/notifications/certs/CERT-404")
+    ).rejects.toThrow(/failed: 404/);
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("retries HTTP 5xx then succeeds", async () => {
+    const pem = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("upstream", { status: 503 }))
+      .mockResolvedValueOnce(new Response(pem, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      downloadPayPalCertificate("https://api.sandbox.paypal.com/v1/notifications/certs/CERT-503")
+    ).resolves.toBe(pem);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

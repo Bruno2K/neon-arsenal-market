@@ -1,5 +1,6 @@
 import { Router, Request, Response } from "express";
 import { prisma } from "../database/index.js";
+import { isProcessShuttingDown } from "../lifecycle/state.js";
 import { logger } from "../logger.js";
 
 const router = Router();
@@ -11,6 +12,10 @@ router.get("/health", (_req: Request, res: Response) => {
 
 /** Readiness: app can serve traffic (e.g. DB reachable) */
 router.get("/ready", async (_req: Request, res: Response) => {
+  if (isProcessShuttingDown()) {
+    res.status(503).json({ status: "shutting_down" });
+    return;
+  }
   try {
     await prisma.$queryRaw`SELECT 1`;
     res.status(200).json({ status: "ready" });
