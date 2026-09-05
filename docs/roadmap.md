@@ -17,15 +17,17 @@ Implemented:
 
 ### P0.2 PayPal webhook reliability
 
-Implement and prove:
+Implemented:
 
-- webhook authenticity/signature validation;
-- explicit accepted event types;
-- duplicate event handling;
-- out-of-order event handling;
-- durable event/idempotency identity where appropriate;
-- local failure and crash recovery;
-- reconciliation strategy.
+- official PayPal RSA-SHA256 webhook verification (`PAYPAL_WEBHOOK_ID`, no production bypass);
+- durable event identity in PostgreSQL (`PaymentWebhookEvent`, unique external event id);
+- only `PAYMENT.CAPTURE.COMPLETED` confirms payment; `CHECKOUT.ORDER.APPROVED` is ignored as intermediate;
+- concurrent duplicate events do not double-sell or double-pay;
+- payment confirmation remains a single PostgreSQL transaction, including `reservedByOrderId`;
+- in-process GET reconciliation for captured-but-unconfirmed orders;
+- explicit PayPal HTTP timeout (`PAYPAL_API_TIMEOUT_MS`); `OrdersCreate` is not retried.
+
+See `docs/adr/0002-paypal-webhook-reliability.md`.
 
 ### P0.3 Order idempotency
 

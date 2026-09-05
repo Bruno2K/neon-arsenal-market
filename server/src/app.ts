@@ -46,7 +46,13 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id"],
   })
 );
-app.use(express.json());
+app.use(
+  express.json({
+    verify: (req, _res, buf) => {
+      (req as express.Request).rawBody = Buffer.from(buf);
+    },
+  })
+);
 app.use(apiLimiter);
 
 app.use(healthRoutes);

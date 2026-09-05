@@ -85,6 +85,13 @@ async function createFixture(): Promise<Fixture> {
 }
 
 async function destroyFixture(fixture: Fixture) {
+  const orders = await prisma.order.findMany({
+    where: { customerId: fixture.customerId },
+    select: { id: true },
+  });
+  await prisma.paymentWebhookEvent.deleteMany({
+    where: { orderId: { in: orders.map((order) => order.id) } },
+  });
   await prisma.sellerTransaction.deleteMany({
     where: { sellerId: fixture.sellerId },
   });
@@ -116,6 +123,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
       });
       const reserved = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
       expect(reserved?.status).toBe("RESERVED");
+      expect(reserved?.reservedByOrderId).toBe(created.id);
       expect(reserved?.reservedAt).toBeInstanceOf(Date);
       expect(reserved?.reservationExpiresAt).toBeInstanceOf(Date);
       expect(reserved!.reservationExpiresAt!.getTime()).toBeGreaterThan(before);
@@ -192,6 +200,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
       expect(listing?.status).toBe("ACTIVE");
       expect(listing?.reservedAt).toBeNull();
       expect(listing?.reservationExpiresAt).toBeNull();
+      expect(listing?.reservedByOrderId).toBeNull();
       expect(order?.status).toBe("CANCELLED");
       expect(order?.paymentStatus).toBe("PENDING");
     } finally {

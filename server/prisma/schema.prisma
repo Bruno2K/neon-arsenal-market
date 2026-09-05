@@ -97,6 +97,22 @@ model Order {
   @@index([paymentStatus])
 }
 
+model PaymentWebhookEvent {
+  id              String    @id @default(cuid())
+  provider        String    @default("PAYPAL")
+  externalEventId String
+  eventType       String
+  status          String    @default("RECEIVED") // RECEIVED | PROCESSED | IGNORED | FAILED
+  orderId         String?
+  receivedAt      DateTime  @default(now())
+  processedAt     DateTime?
+  failureReason   String?
+
+  @@unique([provider, externalEventId])
+  @@index([orderId])
+  @@index([status])
+}
+
 model Listing {
   id                   String   @id @default(cuid())
   productId            String
@@ -109,6 +125,7 @@ model Listing {
   tradeLockUntil       DateTime?
   reservedAt           DateTime?
   reservationExpiresAt DateTime?
+  reservedByOrderId    String?
   steamAssetId         String?
   createdAt            DateTime @default(now())
   soldAt               DateTime?
@@ -126,6 +143,7 @@ model Listing {
   @@index([sellerId])
   @@index([productId, status])
   @@index([status, reservationExpiresAt])
+  @@index([reservedByOrderId])
 }
 
 model PriceHistory {

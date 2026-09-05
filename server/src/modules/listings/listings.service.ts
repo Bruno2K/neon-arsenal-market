@@ -239,21 +239,29 @@ export const listingsService = {
         status: "ACTIVE",
         reservedAt: null,
         reservationExpiresAt: null,
+        reservedByOrderId: null,
       },
     });
 
-    const cancelledOrders = await prisma.order.updateMany({
-      where: {
-        paymentStatus: "PENDING",
-        status: "PENDING",
-        items: { some: { listing: { status: { not: "RESERVED" } } } },
-      },
-      data: { status: "CANCELLED" },
-    });
+    // Cancel unpaid orders that no longer hold their listings, including the
+    // crash window where a listing was released and reserved by a later order.
+    const cancelledOrders = await prisma.$executeRaw`
+      UPDATE "Order" AS o
+      SET status = 'CANCELLED'
+      WHERE o."paymentStatus" = 'PENDING'
+        AND o.status = 'PENDING'
+        AND EXISTS (
+          SELECT 1
+          FROM "OrderItem" i
+          INNER JOIN "Listing" l ON l.id = i."listingId"
+          WHERE i."orderId" = o.id
+            AND (l.status <> 'RESERVED' OR l."reservedByOrderId" IS DISTINCT FROM o.id)
+        )
+    `;
 
     return {
       expiredListingCount: expiredListings.count,
-      cancelledOrderCount: cancelledOrders.count,
+      cancelledOrderCount: Number(cancelledOrders),
     };
   },
 

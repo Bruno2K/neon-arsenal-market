@@ -21,6 +21,15 @@ export const ordersService = {
       let totalAmount = new Prisma.Decimal(0);
       const reservation = buildReservationWindow();
 
+      const order = await tx.order.create({
+        data: {
+          customerId,
+          totalAmount,
+          status: "PENDING",
+          paymentStatus: "PENDING",
+        },
+      });
+
       for (const listingId of listingIds) {
         // The status transition is conditional, so two concurrent orders cannot
         // both reserve the same listing. PostgreSQL performs this atomically.
@@ -37,6 +46,7 @@ export const ordersService = {
             status: "RESERVED",
             reservedAt: reservation.reservedAt,
             reservationExpiresAt: reservation.reservationExpiresAt,
+            reservedByOrderId: order.id,
           },
         });
 
@@ -70,13 +80,9 @@ export const ordersService = {
         });
       }
 
-      const order = await tx.order.create({
-        data: {
-          customerId,
-          totalAmount,
-          status: "PENDING",
-          paymentStatus: "PENDING",
-        },
+      await tx.order.update({
+        where: { id: order.id },
+        data: { totalAmount },
       });
 
       await tx.orderItem.createMany({
@@ -88,7 +94,7 @@ export const ordersService = {
         })),
       });
 
-      return order;
+      return { ...order, totalAmount };
     });
 
     const order = await ordersRepository.findById(result.id);

@@ -10,6 +10,8 @@ Allowed lifecycle:
 
 ```text
 ACTIVE → RESERVED → SOLD
+             ↓
+           ACTIVE
        ↘ CANCELED
 ```
 
@@ -20,9 +22,10 @@ Rules:
 3. Reservation expiration must not accidentally reactivate a listing that has already been sold.
 4. Payment confirmation must only finalize a listing that belongs to the corresponding order and is in the expected state.
 5. A client must never be able to force a listing state transition by supplying an arbitrary status.
-6. Becoming `RESERVED` must persist `reservedAt` and `reservationExpiresAt`.
-7. `RESERVED → ACTIVE` is allowed only for rows that are still `RESERVED` and whose `reservationExpiresAt` is in the past (or null, treated as invalid/expired).
-8. Payment confirmation must not mark a listing `SOLD` unless it is still `RESERVED` and `reservationExpiresAt` is in the future. If that condition fails, the payment claim must roll back.
+6. Becoming `RESERVED` must persist `reservedAt`, `reservationExpiresAt` and, for checkout, `reservedByOrderId`.
+7. `RESERVED → ACTIVE` is allowed only for rows that are still `RESERVED` and whose `reservationExpiresAt` is in the past (or null, treated as invalid/expired). That release must also clear `reservedByOrderId`.
+8. Payment confirmation must not mark a listing `SOLD` unless it is still `RESERVED`, `reservedByOrderId` matches the paying order, and `reservationExpiresAt` is in the future. If that condition fails, the payment claim must roll back.
+9. A stale capture for an earlier order must not sell a listing that later returned to `ACTIVE` and was reserved by another order.
 
 ## Orders
 
@@ -37,10 +40,13 @@ Rules:
 
 1. A payment confirmation is idempotent.
 2. Duplicate webhook delivery must not create duplicate seller transactions or duplicate balance increments.
-3. Webhook authenticity must be verified before trusting an event.
+3. Webhook authenticity must be verified before trusting an event. Required PayPal headers: `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url`, `paypal-auth-algo`.
 4. Payment state comes from the trusted payment integration, not from a client assertion.
 5. Local payment processing must tolerate duplicate, delayed, out-of-order and retried provider events.
 6. A crash must not permanently leave the system unable to reconcile external payment state with local state.
+7. Each PayPal webhook event id is persisted (`PaymentWebhookEvent`) with a unique constraint on `(provider, externalEventId)`.
+8. Only `PAYMENT.CAPTURE.COMPLETED` confirms local payment. `CHECKOUT.ORDER.APPROVED` is intermediate and must not sell listings or create seller transactions.
+9. External PayPal calls have an explicit timeout. Creating a PayPal order is not retried. Looking up PayPal order status may retry HTTP 5xx/429.
 
 ## Seller finances
 
