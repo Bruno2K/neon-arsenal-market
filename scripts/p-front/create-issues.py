@@ -57,7 +57,7 @@ def issue_body(activity: dict, catalog: dict) -> str:
 
 ## Sprint
 P-front. Source of truth: `docs/frontend-sprint.md` and `scripts/p-front/activities.json`.
-Prefer the orchestrator (`python3 scripts/p-front/next.py`) over hand-picking issues.
+Prefer the orchestrator (`python3 scripts/orchestrator/next.py --track frontend`) over hand-picking issues.
 
 ## Locked decisions
 - {catalog["lockedDecisions"]["brand"]}
@@ -106,7 +106,7 @@ Refazer o frontend existente com marca Neon Arsenal e visual dark editorial, sem
 Do not paste activities by hand. After this issue exists, agents run:
 
 ```text
-python3 scripts/p-front/next.py --prompt
+python3 scripts/orchestrator/next.py --track frontend --prompt
 ```
 
 and implement only the printed activity.
@@ -118,8 +118,8 @@ and implement only the printed activity.
 
 ## Source of truth
 - `docs/frontend-sprint.md`
-- `docs/agents/p-front-orchestrator.md`
-- `scripts/p-front/activities.json`
+- `docs/agents/orchestrator.md`
+- GitHub issues (intake)
 """
         result = run(
             [

@@ -2,34 +2,40 @@
 
 This is the **backend control plane**, not application architecture.
 
-The backend is already a modular monolith (`server/src/modules/*`). P-back does not add a second runtime orchestrator. It is the same pattern as P-front: a **sprint catalog + `next.py`** so one agent executes **one activity, one branch, one PR**.
+The backend is already a modular monolith (`server/src/modules/*`). This file is the **historical P-back sprint archive**, not the executable queue.
+
+Work is selected from **GitHub issues** by the unified orchestrator:
+
+```bash
+python3 scripts/orchestrator/next.py --track backend
+```
+
+`python3 scripts/p-back/next.py` is a shim. Do not add a second runtime orchestrator to the application.
 
 ## Isolation
 
 | Track | Owns | Must not touch |
 |---|---|---|
-| **P-back** | `server/`, `server/prisma/`, backend tests, backend ADRs, this file, `scripts/p-back/` | `src/` (Vite client), `scripts/p-front/` |
-| **P-front** | `src/`, frontend docs, `scripts/p-front/` | `server/` |
+| **backend** | `server/`, `server/prisma/`, backend tests, backend ADRs | `src/` (Vite client) |
+| **frontend** | `src/`, frontend docs | `server/` |
 
-Shared files (`docs/roadmap.md`, `AGENTS.md`, `docs/agents/README.md`) may be updated **lightly** when a sprint activity requires it. Do not rewrite `docs/frontend-sprint.md` except the parallelism pointer in B0.1.
+Shared files (`docs/roadmap.md`, `AGENTS.md`, `docs/agents/`) may be updated **lightly** when a GitHub issue requires it.
 
 ## How to start the next activity
 
 ```bash
-python3 scripts/p-back/next.py --prompt
+python3 scripts/orchestrator/next.py --track backend --prompt
 ```
 
-Then follow the printed prompt. The machine-readable equivalent is `python3 scripts/p-back/next.py --json`.
+Then spawn the printed subagent. The machine-readable equivalent is `python3 scripts/orchestrator/next.py --json --track backend`.
 
-Done detection: a commit on `origin/main` whose subject contains a configured marker (default `[P-back] <ID>`). Historical P0/P1 work that landed before this convention is marked `legacyDone` in `scripts/p-back/activities.json`.
-
-Busy detection: an **open** GitHub PR whose title contains a configured busy marker.
+Done detection: the GitHub issue is closed, or `origin/main` already contains equivalent work (orchestrator `likelyDone`). Busy detection: an **open** GitHub PR that references the issue.
 
 ## Priority (why this order)
 
 `AGENTS.md` priority is correctness → security → reliability → testability → observability → performance → maintainability → DX → features.
 
-P0/P1 flagship work is already on `main`. The remaining queue is **not AWS next**. Cloud/Terraform is gated on activity **C1** (an ADR that chooses Render vs ECS). Until that ADR exists and selects AWS, do not implement Terraform.
+P0/P1 flagship work and the P-back catalog (through C2 skip) are already on `main`. ADR 0007 keeps Render. Remaining backend work is whatever **open GitHub issues** survive orchestrator gates (no Redis/SQS/AWS unless a later ADR supersedes 0007).
 
 | ID | Title | Why now |
 |---|---|---|
@@ -41,9 +47,9 @@ P0/P1 flagship work is already on `main`. The remaining queue is **not AWS next*
 | **C1** | Cloud target ADR | Human-facing architecture choice. Writes the ADR only. |
 | **C2** | AWS/Terraform | **Only if C1 selected AWS.** If C1 keeps Render, land a skip commit so the queue can close. |
 
-## Activity catalog
+## Activity catalog (archive)
 
-The executable graph is `scripts/p-back/activities.json`. Human summary:
+The completed sprint graph is `scripts/p-back/activities.json`. It is **not** orchestrator intake. Human summary:
 
 | ID | Title | Depends on |
 |---|---|---|
@@ -67,18 +73,19 @@ The executable graph is `scripts/p-back/activities.json`. Human summary:
 6. PostgreSQL remains the source of truth for transactional state.
 7. Prefer the smallest correct change. Tests must prove the invariant, not merely increase coverage.
 
-## Commit and PR convention
+## Commit and PR convention (new work)
 
-- Commit subject: `[P-back] <ID> — <short description>`
-- PR title: `[P-back] <ID> — <short description>`
-- Branch: `cursor/p-back-<id>-<suffix>` (lowercase). Example: `cursor/p-back-r1-9103`.
+- Commit/PR: `#{issue} — <short description>`
+- Branch: `cursor/issue-<n>-<slug>` (lowercase)
+
+Historical P-back commits used `[P-back] <ID>`.
 
 ## Prompt to reuse
 
 ```text
-Execute the next unblocked P-back activity.
-Run: python3 scripts/p-back/next.py --prompt
-Then follow that printed prompt exactly.
-Do not edit src/. Do not start AWS/Terraform unless the activity is C2 and the cloud ADR selected AWS.
+Execute the next unblocked backend GitHub issue.
+Run: python3 scripts/orchestrator/next.py --track backend --prompt
+Then spawn the printed subagent. Do not implement in the parent.
+Do not edit src/. Do not start AWS/Terraform unless a later ADR supersedes ADR 0007 and selects AWS.
 Do not merge. Do not close issues.
 ```

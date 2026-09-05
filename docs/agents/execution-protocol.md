@@ -20,7 +20,7 @@ VERIFYING
 ```
 
 ## READY
-Select one eligible GitHub issue. Prefer the highest-priority unblocked issue. Do not start multiple dependent roadmap items concurrently.
+Run `python3 scripts/orchestrator/next.py`. Spawn one subagent per selected GitHub issue, with the role set from `docs/agents/roles.md`. Prefer the highest-priority unblocked issues. Do not start multiple dependent roadmap items concurrently. Default wave: at most one backend issue and one frontend issue.
 
 ## PLANNING
 Planner reads the mandatory context, identifies the invariant, affected boundaries, acceptance criteria and verification plan. Output is a compact implementation brief.
@@ -65,6 +65,7 @@ Do not invoke every role for every issue.
 - Payment/external integration: Primary + Reliability + Security + Test + Verification.
 - Architecture: Planner + Primary + Architecture + Test + Verification.
 - Infrastructure: Planner + Primary/Infra + Security + Reliability + Verification.
+- Frontend/UI: Implementation + Verification; add Test/Security for checkout, auth, or API contracts.
 
 ## Failure budget
 If the same task fails verification twice for the same root cause, stop automatic retries and escalate for human review. Do not burn tokens repeating equivalent attempts.

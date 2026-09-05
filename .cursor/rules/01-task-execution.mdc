@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Task Execution
 
-When the user names a GitHub issue, feature, bug, or roadmap item, treat it as an engineering task and follow the repository's agent protocol.
+When the user names a GitHub issue, feature, bug, roadmap item, or says `next` / `orquestrador`, treat it as an engineering task and follow the repository's agent protocol. Unqualified `next` means: run `python3 scripts/orchestrator/next.py` and spawn the printed subagents.
 
 ## Before coding
 

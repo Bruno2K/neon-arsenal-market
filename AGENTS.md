@@ -440,6 +440,4 @@ The main roadmap for this project prioritizes:
 
 Do not start a lower-priority initiative while a higher-priority correctness issue is known and unresolved, unless explicitly requested.
 
-P-back (backend control plane, not application architecture): `docs/backend-sprint.md`. Next activity: `python3 scripts/p-back/next.py`. Do not implement AWS/Terraform until that catalog reaches C2 and C1 selected AWS.
-
-P-front (frontend control plane, `src/` only): `docs/frontend-sprint.md`. Next activity: `python3 scripts/p-front/next.py`. Unqualified `next` on a backend agent means P-back only.
+Unified orchestrator (GitHub issues → role-assigned subagents): `python3 scripts/orchestrator/next.py`. Unqualified `next` means this command. Do not implement AWS/Terraform while ADR 0007 keeps Render. Historical shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).

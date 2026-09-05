@@ -35,10 +35,11 @@ Typical role selection:
 - DB/concurrency: Backend + DB/Concurrency + Test + Verification
 - reservation/order lifecycle: Backend + DB/Concurrency + Test + Verification
 - payment/webhook: Backend + Reliability + Security + Test + Verification
+- frontend/UI: Implementation + Verification (add Test/Security when checkout, auth, or contracts are involved)
 - architecture: Planner + Backend + Architecture + Test + Verification
 - infrastructure: Planner + Infra/Backend + Security + Reliability + Verification
 
-Explicitly switch perspective between implementation, testing, review, and verification. Verification is not a self-congratulatory summary; it must challenge the implementation against acceptance criteria and invariants.
+The unified orchestrator (`python3 scripts/orchestrator/next.py`) selects GitHub issues and spawns one subagent per selected issue with that role set. Inside a spawned subagent, switch perspective between implementation, testing, review, and verification. Do not pretend extra products exist. Verification is not a self-congratulatory summary; it must challenge the implementation against acceptance criteria and invariants.
 
 ## Required workflow
 
