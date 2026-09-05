@@ -1,15 +1,17 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Server } from "node:http";
-import { app } from "../app.js";
+import express from "express";
 import { prisma } from "../shared/database/index.js";
 import { signAccessToken } from "../shared/utils/jwt.js";
+import { errorHandler } from "../shared/errors/index.js";
+import { adminRoutes } from "../modules/admin/admin.routes.js";
 import { listingsService } from "../modules/listings/listings.service.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
 import { sellersService } from "../modules/sellers/sellers.service.js";
 import { AuditAction } from "../modules/audit/audit.types.js";
 import { createCheckoutGraph, createOrder, createUser, orderKey } from "./helpers/index.js";
 
-function listen() {
+function listen(app: express.Express) {
   return new Promise<Server>((resolve) => {
     const server = app.listen(0, "127.0.0.1", () => resolve(server));
   });
@@ -26,7 +28,11 @@ describe("audit trail (postgres)", () => {
   let baseUrl: string;
 
   beforeAll(async () => {
-    server = await listen();
+    const app = express();
+    app.use(express.json());
+    app.use("/admin", adminRoutes);
+    app.use(errorHandler);
+    server = await listen(app);
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("server has no port");
     baseUrl = `http://127.0.0.1:${address.port}`;
