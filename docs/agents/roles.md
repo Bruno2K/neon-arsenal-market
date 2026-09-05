@@ -74,6 +74,8 @@ Prefer:
 - idempotency tests;
 - authorization tests.
 
+PostgreSQL integration tests must fail when the database is unavailable. Do not `skip` them because `DATABASE_URL` is missing. Use `npm run test:unit` for tests that do not need PostgreSQL. See `docs/testing.md`.
+
 ## Security Reviewer
 
 Review untrusted inputs and trust boundaries.

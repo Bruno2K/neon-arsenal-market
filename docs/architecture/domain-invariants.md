@@ -85,6 +85,10 @@ When changing an invariant, the agent must:
 3. add regression/integration tests;
 4. document the architectural decision when the change is significant.
 
+## Integration evidence
+
+The PostgreSQL integration suite in `server/src/__tests__/*.integration.test.ts` is the evidence that the invariants above hold under concurrency and rollback. Those tests must query committed database state. They must not be skipped when PostgreSQL is unavailable.
+
 ## Concurrency checklist
 
 For any change involving orders, listings, reservations, payments or seller balances, answer:

@@ -1,35 +1,31 @@
 # Neon Arsenal Market — API
 
-API REST em Node.js + Express + Prisma + SQLite para o marketplace multi-vendedores.
+API REST em Node.js + Express + Prisma + PostgreSQL para o marketplace multi-vendedores.
 
 ## Pré-requisitos
 
 - Node.js 18+
+- PostgreSQL 16 (Docker Compose no repositório, ou instância local)
 - Conta PayPal (sandbox para desenvolvimento) — opcional para testar pagamentos
 
-## Banco de dados (SQLite)
+## Banco de dados (PostgreSQL)
 
-O projeto usa **SQLite** com um único arquivo `.db`. Não é necessário instalar PostgreSQL nem Docker.
+O projeto usa **PostgreSQL**. SQLite não é suportado.
 
-O arquivo do banco fica em `prisma/dev.db` (criado na primeira migração). O `.env` já vem com:
+1. Suba o banco: `docker compose up db -d` na raiz do repositório.
+2. Copie `server/.env.example` para `server/.env` e ajuste `DATABASE_URL`.
+3. Aplique as migrations reais:
 
+```bash
+npm run db:migrate:deploy
 ```
-DATABASE_URL="file:./dev.db"
-```
 
-(O caminho é relativo à pasta `prisma/`.)
+Para desenvolvimento iterativo de schema, use `npm run db:migrate`.
 
 ## Configuração
 
-1. Na pasta `server/`, copie `.env.example` para `.env` (se ainda não tiver) e ajuste JWT e PayPal se quiser.
-2. Rode as migrações (cria o arquivo `prisma/dev.db` e as tabelas):
-
-```bash
-npm run db:migrate
-```
-
-Se aparecer erro por causa de migração antiga (PostgreSQL), apague a pasta `prisma/migrations/20250216000000_init` se existir e rode `npm run db:migrate` de novo.
-
+1. Na pasta `server/`, copie `.env.example` para `.env` e ajuste JWT e PayPal se quiser.
+2. Aplique as migrations (`npm run db:migrate:deploy` ou `npm run db:migrate`).
 3. Inicie o servidor:
 
 ```bash
@@ -37,6 +33,28 @@ npm run dev
 ```
 
 A API ficará disponível em `http://localhost:3001` (ou a porta definida em `PORT`).
+
+## Testes
+
+Ver `docs/testing.md`.
+
+```bash
+npm run test:unit            # sem PostgreSQL
+npm run test:integration     # exige DATABASE_URL/TEST_DATABASE_URL PostgreSQL
+npm run test:all             # unit + integration
+```
+
+Integração local isolada:
+
+```bash
+docker compose --profile test up db-test -d
+export TEST_DATABASE_URL="postgresql://neon:test@localhost:5433/neon_arsenal_test"
+export DATABASE_URL="$TEST_DATABASE_URL"
+npm run test:db:prepare
+npm run test:integration
+```
+
+A suíte de integração **não é skipped** se o banco estiver ausente — ela falha.
 
 ## Estrutura
 
@@ -80,7 +98,7 @@ A API ficará disponível em `http://localhost:3001` (ou a porta definida em `PO
 
 ## Prisma Studio
 
-Para inspecionar o banco SQLite:
+Para inspecionar o banco PostgreSQL:
 
 ```bash
 npm run db:studio

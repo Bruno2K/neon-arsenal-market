@@ -246,12 +246,25 @@ Frontend:
 npm test
 ```
 
-Backend:
+Backend (from `server/`):
 
 ```bash
-cd server
-npm test
+npm run test:unit            # no PostgreSQL
+npm run test:integration     # real PostgreSQL; fails if the database is down
+npm run test:all             # unit then integration
 ```
+
+Integration tests apply Prisma migrations (`prisma migrate deploy`) and run against PostgreSQL. They are not skipped when `DATABASE_URL` is missing.
+
+Local isolated database:
+
+```bash
+docker compose --profile test up db-test -d
+```
+
+Then set `TEST_DATABASE_URL=postgresql://neon:test@localhost:5433/neon_arsenal_test` and run `npm run test:db:prepare` followed by `npm run test:integration` in `server/`.
+
+See `docs/testing.md` for isolation, concurrency and CI details.
 
 ## Health & Readiness
 

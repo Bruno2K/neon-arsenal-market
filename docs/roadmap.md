@@ -45,7 +45,15 @@ See `docs/adr/0003-order-creation-idempotency.md`.
 
 ### P1.1 PostgreSQL integration tests
 
-Add a reproducible real-PostgreSQL test environment covering transactions, constraints, concurrency and rollback.
+Implemented:
+
+- real PostgreSQL harness with centralized `TRUNCATE ... CASCADE` lifecycle and factories;
+- `test:unit` / `test:integration` / `test:all`;
+- CI service container + `prisma migrate deploy`;
+- integration tests fail closed when PostgreSQL is unavailable;
+- transaction, unique-constraint and concurrency coverage for reservation, idempotency and payment persistence.
+
+See `docs/testing.md`.
 
 ### P1.2 Observability
 

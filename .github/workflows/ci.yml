@@ -40,7 +40,7 @@ jobs:
   # Backend: typecheck + unit tests
   # ─────────────────────────────────────────────
   backend:
-    name: Backend (typecheck · test)
+    name: Backend (typecheck · unit · integration)
     runs-on: ubuntu-latest
 
     services:
@@ -82,14 +82,17 @@ jobs:
       - name: Generate Prisma client
         run: npx prisma generate
 
-      - name: Apply migrations
-        run: npx prisma migrate deploy
+      - name: Apply Prisma migrations
+        run: npm run test:db:prepare
 
       - name: Type check
         run: npx tsc --noEmit
 
       - name: Unit tests
-        run: npm test -- --reporter=verbose
+        run: npm run test:unit -- --reporter=verbose
+
+      - name: Integration tests (PostgreSQL)
+        run: npm run test:integration -- --reporter=verbose
 
   # ─────────────────────────────────────────────
   # Build verification (frontend)
