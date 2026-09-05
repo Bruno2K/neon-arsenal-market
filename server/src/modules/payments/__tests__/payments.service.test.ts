@@ -46,10 +46,6 @@ const mockOrder = (overrides = {}) => ({
   ...overrides,
 });
 
-const mockTransaction = () => {
-  vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => fn(prisma));
-};
-
 describe("paymentsService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -57,10 +53,10 @@ describe("paymentsService", () => {
 
   describe("createPaymentLink()", () => {
     it("creates PayPal order and returns approval URL", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as any);
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-1", links: [] } as any);
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-1", links: [] } as never);
       vi.mocked(getPayPalApprovalLink).mockReturnValue("https://paypal.com/approve/123");
-      vi.mocked(prisma.order.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.order.update).mockResolvedValue({} as never);
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
@@ -79,7 +75,7 @@ describe("paymentsService", () => {
 
     it("throws 403 when user does not own the order", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(
-        mockOrder({ customerId: "other-user" }) as any
+        mockOrder({ customerId: "other-user" }) as never
       );
 
       await expect(
@@ -89,7 +85,7 @@ describe("paymentsService", () => {
 
     it("throws 400 when order is already paid", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(
-        mockOrder({ paymentStatus: "PAID" }) as any
+        mockOrder({ paymentStatus: "PAID" }) as never
       );
 
       await expect(
@@ -98,9 +94,9 @@ describe("paymentsService", () => {
     });
 
     it("throws 500 when PayPal approval link is missing", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as any);
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-1", links: [] } as any);
-      vi.mocked(getPayPalApprovalLink).mockReturnValue(null as any);
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-1", links: [] } as never);
+      vi.mocked(getPayPalApprovalLink).mockReturnValue(null as never);
 
       await expect(
         paymentsService.createPaymentLink("user-1", { orderId: "order-1" })
@@ -108,10 +104,10 @@ describe("paymentsService", () => {
     });
 
     it("stores paypalOrderId on the order", async () => {
-      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as any);
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-99" } as any);
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-99" } as never);
       vi.mocked(getPayPalApprovalLink).mockReturnValue("https://approve.url");
-      vi.mocked(prisma.order.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.order.update).mockResolvedValue({} as never);
 
       await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
@@ -123,13 +119,13 @@ describe("paymentsService", () => {
 
   describe("confirmPayment()", () => {
     const setupTransaction = (claimedCount = 1) => {
-      vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
-        vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: claimedCount } as any);
-        vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as any);
-        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as any);
-        vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as any);
-        vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as any);
-        vi.mocked(prisma.seller.update).mockResolvedValue({} as any);
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+        vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: claimedCount } as never);
+        vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as never);
+        vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as never);
+        vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
         return fn(prisma);
       });
     };
@@ -140,7 +136,7 @@ describe("paymentsService", () => {
       await paymentsService.confirmPayment("order-1");
 
       expect(prisma.order.updateMany).toHaveBeenCalledWith({
-        where: { id: "order-1", paymentStatus: "PENDING" },
+        where: { id: "order-1", paymentStatus: "PENDING", status: "PENDING" },
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
     });
@@ -152,7 +148,11 @@ describe("paymentsService", () => {
 
       expect(prisma.listing.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { id: { in: ["listing-1"] }, status: "RESERVED" },
+          where: {
+            id: { in: ["listing-1"] },
+            status: "RESERVED",
+            reservationExpiresAt: { gt: expect.any(Date) },
+          },
           data: expect.objectContaining({ status: "SOLD", soldAt: expect.any(Date) }),
         })
       );
@@ -208,6 +208,21 @@ describe("paymentsService", () => {
 
       expect(prisma.sellerTransaction.create).not.toHaveBeenCalled();
     });
+
+    it("throws and skips payout when reserved listings cannot be sold", async () => {
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+        vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
+        vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 } as never);
+        return fn(prisma);
+      });
+
+      await expect(paymentsService.confirmPayment("order-1")).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("expired"),
+      });
+      expect(prisma.sellerTransaction.create).not.toHaveBeenCalled();
+    });
   });
 
   describe("handleWebhook()", () => {
@@ -226,12 +241,14 @@ describe("paymentsService", () => {
       });
 
       expect(prisma.order.updateMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { id: "order-1", paymentStatus: "PENDING" } })
+        expect.objectContaining({
+          where: { id: "order-1", paymentStatus: "PENDING", status: "PENDING" },
+        })
       );
     });
 
     it("routes PAYMENT.CAPTURE.COMPLETED by paypalOrderId when no reference_id", async () => {
-      vi.mocked(prisma.order.findFirst).mockResolvedValue({ id: "order-1" } as any);
+      vi.mocked(prisma.order.findFirst).mockResolvedValue({ id: "order-1" } as never);
       setupWebhookTransaction();
 
       await paymentsService.handleWebhook({
@@ -247,13 +264,13 @@ describe("paymentsService", () => {
 });
 
 function setupWebhookTransaction() {
-  vi.mocked(prisma.$transaction).mockImplementation(async (fn: any) => {
-    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as any);
-    vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as any);
-    vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as any);
-    vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as any);
-    vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as any);
-    vi.mocked(prisma.seller.update).mockResolvedValue({} as any);
+  vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+    vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.order.findUnique).mockResolvedValue(mockOrder() as never);
+    vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as never);
+    vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
     return fn(prisma);
   });
 }

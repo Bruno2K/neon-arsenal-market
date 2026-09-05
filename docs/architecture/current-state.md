@@ -66,9 +66,9 @@ The schema contains the main marketplace entities: users, pending registrations,
 
 ### Order creation
 
-Order creation currently uses a PostgreSQL transaction and an atomic conditional listing update. The transition to `RESERVED` is guarded by `status = ACTIVE` and trade-lock conditions, preventing two concurrent requests from both reserving the same listing. The order and order items are then created inside the same transaction. fileciteturn12file0L2-L2
+Order creation currently uses a PostgreSQL transaction and an atomic conditional listing update. The transition to `RESERVED` is guarded by `status = ACTIVE` and trade-lock conditions, preventing two concurrent requests from both reserving the same listing. The same update persists `reservedAt` and `reservationExpiresAt` (TTL from `RESERVATION_TTL_MINUTES`, default 15 minutes). The order and order items are then created inside the same transaction.
 
-Known next step: complete the reservation lifecycle by recording expiry, safely expiring reservations, and proving expiration/payment races with integration tests.
+Expired reservations are released by an in-process sweep that calls `listingsService.expireReservations()`. The listing UPDATE is conditional on `status = RESERVED` and `reservationExpiresAt <= now`, so it cannot overwrite `SOLD`. Payment confirmation requires `status = RESERVED` and `reservationExpiresAt > now`; if that UPDATE does not cover every order item, the payment transaction rolls back.
 
 ### Payment confirmation
 
@@ -81,8 +81,7 @@ Known reliability gaps to address before calling this production-grade:
 - duplicate and out-of-order event handling;
 - reconciliation;
 - explicit external-call timeout/retry policy;
-- crash recovery between external payment state and local state;
-- integration tests for payment/reservation races.
+- crash recovery between external payment state and local state.
 
 ## Runtime configuration
 

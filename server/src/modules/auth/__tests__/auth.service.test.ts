@@ -1,6 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { authService } from "../auth.service.js";
-import { authRepository } from "../auth.repository.js";
+
+vi.mock("../../../shared/database/index.js", () => ({
+  prisma: {
+    pendingRegistration: {
+      upsert: vi.fn(),
+      findUnique: vi.fn(),
+      delete: vi.fn(),
+    },
+    user: {
+      findUnique: vi.fn(),
+      create: vi.fn(),
+    },
+  },
+}));
 
 vi.mock("../auth.repository.js");
 vi.mock("../../../shared/utils/hash.js", () => ({
@@ -12,6 +24,14 @@ vi.mock("../../../shared/utils/jwt.js", () => ({
   signRefreshToken: vi.fn().mockReturnValue("refresh"),
   verifyRefreshToken: vi.fn().mockReturnValue({ sub: "u1", email: "u@test.com", role: "CUSTOMER" }),
 }));
+vi.mock("../../../shared/utils/sendVerificationCode.js", () => ({
+  sendVerificationCode: vi.fn().mockResolvedValue(undefined),
+}));
+
+import { authService } from "../auth.service.js";
+import { authRepository } from "../auth.repository.js";
+import { prisma } from "../../../shared/database/index.js";
+import { sendVerificationCode } from "../../../shared/utils/sendVerificationCode.js";
 
 describe("authService", () => {
   beforeEach(() => {
@@ -39,29 +59,25 @@ describe("authService", () => {
       ).rejects.toMatchObject({ statusCode: 409 });
     });
 
-    it("returns user and tokens when registration succeeds", async () => {
+    it("stores a pending registration and sends a verification code", async () => {
       vi.mocked(authRepository.findByEmail).mockResolvedValue(null);
-      vi.mocked(authRepository.create).mockResolvedValue({
-        id: "u1",
-        name: "User",
-        email: "new@test.com",
-        password: "hashed",
-        role: "CUSTOMER",
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      } as never);
+      vi.mocked(prisma.pendingRegistration.upsert).mockResolvedValue({} as never);
+
       const result = await authService.register({
         name: "User",
         email: "new@test.com",
         password: "password123",
         role: "CUSTOMER",
       });
-      expect(result).toHaveProperty("user");
-      expect(result).toHaveProperty("accessToken", "access");
-      expect(result).toHaveProperty("refreshToken", "refresh");
-      expect(authRepository.create).toHaveBeenCalledWith(
-        expect.objectContaining({ name: "User", email: "new@test.com", role: "CUSTOMER" })
+
+      expect(prisma.pendingRegistration.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { email: "new@test.com" },
+        })
       );
+      expect(sendVerificationCode).toHaveBeenCalledWith("new@test.com", expect.any(String));
+      expect(result).toHaveProperty("message");
+      expect(result).not.toHaveProperty("accessToken");
     });
   });
 

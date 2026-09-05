@@ -65,8 +65,11 @@ export const openApiSpec = {
           currency: { type: "string", example: "USD" },
           status: { type: "string", enum: ["ACTIVE", "SOLD", "RESERVED", "CANCELED"] },
           tradeLockUntil: { type: "string", format: "date-time", nullable: true },
+          reservedAt: { type: "string", format: "date-time", nullable: true },
+          reservationExpiresAt: { type: "string", format: "date-time", nullable: true },
           steamAssetId: { type: "string", nullable: true },
           createdAt: { type: "string", format: "date-time" },
+          soldAt: { type: "string", format: "date-time", nullable: true },
         },
       },
       Order: {

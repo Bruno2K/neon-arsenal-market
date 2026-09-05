@@ -20,6 +20,9 @@ Rules:
 3. Reservation expiration must not accidentally reactivate a listing that has already been sold.
 4. Payment confirmation must only finalize a listing that belongs to the corresponding order and is in the expected state.
 5. A client must never be able to force a listing state transition by supplying an arbitrary status.
+6. Becoming `RESERVED` must persist `reservedAt` and `reservationExpiresAt`.
+7. `RESERVED → ACTIVE` is allowed only for rows that are still `RESERVED` and whose `reservationExpiresAt` is in the past (or null, treated as invalid/expired).
+8. Payment confirmation must not mark a listing `SOLD` unless it is still `RESERVED` and `reservationExpiresAt` is in the future. If that condition fails, the payment claim must roll back.
 
 ## Orders
 
