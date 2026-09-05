@@ -1,189 +1,228 @@
 import { describe, it, expect } from "vitest";
-import { render, screen, fireEvent, act } from "@testing-library/react";
+import { renderHook, act } from "@testing-library/react";
 import { CartProvider, useCart } from "../CartContext";
 import type { Listing } from "@/types/api";
 
-// Helper component to expose cart state
-function CartConsumer() {
-  const { items, addItem, removeItem, clearCart, totalItems, totalPrice } = useCart();
-  return (
-    <div>
-      <span data-testid="count">{totalItems}</span>
-      <span data-testid="price">{totalPrice.toFixed(2)}</span>
-      <ul>
-        {items.map((item) => (
-          <li key={item.listing.id} data-testid={`item-${item.listing.id}`}>
-            {item.listing.id}
-          </li>
-        ))}
-      </ul>
-      <button data-testid="add-ak" onClick={() => addItem(makeListing("listing-ak", 150))}>
-        Add AK
-      </button>
-      <button data-testid="add-m4" onClick={() => addItem(makeListing("listing-m4", 200))}>
-        Add M4
-      </button>
-      <button
-        data-testid="add-inactive"
-        onClick={() => addItem(makeListing("listing-inactive", 50, "SOLD"))}
-      >
-        Add Inactive
-      </button>
-      <button data-testid="remove-ak" onClick={() => removeItem("listing-ak")}>
-        Remove AK
-      </button>
-      <button data-testid="clear" onClick={clearCart}>
-        Clear
-      </button>
-    </div>
-  );
-}
-
-function makeListing(id: string, price: number, status = "ACTIVE"): Listing {
+function makeListing(overrides: Partial<Listing> = {}): Listing {
   return {
-    id,
+    id: "listing-1",
     productId: "prod-1",
     sellerId: "seller-1",
-    floatValue: 0.15 as unknown as import("@prisma/client/runtime/library").Decimal,
-    price: price as unknown as import("@prisma/client/runtime/library").Decimal,
+    price: 150,
     currency: "USD",
-    status,
+    status: "ACTIVE",
+    floatValue: 0.1,
+    pattern: null,
     tradeLockUntil: null,
     steamAssetId: null,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: "2024-01-01T00:00:00.000Z",
+    updatedAt: "2024-01-01T00:00:00.000Z",
     product: {
       id: "prod-1",
       game: "CS2",
-      weapon: "AK-47",
-      skinName: "Redline",
-      rarity: "Classified",
+      weapon: "AWP",
+      skinName: "Asiimov",
+      rarity: "Covert",
+      collection: "The Operation Phoenix Collection",
       exterior: "Field-Tested",
-      imageUrl: null,
       isStattrak: false,
       isSouvenir: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      imageUrl: "https://example.com/awp.png",
+      createdAt: "2024-01-01T00:00:00.000Z",
+      updatedAt: "2024-01-01T00:00:00.000Z",
     },
-    seller: { id: "seller-1", storeName: "Store Alpha" },
-  } as unknown as Listing;
+    seller: {
+      id: "seller-1",
+      storeName: "Sniper Shop",
+    },
+    ...overrides,
+  };
 }
 
-function renderCart() {
-  return render(
-    <CartProvider>
-      <CartConsumer />
-    </CartProvider>
-  );
+function wrapper({ children }: { children: React.ReactNode }) {
+  return <CartProvider>{children}</CartProvider>;
 }
 
 describe("CartContext", () => {
-  describe("initial state", () => {
-    it("starts with empty cart", () => {
-      renderCart();
-      expect(screen.getByTestId("count").textContent).toBe("0");
-      expect(screen.getByTestId("price").textContent).toBe("0.00");
-    });
+  it("starts empty", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    expect(result.current.items).toEqual([]);
+    expect(result.current.totalItems).toBe(0);
+    expect(result.current.totalPrice).toBe(0);
   });
 
-  describe("addItem()", () => {
-    it("adds a new item to the cart", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak"));
+  it("adds an ACTIVE listing", () => {
+    const listing = makeListing();
+    const { result } = renderHook(() => useCart(), { wrapper });
 
-      expect(screen.getByTestId("count").textContent).toBe("1");
-      expect(screen.getByTestId("item-listing-ak")).toBeTruthy();
+    act(() => {
+      result.current.addItem(listing);
     });
 
-    it("does not add duplicate items (same listing ID)", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak"));
-      fireEvent.click(screen.getByTestId("add-ak")); // duplicate
-
-      expect(screen.getByTestId("count").textContent).toBe("1");
-    });
-
-    it("does not add non-ACTIVE listings", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-inactive"));
-
-      expect(screen.getByTestId("count").textContent).toBe("0");
-    });
-
-    it("can add multiple different listings", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak"));
-      fireEvent.click(screen.getByTestId("add-m4"));
-
-      expect(screen.getByTestId("count").textContent).toBe("2");
-    });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].listing.id).toBe("listing-1");
+    expect(result.current.totalItems).toBe(1);
   });
 
-  describe("removeItem()", () => {
-    it("removes item from cart", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak"));
-      fireEvent.click(screen.getByTestId("remove-ak"));
+  it("does not add the same listing id twice (unique-item cart)", () => {
+    const listing = makeListing();
+    const { result } = renderHook(() => useCart(), { wrapper });
 
-      expect(screen.getByTestId("count").textContent).toBe("0");
-      expect(screen.queryByTestId("item-listing-ak")).toBeNull();
+    act(() => {
+      result.current.addItem(listing);
+      result.current.addItem(listing);
     });
 
-    it("does nothing when removing non-existent item", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-m4"));
-      fireEvent.click(screen.getByTestId("remove-ak")); // listing-ak not in cart
-
-      expect(screen.getByTestId("count").textContent).toBe("1");
-    });
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.totalItems).toBe(1);
   });
 
-  describe("clearCart()", () => {
-    it("empties the cart completely", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak"));
-      fireEvent.click(screen.getByTestId("add-m4"));
-      fireEvent.click(screen.getByTestId("clear"));
+  it("rejects a SOLD listing", () => {
+    const listing = makeListing({ status: "SOLD" });
+    const { result } = renderHook(() => useCart(), { wrapper });
 
-      expect(screen.getByTestId("count").textContent).toBe("0");
-      expect(screen.queryByTestId("item-listing-ak")).toBeNull();
-      expect(screen.queryByTestId("item-listing-m4")).toBeNull();
+    act(() => {
+      result.current.addItem(listing);
     });
+
+    expect(result.current.items).toHaveLength(0);
   });
 
-  describe("totalPrice", () => {
-    it("sums prices of all items", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak")); // $150
-      fireEvent.click(screen.getByTestId("add-m4")); // $200
+  it("rejects a RESERVED listing", () => {
+    const listing = makeListing({ status: "RESERVED" });
+    const { result } = renderHook(() => useCart(), { wrapper });
 
-      expect(screen.getByTestId("price").textContent).toBe("350.00");
+    act(() => {
+      result.current.addItem(listing);
     });
 
-    it("recalculates when items are removed", () => {
-      renderCart();
-      fireEvent.click(screen.getByTestId("add-ak")); // $150
-      fireEvent.click(screen.getByTestId("add-m4")); // $200
-      fireEvent.click(screen.getByTestId("remove-ak")); // remove $150
-
-      expect(screen.getByTestId("price").textContent).toBe("200.00");
-    });
-
-    it("returns 0 when cart is empty", () => {
-      renderCart();
-      expect(screen.getByTestId("price").textContent).toBe("0.00");
-    });
+    expect(result.current.items).toHaveLength(0);
   });
 
-  describe("useCart()", () => {
-    it("throws when used outside CartProvider", () => {
-      const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+  it("rejects a CANCELED listing", () => {
+    const listing = makeListing({ status: "CANCELED" });
+    const { result } = renderHook(() => useCart(), { wrapper });
 
-      expect(() => {
-        render(<CartConsumer />);
-      }).toThrow("useCart must be used within CartProvider");
-
-      spy.mockRestore();
+    act(() => {
+      result.current.addItem(listing);
     });
+
+    expect(result.current.items).toHaveLength(0);
+  });
+
+  it("still adds an ACTIVE listing that has a future tradeLockUntil (lock is UI-only)", () => {
+    const listing = makeListing({
+      status: "ACTIVE",
+      tradeLockUntil: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
+    });
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(listing);
+    });
+
+    expect(result.current.items).toHaveLength(1);
+    expect(result.current.items[0].listing.id).toBe("listing-1");
+  });
+
+  it("adds two different listings independently", () => {
+    const a = makeListing({ id: "a", price: 10 });
+    const b = makeListing({ id: "b", price: 20 });
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(a);
+      result.current.addItem(b);
+    });
+
+    expect(result.current.items).toHaveLength(2);
+    expect(result.current.totalItems).toBe(2);
+  });
+
+  it("removes an item by listing id", () => {
+    const listing = makeListing();
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(listing);
+      result.current.removeItem("listing-1");
+    });
+
+    expect(result.current.items).toHaveLength(0);
+    expect(result.current.totalItems).toBe(0);
+  });
+
+  it("removeItem is a no-op when the listing is not in the cart", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.removeItem("missing");
+    });
+
+    expect(result.current.items).toHaveLength(0);
+  });
+
+  it("clears all items", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(makeListing({ id: "a" }));
+      result.current.addItem(makeListing({ id: "b" }));
+      result.current.clearCart();
+    });
+
+    expect(result.current.items).toHaveLength(0);
+    expect(result.current.totalItems).toBe(0);
+    expect(result.current.totalPrice).toBe(0);
+  });
+
+  it("computes totalPrice as the sum of listing prices", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(makeListing({ id: "a", price: 150 }));
+      result.current.addItem(makeListing({ id: "b", price: 200 }));
+    });
+
+    expect(result.current.totalPrice).toBe(350);
+  });
+
+  it("sums string prices through Number()", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(
+        makeListing({ id: "a", price: "10.25" as unknown as number }),
+      );
+      result.current.addItem(
+        makeListing({ id: "b", price: "20.50" as unknown as number }),
+      );
+    });
+
+    expect(result.current.totalPrice).toBe(30.75);
+  });
+
+  it("recomputes totalPrice after remove", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+
+    act(() => {
+      result.current.addItem(makeListing({ id: "a", price: 150 }));
+      result.current.addItem(makeListing({ id: "b", price: 200 }));
+      result.current.removeItem("a");
+    });
+
+    expect(result.current.totalPrice).toBe(200);
+    expect(result.current.totalItems).toBe(1);
+  });
+
+  it("totalPrice is 0 when the cart is empty", () => {
+    const { result } = renderHook(() => useCart(), { wrapper });
+    expect(result.current.totalPrice).toBe(0);
+  });
+
+  it("throws when useCart is used outside CartProvider", () => {
+    expect(() => renderHook(() => useCart())).toThrow(
+      "useCart must be used within CartProvider",
+    );
   });
 });
