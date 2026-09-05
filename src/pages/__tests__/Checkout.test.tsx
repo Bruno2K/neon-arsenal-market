@@ -2,11 +2,13 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Checkout from "../Checkout";
-import type { Listing, User } from "@/types/api";
+import type { Listing, Order, User } from "@/types/api";
+import { PRE_ORDER_HOLD_COPY } from "@/lib/orderPaymentView";
 
 const createOrder = vi.fn();
 const createPaymentLink = vi.fn();
 const redirectToExternal = vi.fn();
+const reserveListing = vi.fn();
 
 const cartState = {
   items: [] as { listing: Listing }[],
@@ -40,6 +42,10 @@ vi.mock("@/lib/redirect", () => ({
   redirectToExternal: (...args: unknown[]) => redirectToExternal(...args),
 }));
 
+vi.mock("@/api/listings", () => ({
+  reserveListing: (...args: unknown[]) => reserveListing(...args),
+}));
+
 function listing(price = 100, id = "listing-ak"): Listing {
   return {
     id,
@@ -68,6 +74,37 @@ function listing(price = 100, id = "listing-ak"): Listing {
     },
     seller: { id: "seller-1", storeName: "Store Alpha" },
   } as Listing;
+}
+
+function pendingCreatedOrder(expiresAt: string, id = "order-1"): Order {
+  return {
+    id,
+    totalAmount: 105,
+    status: "PENDING",
+    paymentStatus: "PENDING",
+    createdAt: "2026-09-05T12:00:00.000Z",
+    updatedAt: "2026-09-05T12:00:00.000Z",
+    items: [
+      {
+        id: "item-1",
+        listingId: "listing-ak",
+        sellerId: "seller-1",
+        priceSnapshot: 100,
+        listing: {
+          id: "listing-ak",
+          reservedAt: "2026-09-05T12:00:00.000Z",
+          reservationExpiresAt: expiresAt,
+          reservedByOrderId: id,
+          product: {
+            id: "prod-1",
+            weapon: "AK-47",
+            skinName: "Redline",
+            exterior: "Field-Tested",
+          },
+        },
+      },
+    ],
+  };
 }
 
 function expectedPaypalUrls(orderId: string) {
@@ -126,6 +163,7 @@ describe("Checkout", () => {
     createOrder.mockReset();
     createPaymentLink.mockReset();
     redirectToExternal.mockReset();
+    reserveListing.mockReset();
     let uuidIndex = 0;
     vi.spyOn(crypto, "randomUUID").mockImplementation(
       () => uuidKeys[uuidIndex++] ?? "overflow-uuid",
@@ -163,6 +201,8 @@ describe("Checkout", () => {
     expect(screen.getByText("$5.00")).toBeTruthy();
     expect(screen.getByText("$105.00")).toBeTruthy();
     expect(screen.getByText(/Pagar com PayPal — \$105\.00/)).toBeTruthy();
+    expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(screen.queryByText(/Pedido Confirmado/i)).toBeNull();
     expect(screen.queryByText(/processado com sucesso/i)).toBeNull();
     expect(
@@ -350,6 +390,45 @@ describe("Checkout", () => {
     expect(createPaymentLink.mock.calls[0][0]).toMatchObject({
       orderId: "order-1",
       ...expectedPaypalUrls("order-1"),
+    });
+  });
+
+  it("does not reserve on checkout start and shows a server countdown after createOrder", async () => {
+    cartState.items = [{ listing: listing(100) }];
+    cartState.totalPrice = 100;
+    asCustomer();
+    const now = Date.parse("2026-09-05T12:00:00.000Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    createOrder.mockResolvedValue(
+      pendingCreatedOrder("2026-09-05T12:01:32.000Z"),
+    );
+    let releasePayment: (value: { approvalUrl: string }) => void = () => {};
+    createPaymentLink.mockImplementation(
+      () =>
+        new Promise<{ approvalUrl: string }>((resolve) => {
+          releasePayment = resolve;
+        }),
+    );
+
+    renderCheckout();
+    expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
+
+    expect(await screen.findAllByText(/Reservado para você/)).toHaveLength(2);
+    expect(screen.getByText("01:32")).toBeTruthy();
+    expect(screen.queryByText("15:00")).toBeNull();
+    expect(reserveListing).not.toHaveBeenCalled();
+    expect(createPaymentLink).toHaveBeenCalledTimes(1);
+
+    releasePayment({
+      approvalUrl: "https://www.paypal.com/checkoutnow?token=EC-1",
+    });
+    await waitFor(() => {
+      expect(redirectToExternal).toHaveBeenCalledWith(
+        "https://www.paypal.com/checkoutnow?token=EC-1",
+      );
     });
   });
 });

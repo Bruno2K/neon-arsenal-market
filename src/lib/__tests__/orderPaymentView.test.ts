@@ -5,9 +5,13 @@ import {
   formatReservationCountdown,
   isOrderAccessError,
   isPaymentConfirmed,
+  earliestReservationExpiresAt,
+  isReservationExpired,
   orderPageIntent,
   orderPollIntervalMs,
   ORDER_POLL_INTERVAL_MS,
+  reservationLiveAnnouncement,
+  EXPIRED_HOLD_COPY,
 } from "../orderPaymentView";
 
 function order(overrides: Partial<Order> = {}): Order {
@@ -109,6 +113,84 @@ describe("orderPaymentView", () => {
     expect(
       formatReservationCountdown(Date.parse("2026-09-05T11:59:00.000Z"), now),
     ).toBe("00:00");
+    expect(formatReservationCountdown(null, now)).toBeNull();
+  });
+
+  it("picks the earliest listing reservationExpiresAt on the order", () => {
+    const later = order();
+    const mixed = {
+      ...later,
+      items: [
+        {
+          ...later.items![0],
+          listing: {
+            ...later.items![0].listing!,
+            reservationExpiresAt: "2026-09-05T12:14:00.000Z",
+          },
+        },
+        {
+          id: "item-2",
+          listingId: "listing-awp",
+          sellerId: "seller-1",
+          priceSnapshot: 50,
+          listing: {
+            id: "listing-awp",
+            reservedAt: "2026-09-05T12:00:00.000Z",
+            reservationExpiresAt: "2026-09-05T12:03:00.000Z",
+            reservedByOrderId: "order-1",
+            product: {
+              id: "prod-2",
+              weapon: "AWP",
+              skinName: "Asiimov",
+              exterior: "Field-Tested",
+            },
+          },
+        },
+      ],
+    };
+    expect(earliestReservationExpiresAt(mixed)).toBe(
+      Date.parse("2026-09-05T12:03:00.000Z"),
+    );
+  });
+
+  it("does not invent expiry when the server omitted reservationExpiresAt", () => {
+    const now = Date.parse("2026-09-05T12:00:00.000Z");
+    const bare = order({
+      items: [
+        {
+          id: "item-1",
+          listingId: "listing-ak",
+          sellerId: "seller-1",
+          priceSnapshot: 100,
+          listing: {
+            id: "listing-ak",
+            product: {
+              id: "prod-1",
+              weapon: "AK-47",
+              skinName: "Redline",
+              exterior: "Field-Tested",
+            },
+          },
+        },
+      ],
+    });
+    expect(earliestReservationExpiresAt(bare)).toBeNull();
+    expect(isReservationExpired(bare, now)).toBe(false);
+    expect(canRetryPayment(bare, now)).toBe(true);
+  });
+
+  it("announces remaining minutes, not ticking seconds", () => {
+    const now = Date.parse("2026-09-05T12:00:00.000Z");
+    expect(
+      reservationLiveAnnouncement(Date.parse("2026-09-05T12:14:32.000Z"), now),
+    ).toBe("Reservado para você. 14 minutos restantes.");
+    expect(
+      reservationLiveAnnouncement(Date.parse("2026-09-05T12:00:40.000Z"), now),
+    ).toBe("Reservado para você. Menos de um minuto restante.");
+    expect(
+      reservationLiveAnnouncement(Date.parse("2026-09-05T11:59:00.000Z"), now),
+    ).toBe(EXPIRED_HOLD_COPY);
+    expect(reservationLiveAnnouncement(null, now)).toBeNull();
   });
 
   it("polls only pending unpaid return/view orders", () => {

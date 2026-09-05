@@ -4,6 +4,14 @@ export type OrderPageIntent = "return" | "cancel" | "view";
 
 export const ORDER_POLL_INTERVAL_MS = 4000;
 
+export const PRE_ORDER_HOLD_COPY =
+  "O item só é reservado quando você inicia o pagamento.";
+
+export const EXPIRED_HOLD_COPY =
+  "A reserva expirou. O item pode ter voltado ao Market.";
+
+export const VERIFYING_RESERVATION_COPY = "verificando reserva…";
+
 export function orderPageIntent(pathname: string): OrderPageIntent {
   if (pathname.endsWith("/cancel")) return "cancel";
   if (pathname.endsWith("/return")) return "return";
@@ -48,15 +56,40 @@ export function canRetryPayment(
   return !isReservationExpired(order, now);
 }
 
+export function remainingReservationSeconds(
+  expiresAt: number | null,
+  now = Date.now(),
+): number | null {
+  if (expiresAt == null) return null;
+  return Math.max(0, Math.floor((expiresAt - now) / 1000));
+}
+
 export function formatReservationCountdown(
   expiresAt: number | null,
   now = Date.now(),
 ): string | null {
-  if (expiresAt == null) return null;
-  const totalSec = Math.max(0, Math.floor((expiresAt - now) / 1000));
+  const totalSec = remainingReservationSeconds(expiresAt, now);
+  if (totalSec == null) return null;
   const minutes = Math.floor(totalSec / 60);
   const seconds = totalSec % 60;
   return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+}
+
+/** Minute-granularity copy for aria-live="polite". Does not change every second. */
+export function reservationLiveAnnouncement(
+  expiresAt: number | null,
+  now = Date.now(),
+): string | null {
+  const totalSec = remainingReservationSeconds(expiresAt, now);
+  if (totalSec == null) return null;
+  if (totalSec <= 0) return EXPIRED_HOLD_COPY;
+  const minutes = Math.floor(totalSec / 60);
+  if (minutes <= 0) {
+    return "Reservado para você. Menos de um minuto restante.";
+  }
+  return `Reservado para você. ${minutes} ${
+    minutes === 1 ? "minuto restante" : "minutos restantes"
+  }.`;
 }
 
 export function orderPollIntervalMs(

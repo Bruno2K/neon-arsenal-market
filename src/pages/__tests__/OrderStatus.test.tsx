@@ -4,6 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import OrderStatusPage from "../OrderStatus";
 import type { Order } from "@/types/api";
+import {
+  EXPIRED_HOLD_COPY,
+  VERIFYING_RESERVATION_COPY,
+} from "@/lib/orderPaymentView";
 
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
@@ -89,8 +93,9 @@ describe("OrderStatusPage", () => {
     getOrder.mockImplementation(() => new Promise(() => {}));
     renderPage("/orders/order-1/return");
     expect(
-      screen.getByRole("status", { name: "Carregando pedido" }),
+      screen.getByRole("status", { name: VERIFYING_RESERVATION_COPY }),
     ).toBeTruthy();
+    expect(screen.queryByText(/15:00/)).toBeNull();
   });
 
   it("does not claim payment is confirmed while paymentStatus is PENDING", async () => {
@@ -108,6 +113,10 @@ describe("OrderStatusPage", () => {
     expect(screen.getByText("Pagamento PENDING")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
     expect(screen.getByText(/confirmação real vem do PayPal/i)).toBeTruthy();
+    expect(screen.getAllByText(/Reservado para você/).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.queryByText("15:00")).toBeNull();
   });
 
   it("says payment is confirmed only when paymentStatus is PAID", async () => {
@@ -120,6 +129,7 @@ describe("OrderStatusPage", () => {
       await screen.findByRole("heading", { name: "Pagamento confirmado." }),
     ).toBeTruthy();
     expect(screen.getByText("Pagamento PAID")).toBeTruthy();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Pagar novamente" }),
     ).toBeNull();
@@ -134,7 +144,11 @@ describe("OrderStatusPage", () => {
         name: "Você cancelou o pagamento.",
       }),
     ).toBeTruthy();
-    expect(screen.getByText(/reserva expira em \d{2}:\d{2}/)).toBeTruthy();
+    expect(screen.getAllByText(/Reservado para você/).length).toBeGreaterThan(
+      0,
+    );
+    expect(screen.getByText(/\d{2}:\d{2}/)).toBeTruthy();
+    expect(screen.queryByText("15:00")).toBeNull();
     expect(screen.getByText("Pedido PENDING")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
     expect(
@@ -161,6 +175,8 @@ describe("OrderStatusPage", () => {
 
     expect(await screen.findByText("Erro ao carregar o pedido")).toBeTruthy();
     expect(screen.getByText("Falha de rede")).toBeTruthy();
+    expect(screen.queryByText(/15:00/)).toBeNull();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
     getOrder.mockResolvedValue(pendingOrder());
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(
@@ -222,16 +238,54 @@ describe("OrderStatusPage", () => {
     renderPage("/orders/order-1/cancel");
 
     expect(
-      await screen.findByText(/reserva deste pedido já expirou/i),
+      await screen.findByRole("heading", { name: "Reserva expirada." }),
     ).toBeTruthy();
+    expect(screen.getAllByText(EXPIRED_HOLD_COPY).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/pagamento recusado/i)).toBeNull();
+    expect(screen.queryByText(/PayPal recusou/i)).toBeNull();
     expect(
-      screen.queryByRole("button", { name: "Pagar novamente" }),
+      screen.queryByRole("heading", { name: "Você cancelou o pagamento." }),
     ).toBeNull();
+    const pay = screen.getByRole("button", { name: "Pagar novamente" });
+    expect(pay).toBeDisabled();
+    expect(pay).toHaveAttribute("title", EXPIRED_HOLD_COPY);
+  });
+
+  it("counts down from the server reservationExpiresAt, not a local 15-minute timer", async () => {
+    const now = Date.parse("2026-09-05T12:00:00.000Z");
+    vi.spyOn(Date, "now").mockReturnValue(now);
+    getOrder.mockResolvedValue(
+      pendingOrder({
+        items: [
+          {
+            id: "item-1",
+            listingId: "listing-ak",
+            sellerId: "seller-1",
+            priceSnapshot: 105,
+            listing: {
+              id: "listing-ak",
+              reservedAt: "2026-09-05T12:00:00.000Z",
+              reservationExpiresAt: "2026-09-05T12:04:05.000Z",
+              reservedByOrderId: "order-1",
+              product: {
+                id: "prod-1",
+                weapon: "AK-47",
+                skinName: "Redline",
+                exterior: "Field-Tested",
+              },
+            },
+          },
+        ],
+      }),
+    );
+    renderPage("/orders/order-1");
+
+    expect(await screen.findAllByText(/Reservado para você/)).toHaveLength(2);
+    expect(screen.getByText("04:05")).toBeTruthy();
+    expect(screen.queryByText("15:00")).toBeNull();
     expect(
-      screen.getByText(
-        "A reserva expirou. Não é possível pagar novamente neste pedido.",
-      ),
-    ).toBeTruthy();
+      screen.getByText("Reservado para você. 4 minutos restantes."),
+    ).toHaveAttribute("aria-live", "polite");
   });
 
   it("surfaces a backend rejection instead of inventing a new order", async () => {

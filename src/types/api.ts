@@ -67,6 +67,9 @@ export interface Listing {
   currency: string;
   status: "ACTIVE" | "SOLD" | "RESERVED" | "CANCELED";
   tradeLockUntil?: string | null;
+  reservedAt?: string | null;
+  reservationExpiresAt?: string | null;
+  reservedByOrderId?: string | null;
   steamAssetId?: string | null;
   createdAt: string;
   soldAt?: string | null;
@@ -108,7 +111,9 @@ export interface CreateOrderBody {
 export interface OrderItemListing {
   id: string;
   status?: Listing["status"];
+  reservedAt?: string | null;
   reservationExpiresAt?: string | null;
+  reservedByOrderId?: string | null;
   product: {
     id: string;
     weapon: string;

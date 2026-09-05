@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { EmptyState } from "@/components/page-state";
+import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
 
 function listingLabel(listing: {
@@ -98,6 +99,7 @@ export default function CartPage() {
               <dd className="tabular-price">${total.toFixed(2)}</dd>
             </div>
           </dl>
+          <ReservationHold phase="pre-order" />
           <Button asChild className="w-full" size="lg">
             <Link to="/checkout">Finalizar compra</Link>
           </Button>
