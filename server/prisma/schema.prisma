@@ -118,6 +118,12 @@ model Product {
   imageUrl   String?
   isStattrak Boolean  @default(false)
   isSouvenir Boolean  @default(false)
+  /// Canonical Steam / cs2.sh market_hash_name. Null on hand-seeded demo rows.
+  marketHashName String? @unique
+  /// cs2.sh USD ask for display/reference only. Not checkout or ledger currency (ADR 0014).
+  referencePriceUsd Decimal?
+  /// Schema generation_id from the last successful cs2.sh import.
+  cs2ShGenerationId String?
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
 

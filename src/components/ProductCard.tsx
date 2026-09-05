@@ -1,14 +1,42 @@
 import { Link } from "react-router-dom";
-import type { Listing } from "@/types/api";
+import type { Listing, Product } from "@/types/api";
 import { ListingCartCta } from "@/components/ListingCartCta";
+
+export function productDisplayName(product: Product): string {
+  return `${product.weapon} | ${product.skinName} (${product.exterior})`;
+}
+
+export function SkinVisual({
+  product,
+  className = "text-2xl",
+}: {
+  product: Product;
+  className?: string;
+}) {
+  if (product.imageUrl) {
+    return (
+      <img
+        src={product.imageUrl}
+        alt={productDisplayName(product)}
+        className="h-full w-full object-contain p-3"
+      />
+    );
+  }
+  return (
+    <span
+      className={`font-semibold tracking-tight text-muted-foreground/70 ${className}`}
+    >
+      {product.weapon.slice(0, 3).toUpperCase()}
+    </span>
+  );
+}
 
 export function ListingCard({ listing }: { listing: Listing }) {
   const price =
     typeof listing.price === "number" ? listing.price : Number(listing.price);
   const sellerName =
     listing.seller?.user?.name ?? listing.seller?.storeName ?? "";
-  const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
-  const monogram = listing.product.weapon.slice(0, 3).toUpperCase();
+  const productName = productDisplayName(listing.product);
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-md border border-border bg-card">
@@ -17,9 +45,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
         className="relative block aspect-[4/3] bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex h-full items-center justify-center">
-          <span className="text-2xl font-semibold tracking-tight text-muted-foreground/70">
-            {monogram}
-          </span>
+          <SkinVisual product={listing.product} />
         </div>
         {listing.product.isStattrak && (
           <span className="absolute left-2 top-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground">

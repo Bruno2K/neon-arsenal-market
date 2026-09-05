@@ -48,6 +48,8 @@ export interface Product {
   imageUrl?: string | null;
   isStattrak: boolean;
   isSouvenir: boolean;
+  marketHashName?: string | null;
+  referencePriceUsd?: string | number | null;
   createdAt: string;
   updatedAt: string;
   listings?: Listing[];

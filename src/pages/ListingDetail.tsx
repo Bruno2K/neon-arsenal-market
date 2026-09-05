@@ -1,7 +1,7 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
-import { ListingCard } from "@/components/ProductCard";
+import { ListingCard, SkinVisual } from "@/components/ProductCard";
 import { ListingCartCta } from "@/components/ListingCartCta";
 import { ErrorState } from "@/components/page-state";
 import { getListing, listListings } from "@/api/listings";
@@ -108,7 +108,6 @@ export default function ListingDetail() {
     typeof listing.price === "number" ? listing.price : Number(listing.price);
   const sellerName =
     listing.seller?.user?.name ?? listing.seller?.storeName ?? "";
-  const monogram = listing.product.weapon.slice(0, 3).toUpperCase();
   const latestHistory = priceHistory?.[0];
 
   return (
@@ -124,9 +123,7 @@ export default function ListingDetail() {
 
       <div className="grid gap-8 md:grid-cols-2">
         <div className="relative flex aspect-[4/3] items-center justify-center overflow-hidden rounded-md border border-border bg-muted">
-          <span className="text-4xl font-semibold tracking-tight text-muted-foreground/70">
-            {monogram}
-          </span>
+          <SkinVisual product={listing.product} className="text-4xl" />
           {listing.product.isStattrak ? (
             <span className="absolute left-3 top-3 rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
               StatTrak™

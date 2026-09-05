@@ -19,6 +19,7 @@ export const productsService = {
         { weapon: { contains: query.search, mode: "insensitive" } },
         { skinName: { contains: query.search, mode: "insensitive" } },
         { collection: { contains: query.search, mode: "insensitive" } },
+        { marketHashName: { contains: query.search, mode: "insensitive" } },
       ];
     }
 

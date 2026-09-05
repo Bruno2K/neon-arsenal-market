@@ -88,6 +88,27 @@ describe("ListingCard", () => {
     ).toBeInTheDocument();
   });
 
+  it("renders the catalog image when product.imageUrl is set", () => {
+    renderCard(makeListing());
+    expect(
+      screen.getByRole("img", { name: "AK-47 | Redline (Field-Tested)" }),
+    ).toHaveAttribute("src", "https://example.com/ak.png");
+    expect(screen.queryByText("AK-", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("falls back to the weapon monogram when imageUrl is missing", () => {
+    renderCard(
+      makeListing({
+        product: {
+          ...makeListing().product,
+          imageUrl: null,
+        },
+      }),
+    );
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("AK-", { exact: true })).toBeInTheDocument();
+  });
+
   it("shows StatTrak badge only when product.isStattrak is true", () => {
     const { rerender } = renderCard(makeListing());
     expect(screen.queryByText("StatTrak™")).not.toBeInTheDocument();
