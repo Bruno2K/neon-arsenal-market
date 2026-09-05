@@ -65,7 +65,10 @@ describe("Header", () => {
     };
     authState.isAuthenticated = true;
     renderHeader();
-    expect(screen.getByText("Admin")).toBeTruthy();
-    expect(screen.queryByText("Dashboard")).toBeNull();
+    expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute(
+      "href",
+      "/admin",
+    );
+    expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
   });
 });
