@@ -55,7 +55,7 @@ services:
     buildCommand: npm ci && npm run build
     staticPublishPath: dist
     envVars:
-      - key: VITE_API_URL
+      - key: API_URL
         sync: false
     routes:
       - type: rewrite

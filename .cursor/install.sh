@@ -70,7 +70,7 @@ fi
 if [ ! -f .env ]; then
   echo "==> Writing .env (frontend)"
   cat > .env <<EOF
-VITE_API_URL=http://localhost:3001
+API_URL=http://localhost:3001
 POSTGRES_USER=${DB_USER}
 POSTGRES_PASSWORD=${DB_PASSWORD}
 POSTGRES_DB=${DB_NAME}

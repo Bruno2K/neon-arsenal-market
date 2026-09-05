@@ -5,6 +5,8 @@ import { componentTagger } from "lovable-tagger";
 
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Expose API_URL to the client without the VITE_ public-prefix warning on Vercel.
+  envPrefix: ["VITE_", "API_"],
   server: {
     host: "::",
     port: 5173,

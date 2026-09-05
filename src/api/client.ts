@@ -1,8 +1,9 @@
-const configuredApiBase = import.meta.env.VITE_API_URL?.trim().replace(
-  /\/+$/,
-  "",
-);
-const API_BASE = configuredApiBase || "http://localhost:3001";
+import { resolveApiBaseUrl } from "./apiBaseUrl";
+
+const API_BASE = resolveApiBaseUrl({
+  API_URL: import.meta.env.API_URL,
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+});
 
 type TokenStorage = {
   getAccessToken: () => string | null;
