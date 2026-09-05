@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
-    "build": "tsc && tsc -p tsconfig.seed.json",
+    "build": "tsc",
     "typecheck": "tsc --noEmit",
     "start": "node dist/index.js",
     "test": "vitest run",
@@ -23,7 +23,7 @@
     "db:reset": "prisma migrate reset --force --skip-seed"
   },
   "prisma": {
-    "seed": "node dist/seed.js"
+    "seed": "node dist/scripts/seedDemoData.js"
   },
   "dependencies": {
     "@opentelemetry/api": "^1.9.1",
