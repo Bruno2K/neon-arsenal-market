@@ -192,7 +192,7 @@ describe("ListingCard", () => {
 
   it("shows pattern when present and hides it when null", () => {
     const { rerender } = renderCard(makeListing({ pattern: 412 }));
-    expect(screen.getByText("412")).toBeInTheDocument();
+    expect(screen.getByText("Pattern: 412")).toBeInTheDocument();
 
     rerender(
       <MemoryRouter>
@@ -202,7 +202,7 @@ describe("ListingCard", () => {
         </CartProvider>
       </MemoryRouter>,
     );
-    expect(screen.queryByText("412")).not.toBeInTheDocument();
+    expect(screen.queryByText(/Pattern:/)).not.toBeInTheDocument();
   });
 
   it("links both the image and the title to /listing/:id", () => {
