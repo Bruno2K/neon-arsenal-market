@@ -298,6 +298,18 @@ export const openApiSpec = {
       post: {
         tags: ["Orders"],
         summary: "Create a new order",
+        description:
+          "Creates an order and atomically reserves each listing. `Idempotency-Key` is required and scoped to the authenticated user. Retries with the same key and the same listing set return the original order (HTTP 201). The same key with a different payload returns 409. Concurrent identical requests serialize on a PostgreSQL unique constraint `(userId, key)` and produce one order. The fingerprint is SHA-256 of `{ listingIds: sorted listing IDs }` after Zod parsing. Records are intended to be retained for 7 days; cleanup is deferred.",
+        parameters: [
+          {
+            name: "Idempotency-Key",
+            in: "header",
+            required: true,
+            description:
+              "Client-generated key, 8-128 characters of A-Z a-z 0-9 `.` `_` `:` `-`. Unique per user. A UUID is a valid key.",
+            schema: { type: "string", minLength: 8, maxLength: 128, pattern: "^[A-Za-z0-9._:-]+$" },
+          },
+        ],
         requestBody: {
           required: true,
           content: {
@@ -320,8 +332,10 @@ export const openApiSpec = {
           },
         },
         responses: {
-          201: { description: "Order created", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
-          400: { description: "Listing unavailable or trade locked" },
+          201: { description: "Order created, or original order replayed for the same Idempotency-Key" },
+          400: { description: "Missing/invalid Idempotency-Key, listing unavailable, or trade locked" },
+          401: { description: "Authentication required" },
+          409: { description: "Idempotency-Key reused with a different payload, or a request with this key is still in progress" },
           404: { description: "Listing not found" },
         },
       },

@@ -20,6 +20,11 @@ vi.mock("../../../shared/database/index.js", () => ({
     seller: {
       findUnique: vi.fn(),
     },
+    orderIdempotency: {
+      create: vi.fn(),
+      update: vi.fn(),
+      findUnique: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -36,6 +41,7 @@ vi.mock("../orders.repository.js", () => ({
 import { prisma } from "../../../shared/database/index.js";
 import { ordersRepository } from "../orders.repository.js";
 import { ordersService } from "../orders.service.js";
+import { fingerprintOrderCreate } from "../orders.idempotency.js";
 import { Prisma } from "@prisma/client";
 
 const mockListing = (overrides = {}) => ({
@@ -59,6 +65,8 @@ const mockOrder = (overrides = {}) => ({
   ...overrides,
 });
 
+const IDEMPOTENCY_KEY = "idem-key-1";
+
 describe("ordersService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -70,6 +78,8 @@ describe("ordersService", () => {
       paymentStatus: "PENDING",
     } as never);
     vi.mocked(prisma.order.update).mockResolvedValue({ id: "order-1" } as never);
+    vi.mocked(prisma.orderIdempotency.create).mockResolvedValue({} as never);
+    vi.mocked(prisma.orderIdempotency.update).mockResolvedValue({} as never);
   });
 
   describe("create()", () => {
@@ -92,8 +102,17 @@ describe("ordersService", () => {
 
       const result = await ordersService.create("user-1", {
         items: [{ listingId: "listing-1" }],
-      });
+      }, IDEMPOTENCY_KEY);
 
+      expect(prisma.orderIdempotency.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            userId: "user-1",
+            key: IDEMPOTENCY_KEY,
+            status: "PROCESSING",
+          }),
+        })
+      );
       expect(prisma.listing.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expect.objectContaining({
@@ -143,7 +162,7 @@ describe("ordersService", () => {
       });
       vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
 
-      await ordersService.create("user-1", { items: [{ listingId: "listing-1" }] });
+      await ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY);
 
       const { getReservationTtlMs } = await import("../../../shared/config/reservation.js");
       const data = vi.mocked(prisma.listing.updateMany).mock.calls[0][0].data as {
@@ -163,7 +182,7 @@ describe("ordersService", () => {
       });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "non-existent" }] })
+        ordersService.create("user-1", { items: [{ listingId: "non-existent" }] }, IDEMPOTENCY_KEY)
       ).rejects.toMatchObject({ statusCode: 404, message: expect.stringContaining("Listing not found") });
     });
 
@@ -175,7 +194,7 @@ describe("ordersService", () => {
       });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY)
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("not available") });
     });
 
@@ -190,7 +209,7 @@ describe("ordersService", () => {
       });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY)
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("trade locked") });
     });
 
@@ -213,7 +232,7 @@ describe("ordersService", () => {
 
       const result = await ordersService.create("user-1", {
         items: [{ listingId: "listing-1" }],
-      });
+      }, IDEMPOTENCY_KEY);
 
       expect(prisma.orderItem.createMany).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -229,7 +248,7 @@ describe("ordersService", () => {
       await expect(
         ordersService.create("user-1", {
           items: [{ listingId: "listing-1" }, { listingId: "listing-1" }],
-        })
+        }, IDEMPOTENCY_KEY)
       ).rejects.toMatchObject({ statusCode: 400 });
 
       expect(prisma.$transaction).not.toHaveBeenCalled();
@@ -245,8 +264,76 @@ describe("ordersService", () => {
       });
 
       await expect(
-        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] })
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY)
       ).rejects.toMatchObject({ statusCode: 400, message: expect.stringContaining("not available") });
+    });
+
+    it("replays a completed order when the same key is used again", async () => {
+      vi.mocked(prisma.$transaction).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+        })
+      );
+      vi.mocked(prisma.orderIdempotency.findUnique).mockResolvedValue({
+        status: "COMPLETED",
+        fingerprint: fingerprintOrderCreate({
+          items: [{ listingId: "listing-1" }],
+        }),
+        orderId: "order-1",
+      } as never);
+      vi.mocked(ordersRepository.findById).mockResolvedValue(mockOrder() as never);
+
+      const result = await ordersService.create(
+        "user-1",
+        { items: [{ listingId: "listing-1" }] },
+        IDEMPOTENCY_KEY
+      );
+
+      expect(result.id).toBe("order-1");
+      expect(prisma.listing.updateMany).not.toHaveBeenCalled();
+    });
+
+    it("rejects the same key with a different payload", async () => {
+      vi.mocked(prisma.$transaction).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+        })
+      );
+      vi.mocked(prisma.orderIdempotency.findUnique).mockResolvedValue({
+        status: "COMPLETED",
+        fingerprint: "other-fingerprint",
+        orderId: "order-1",
+      } as never);
+
+      await expect(
+        ordersService.create("user-1", { items: [{ listingId: "listing-2" }] }, IDEMPOTENCY_KEY)
+      ).rejects.toMatchObject({ statusCode: 409, message: expect.stringContaining("different request") });
+    });
+
+    it("rejects a concurrent in-progress key instead of creating another order", async () => {
+      vi.mocked(prisma.$transaction).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+        })
+      );
+      vi.mocked(prisma.orderIdempotency.findUnique).mockResolvedValue({
+        status: "PROCESSING",
+        fingerprint: fingerprintOrderCreate({
+          items: [{ listingId: "listing-1" }],
+        }),
+        orderId: null,
+      } as never);
+
+      await expect(
+        ordersService.create("user-1", { items: [{ listingId: "listing-1" }] }, IDEMPOTENCY_KEY)
+      ).rejects.toMatchObject({
+        statusCode: 409,
+        message: expect.stringContaining("already in progress"),
+      });
+      expect(prisma.listing.updateMany).not.toHaveBeenCalled();
     });
   });
 

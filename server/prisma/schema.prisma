@@ -19,6 +19,7 @@ model User {
   seller        Seller?
   orders        Order[]         @relation("CustomerOrders")
   reviews       Review[]
+  orderIdempotency OrderIdempotency[]
 }
 
 // Pending sign-up: user is created only after email verification (code confirmation)
@@ -91,10 +92,28 @@ model Order {
   customer  User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
   items     OrderItem[]
   transactions SellerTransaction[]
+  idempotency OrderIdempotency?
 
   @@index([customerId])
   @@index([status])
   @@index([paymentStatus])
+}
+
+model OrderIdempotency {
+  id          String    @id @default(cuid())
+  userId      String
+  key         String    @db.VarChar(128)
+  fingerprint String
+  status      String    @default("PROCESSING") // PROCESSING (in-flight) | COMPLETED
+  orderId     String?   @unique
+  createdAt   DateTime  @default(now())
+  completedAt DateTime?
+
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  order Order? @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, key])
+  @@index([createdAt])
 }
 
 model PaymentWebhookEvent {

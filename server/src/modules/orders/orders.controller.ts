@@ -1,12 +1,18 @@
 import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { parseIdempotencyKeyHeader } from "./orders.idempotency.js";
 
 export const ordersController = {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const order = await ordersService.create(user.id, req.body);
+      const order = await ordersService.create(
+        user.id,
+        req.body,
+        parseIdempotencyKeyHeader(req.headers["idempotency-key"]),
+        req.requestId
+      );
       res.status(201).json(order);
     } catch (e) {
       next(e);

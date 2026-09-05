@@ -31,13 +31,15 @@ See `docs/adr/0002-paypal-webhook-reliability.md`.
 
 ### P0.3 Order idempotency
 
-Implement and prove:
+Implemented:
 
-- client-provided idempotency key for order creation;
-- durable idempotency state;
-- concurrent identical requests have one business effect;
-- retries return a deterministic result;
-- crash scenarios do not create duplicate orders/reservations.
+- required `Idempotency-Key` on `POST /orders`, scoped to the authenticated user;
+- PostgreSQL unique `(userId, key)` with a request fingerprint;
+- concurrent identical requests produce one order/reservation;
+- retries replay the original order; payload mismatch returns 409;
+- claim and reservation share one transaction so a rollback cannot leave a false success.
+
+See `docs/adr/0003-order-creation-idempotency.md`.
 
 ## P1 — Production maturity
 

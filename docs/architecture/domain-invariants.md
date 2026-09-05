@@ -34,7 +34,7 @@ Rules:
 3. Order item price is a snapshot of the price at purchase/reservation time.
 4. Order total must equal the sum of its item price snapshots.
 5. Order creation and reservation must have an atomic consistency boundary.
-6. Repeated order-creation requests must not create duplicate business effects when idempotency is required.
+6. Repeated order-creation requests with the same authenticated user and `Idempotency-Key` must not create a second Order or a second listing reservation. The same key with a different listing fingerprint must be rejected (HTTP 409). Keys are not shared across users. The claim (`PROCESSING` → `COMPLETED`) and reservation share one PostgreSQL transaction: a rollback cannot leave a successful idempotency row, and a crash before commit makes the next retry a first request. Concurrent identical requests serialize on unique `(userId, key)`. Records are intended to remain valid for 7 days; cleanup is deferred.
 
 ## Payments
 
