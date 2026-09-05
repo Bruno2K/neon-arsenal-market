@@ -17,39 +17,21 @@ import { paymentsRoutes } from "./modules/payments/payments.routes.js";
 import { commissionsRoutes } from "./modules/commissions/commissions.routes.js";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
+import { getAllowedCorsOrigins, isCorsOriginAllowed } from "./shared/config/cors.js";
 
 const app = express();
 
 app.use(requestId);
 app.use(httpTelemetry);
 
-// ─── CORS ────────────────────────────────────────────────────────────────────
-function normalizeOrigin(origin: string): string | null {
-  try {
-    return new URL(origin).origin;
-  } catch {
-    const trimmed = origin.trim().replace(/\/+$/, "");
-    return trimmed === "" ? null : trimmed;
-  }
-}
-
 // Restrict to the configured frontend origin (defaults to localhost:5173 for dev)
-const fromEnv = (process.env.FRONTEND_URL ?? "http://localhost:5173")
-  .split(",")
-  .map((o) => normalizeOrigin(o))
-  .filter((origin): origin is string => Boolean(origin));
-const devOrigins = [
-  "http://localhost:5173",
-  "http://127.0.0.1:5173",
-];
-const allowedOrigins = [...new Set([...fromEnv, ...devOrigins])];
+const allowedOrigins = getAllowedCorsOrigins();
 
 app.use(
   cors({
     origin: (origin, callback) => {
       // Allow requests with no origin (e.g. curl, Postman, health checks)
-      if (!origin) return callback(null, true);
-      if (allowedOrigins.includes(origin)) return callback(null, true);
+      if (isCorsOriginAllowed(origin, allowedOrigins)) return callback(null, true);
       callback(new Error(`CORS: origin "${origin}" not allowed`));
     },
     credentials: true,
