@@ -36,7 +36,7 @@ export default function AdminDashboard() {
   });
   const sellersQuery = useQuery({
     queryKey: ["admin-sellers"],
-    queryFn: listSellers,
+    queryFn: () => listSellers(),
   });
   const productsQuery = useQuery({
     queryKey: ["admin-products"],
