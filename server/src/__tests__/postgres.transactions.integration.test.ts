@@ -126,7 +126,7 @@ describe("PostgreSQL transactions", () => {
     const order = await prisma.order.findUnique({ where: { id: created.id } });
 
     expect(items).toHaveLength(2);
-    expect(order?.totalAmount.toString()).toBe(expected.toString());
-    expect(order?.totalAmount.toString()).toBe("201.00");
+    expect(order?.totalAmount.equals(expected)).toBe(true);
+    expect(order?.totalAmount.equals(new Prisma.Decimal("201.00"))).toBe(true);
   });
 });
