@@ -1,14 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SellerProductsPage from "../SellerProducts";
-import type { Product } from "@/types/api";
+import type { Product, Role, User } from "@/types/api";
 
 const listProducts = vi.fn();
+const authState = {
+  user: {
+    id: "seller-user",
+    name: "Seller",
+    email: "seller@test.com",
+    role: "SELLER",
+  } as User,
+};
 
 vi.mock("@/api/products", () => ({
   listProducts: (...args: unknown[]) => listProducts(...args),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => authState,
 }));
 
 function product(): Product {
@@ -28,14 +40,26 @@ function product(): Product {
   };
 }
 
-function renderProducts() {
+function setRole(role: Role) {
+  authState.user = {
+    id: `${role.toLowerCase()}-user`,
+    name: role,
+    email: `${role.toLowerCase()}@test.com`,
+    role,
+  };
+}
+
+function renderProducts(path = "/seller/products") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <SellerProductsPage />
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/seller/products" element={<SellerProductsPage />} />
+          <Route path="/admin" element={<div>admin-home</div>} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -44,6 +68,7 @@ function renderProducts() {
 describe("SellerProducts", () => {
   beforeEach(() => {
     listProducts.mockReset();
+    setRole("SELLER");
   });
 
   it("renders a read-only product catalog from listProducts", async () => {
@@ -84,5 +109,22 @@ describe("SellerProducts", () => {
     expect(
       screen.queryByRole("button", { name: /criar|salvar|excluir/i }),
     ).toBeNull();
+  });
+
+  it("redirects ADMIN to /admin without calling listProducts", async () => {
+    setRole("ADMIN");
+    listProducts.mockResolvedValue({
+      items: [product()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderProducts();
+
+    expect(await screen.findByText("admin-home")).toBeTruthy();
+    expect(screen.queryByText("Produtos")).toBeNull();
+    expect(screen.queryByText("AK-47 | Redline")).toBeNull();
+    expect(listProducts).not.toHaveBeenCalled();
   });
 });

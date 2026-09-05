@@ -46,7 +46,7 @@ export function normalizeInternalPath(from?: string | null): string {
   return collapsed;
 }
 
-function isSellerPath(path: string): boolean {
+export function isSellerPath(path: string): boolean {
   return path === "/seller" || path.startsWith("/seller/");
 }
 
