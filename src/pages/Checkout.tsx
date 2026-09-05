@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,6 +6,10 @@ import { createOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
 import { EmptyState } from "@/components/page-state";
 import { Button } from "@/components/ui/button";
+import {
+  resolveCheckoutIdempotencyKey,
+  type CheckoutIdempotencyState,
+} from "@/lib/checkoutIdempotency";
 
 export default function Checkout() {
   const { items, totalPrice } = useCart();
@@ -13,6 +17,8 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const inFlightRef = useRef(false);
+  const idempotencyRef = useRef<CheckoutIdempotencyState | null>(null);
   const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
 
@@ -57,12 +63,20 @@ export default function Checkout() {
   }
 
   const handlePay = async () => {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
     setError(null);
     setLoading(true);
     try {
-      const order = await createOrder({
-        items: items.map(({ listing }) => ({ listingId: listing.id })),
-      });
+      const listingIds = items.map(({ listing }) => listing.id);
+      idempotencyRef.current = resolveCheckoutIdempotencyKey(
+        idempotencyRef.current,
+        listingIds,
+      );
+      const order = await createOrder(
+        { items: listingIds.map((listingId) => ({ listingId })) },
+        { idempotencyKey: idempotencyRef.current.key },
+      );
       const payment = await createPaymentLink({ orderId: order.id });
       if (payment.approvalUrl) {
         window.location.href = payment.approvalUrl;
@@ -74,6 +88,7 @@ export default function Checkout() {
     } catch (e) {
       setError(e instanceof Error ? e.message : "Falha ao criar pedido");
     } finally {
+      inFlightRef.current = false;
       setLoading(false);
     }
   };
@@ -146,7 +161,9 @@ export default function Checkout() {
           >
             {loading
               ? "Abrindo o PayPal..."
-              : `Pagar com PayPal — $${total.toFixed(2)}`}
+              : error
+                ? "Tentar novamente"
+                : `Pagar com PayPal — $${total.toFixed(2)}`}
           </Button>
           <p className="text-center text-xs text-muted-foreground">
             Sem confirmação local até o retorno do PayPal.
