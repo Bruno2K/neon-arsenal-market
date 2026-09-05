@@ -8,6 +8,11 @@ import { getPriceHistory } from "@/api/price-history";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  isNotFoundApiError,
+  isRetryableReadError,
+  listingStatusLabel,
+} from "@/lib/userFacingApiError";
 
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
@@ -74,20 +79,26 @@ export default function ListingDetail() {
   }
 
   if (isError || !listing) {
+    const missing = isNotFoundApiError(error);
+    const canRetry = isRetryableReadError(error);
     return (
       <div className="container py-10">
         <ErrorState
-          title="Listing não encontrado"
-          description={
-            error instanceof Error
-              ? error.message
-              : "Este item não está disponível."
+          title={
+            missing ? "Listing não encontrado" : "Erro ao carregar listing"
           }
+          error={error}
           action={
             <div className="flex justify-center gap-2">
-              <Button type="button" variant="outline" onClick={() => refetch()}>
-                Tentar novamente
-              </Button>
+              {canRetry ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => refetch()}
+                >
+                  Tentar novamente
+                </Button>
+              ) : null}
               <Button asChild>
                 <Link to="/products">Voltar ao Market</Link>
               </Button>
@@ -193,8 +204,7 @@ export default function ListingDetail() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Status:{" "}
-              {listing.status === "ACTIVE" ? "Disponível" : listing.status}
+              Status: {listingStatusLabel(listing.status)}
             </p>
             {latestHistory ? (
               <p className="text-sm text-muted-foreground">

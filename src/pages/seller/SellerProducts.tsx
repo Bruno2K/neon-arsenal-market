@@ -48,11 +48,7 @@ export default function SellerProductsPage() {
     return (
       <ErrorState
         title="Erro ao carregar o catálogo"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button type="button" variant="outline" onClick={() => refetch()}>
             Tentar novamente

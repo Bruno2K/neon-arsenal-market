@@ -68,11 +68,7 @@ export default function AdminSellers() {
     return (
       <ErrorState
         title="Erro ao carregar os vendedores"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button
             type="button"

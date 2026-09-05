@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Checkout from "../Checkout";
 import type { Listing, Order, User } from "@/types/api";
 import { PRE_ORDER_HOLD_COPY } from "@/lib/orderPaymentView";
+import { USER_FACING_NETWORK } from "@/lib/userFacingApiError";
 
 const createOrder = vi.fn();
 const createPaymentLink = vi.fn();
@@ -311,7 +312,7 @@ describe("Checkout", () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;
     asCustomer();
-    createOrder.mockRejectedValue(new Error("Falha de rede"));
+    createOrder.mockRejectedValue(new Error("Failed to fetch"));
 
     renderCheckout();
     await waitForPayable();
@@ -321,14 +322,14 @@ describe("Checkout", () => {
     expect(cartState.removeItems).not.toHaveBeenCalled();
     expect(cartState.clearCart).not.toHaveBeenCalled();
     expect(createPaymentLink).not.toHaveBeenCalled();
-    expect(screen.getByText("Falha de rede")).toBeTruthy();
+    expect(screen.getByText(USER_FACING_NETWORK)).toBeTruthy();
   });
 
   it("sends a non-empty Idempotency-Key of at most 128 characters", async () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;
     asCustomer();
-    createOrder.mockRejectedValue(new Error("Falha de rede"));
+    createOrder.mockRejectedValue(new Error("Failed to fetch"));
 
     renderCheckout();
     await waitForPayable();
@@ -346,14 +347,14 @@ describe("Checkout", () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;
     asCustomer();
-    createOrder.mockRejectedValue(new Error("Falha de rede"));
+    createOrder.mockRejectedValue(new Error("Failed to fetch"));
 
     renderCheckout();
     await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
 
     await waitFor(() => {
-      expect(screen.getByText("Falha de rede")).toBeTruthy();
+      expect(screen.getByText(USER_FACING_NETWORK)).toBeTruthy();
       expect(
         screen.getByRole("button", { name: "Tentar novamente" }),
       ).toBeTruthy();
@@ -372,7 +373,7 @@ describe("Checkout", () => {
     cartState.items = [{ listing: listing(100, "listing-ak") }];
     cartState.totalPrice = 100;
     asCustomer();
-    createOrder.mockRejectedValue(new Error("Falha de rede"));
+    createOrder.mockRejectedValue(new Error("Failed to fetch"));
 
     const view = renderCheckout(0);
     await waitForPayable();

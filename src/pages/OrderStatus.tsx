@@ -22,6 +22,12 @@ import {
 } from "@/lib/orderPaymentView";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
 import { redirectToExternal } from "@/lib/redirect";
+import {
+  logTechnicalError,
+  orderStatusLabel,
+  paymentStatusLabel,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 import type { Order } from "@/types/api";
 
 function OrderHeadline({
@@ -145,12 +151,11 @@ export default function OrderStatusPage() {
           title={
             accessError ? "Pedido não encontrado" : "Erro ao carregar o pedido"
           }
+          error={error}
           description={
             accessError
               ? "Este pedido não existe ou não pertence à sua conta."
-              : error instanceof Error
-                ? error.message
-                : "Falha de rede. Tente novamente."
+              : undefined
           }
           action={
             accessError ? (
@@ -195,11 +200,8 @@ export default function OrderStatusPage() {
         "Não foi possível obter o link do PayPal. O pedido existente não foi marcado como pago.",
       );
     } catch (e) {
-      setRetryError(
-        e instanceof Error
-          ? e.message
-          : "Não foi possível reutilizar este pedido para um novo pagamento.",
-      );
+      logTechnicalError(e);
+      setRetryError(userFacingApiError(e));
     } finally {
       setRetrying(false);
     }
@@ -216,9 +218,11 @@ export default function OrderStatusPage() {
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">Pedido {order.status}</Badge>
+          <Badge variant="secondary">
+            Pedido {orderStatusLabel(order.status)}
+          </Badge>
           <Badge variant={paid ? "default" : "outline"}>
-            Pagamento {order.paymentStatus}
+            Pagamento {paymentStatusLabel(order.paymentStatus)}
           </Badge>
         </div>
 

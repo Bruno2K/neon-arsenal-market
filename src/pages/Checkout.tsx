@@ -21,6 +21,10 @@ import {
 } from "@/lib/orderPaymentView";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
 import { redirectToExternal } from "@/lib/redirect";
+import {
+  logTechnicalError,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 import type { Order } from "@/types/api";
 
 export default function Checkout() {
@@ -130,7 +134,8 @@ export default function Checkout() {
         navigate(`/orders/${createdOrderId}`);
         return;
       }
-      setError(e instanceof Error ? e.message : "Falha ao criar pedido");
+      logTechnicalError(e);
+      setError(userFacingApiError(e));
     } finally {
       inFlightRef.current = false;
       if (!leftCheckout) setLoading(false);

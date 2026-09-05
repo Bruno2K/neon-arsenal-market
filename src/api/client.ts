@@ -1,3 +1,4 @@
+import { ApiClientError, logTechnicalError } from "@/lib/userFacingApiError";
 import { resolveApiBaseUrl } from "./apiBaseUrl";
 
 const API_BASE = resolveApiBaseUrl({
@@ -27,7 +28,7 @@ const tokenStorage: TokenStorage = {
 
 async function refreshAccessToken(): Promise<string> {
   const refresh = tokenStorage.getRefreshToken();
-  if (!refresh) throw new Error("No refresh token");
+  if (!refresh) throw new ApiClientError("No refresh token", { status: 401 });
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -36,7 +37,9 @@ async function refreshAccessToken(): Promise<string> {
   if (!res.ok) {
     tokenStorage.clear();
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? "Session expired");
+    throw new ApiClientError(data.error ?? "Session expired", {
+      status: res.status,
+    });
   }
   const data = await res.json();
   tokenStorage.setTokens(data.accessToken, data.refreshToken);
@@ -88,7 +91,14 @@ async function request<T>(
     res = await doFetch(access);
   } catch (err) {
     const reason = err instanceof Error ? err.message : "Failed to fetch";
-    throw new Error(`Could not reach API at ${url}: ${reason}`);
+    const error = new ApiClientError(
+      `Could not reach API at ${url}: ${reason}`,
+      {
+        code: "NETWORK",
+      },
+    );
+    logTechnicalError(error);
+    throw error;
   }
 
   if (res.status === 401 && !skipAuth && access) {
@@ -98,13 +108,22 @@ async function request<T>(
     } catch {
       tokenStorage.clear();
       const data = await res.json().catch(() => ({}));
-      throw new Error(data.error ?? "Unauthorized");
+      const error = new ApiClientError(data.error ?? "Unauthorized", {
+        status: 401,
+      });
+      logTechnicalError(error);
+      throw error;
     }
   }
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(data.error ?? `Request failed: ${res.status}`);
+    const error = new ApiClientError(
+      data.error ?? `Request failed: ${res.status}`,
+      { status: res.status },
+    );
+    logTechnicalError(error);
+    throw error;
   }
   return data as T;
 }

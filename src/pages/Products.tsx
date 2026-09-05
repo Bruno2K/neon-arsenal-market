@@ -220,11 +220,7 @@ export default function Products() {
       {isError && (
         <ErrorState
           title="Erro ao carregar listings"
-          description={
-            error instanceof Error
-              ? error.message
-              : "Tente novamente em instantes."
-          }
+          error={error}
           action={
             <Button type="button" variant="outline" onClick={() => refetch()}>
               Tentar novamente

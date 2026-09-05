@@ -1,5 +1,9 @@
-import type { ReactNode } from "react";
+import { useEffect, type ReactNode } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  logTechnicalError,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 
 type Action = ReactNode;
 
@@ -42,19 +46,29 @@ export function EmptyState({
 export function ErrorState({
   title = "Algo deu errado",
   description,
+  error,
   action,
 }: {
   title?: string;
   description?: string;
+  error?: unknown;
   action?: Action;
 }) {
+  useEffect(() => {
+    if (error !== undefined) logTechnicalError(error);
+  }, [error]);
+
+  const text =
+    description ??
+    (error !== undefined ? userFacingApiError(error) : undefined);
+
   return (
     <div className="mx-auto max-w-md py-16 text-center" role="alert">
       <h2 className="text-lg font-semibold tracking-tight text-foreground">
         {title}
       </h2>
-      {description ? (
-        <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+      {text ? (
+        <p className="mt-2 text-sm text-muted-foreground">{text}</p>
       ) : null}
       {action ? <div className="mt-6">{action}</div> : null}
     </div>

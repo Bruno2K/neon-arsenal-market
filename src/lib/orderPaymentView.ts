@@ -1,4 +1,8 @@
 import type { Order } from "@/types/api";
+import {
+  isForbiddenApiError,
+  isNotFoundApiError,
+} from "@/lib/userFacingApiError";
 
 export type OrderPageIntent = "return" | "cancel" | "view";
 
@@ -106,6 +110,7 @@ export function orderPollIntervalMs(
 }
 
 export function isOrderAccessError(error: unknown): boolean {
+  if (isForbiddenApiError(error) || isNotFoundApiError(error)) return true;
   const message = error instanceof Error ? error.message : String(error ?? "");
   return (
     /order not found/i.test(message) ||
