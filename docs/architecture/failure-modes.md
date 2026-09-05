@@ -59,7 +59,7 @@ Should Neon Arsenal later reverse captured funds automatically, and with which *
 
 ## Reservations and orders
 
-- Two buyers, one listing: one `ACTIVE → RESERVED` conditional update wins. See `docs/architecture/domain-invariants.md`.
+- Two buyers, one listing: one `ACTIVE → RESERVED` conditional update wins. See `docs/domain/invariants.md` (`INV-LISTING-EXCLUSIVE-RESERVE`) and `docs/architecture/domain-invariants.md`.
 - Expiry vs payment: expiry cannot overwrite `SOLD`; payment cannot sell an expired or re-reserved listing. See `docs/adr/0001-in-process-reservation-expiry.md`.
 - Duplicate `POST /orders`: customer `Idempotency-Key` in the same transaction as the reservation. See `docs/adr/0003-order-creation-idempotency.md`.
 - Duplicate `POST /payments`: unique `PaymentLink(orderId)` inserted before `OrdersCreate`. Replay returns the stored PayPal order id and approval URL. The PayPal client still does not retry `OrdersCreate`.

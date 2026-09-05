@@ -21,7 +21,7 @@ Frontend unit tests remain `npm test` at the repository root.
 
 ## Why real PostgreSQL
 
-The flagship invariants are database-backed:
+The flagship invariants are database-backed (catalog: `docs/domain/invariants.md`):
 
 - `ACTIVE → RESERVED` is a conditional update (`status = ACTIVE`).
 - Order creation, reservation and `OrderIdempotencyKey` commit in one transaction.

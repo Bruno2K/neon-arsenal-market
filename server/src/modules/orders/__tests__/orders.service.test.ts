@@ -257,6 +257,41 @@ describe("ordersService", () => {
       expect(result.totalAmount).toEqual(new Prisma.Decimal("299.99"));
     });
 
+    it("sets totalAmount to the Decimal sum of listing price snapshots", async () => {
+      const listingA = mockListing({ id: "listing-1", price: new Prisma.Decimal("0.10") });
+      const listingB = mockListing({ id: "listing-2", price: new Prisma.Decimal("0.20") });
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as never);
+        vi.mocked(prisma.listing.findUnique)
+          .mockResolvedValueOnce(listingA as never)
+          .mockResolvedValueOnce(listingB as never);
+        vi.mocked(prisma.orderItem.createMany).mockResolvedValue({ count: 2 } as never);
+        return fn(prisma);
+      });
+      vi.mocked(ordersRepository.findById).mockResolvedValue(
+        mockOrder({ totalAmount: new Prisma.Decimal("0.30") }) as never
+      );
+
+      const result = await ordersService.create(
+        "user-1",
+        { items: [{ listingId: "listing-1" }, { listingId: "listing-2" }] },
+        IDEMPOTENCY_KEY
+      );
+
+      expect(prisma.order.update).toHaveBeenCalledWith({
+        where: { id: "order-1" },
+        data: { totalAmount: new Prisma.Decimal("0.30") },
+      });
+      expect(prisma.orderItem.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ listingId: "listing-1", priceSnapshot: listingA.price }),
+          expect.objectContaining({ listingId: "listing-2", priceSnapshot: listingB.price }),
+        ],
+      });
+      expect(result.totalAmount).toEqual(new Prisma.Decimal("0.30"));
+      expect(0.1 + 0.2).not.toBe(0.3);
+    });
+
     it("rejects duplicate listing IDs in the same order", async () => {
       await expect(
         ordersService.create("user-1", {
@@ -401,6 +436,20 @@ describe("ordersService", () => {
       await expect(
         ordersService.getById("order-1", "user-1", "CUSTOMER")
       ).rejects.toMatchObject({ statusCode: 403 });
+    });
+
+    it("throws 403 when SELLER has no item in the order", async () => {
+      vi.mocked(ordersRepository.findById).mockResolvedValue(
+        mockOrder({
+          customer: { id: "buyer-1" },
+          items: [{ sellerId: "other-seller" }],
+        }) as never
+      );
+      vi.mocked(prisma.seller.findUnique).mockResolvedValue({ id: "seller-1" } as never);
+
+      await expect(
+        ordersService.getById("order-1", "user-seller", "SELLER")
+      ).rejects.toMatchObject({ statusCode: 403, message: "Not your order" });
     });
 
     it("allows CUSTOMER to access their own order", async () => {

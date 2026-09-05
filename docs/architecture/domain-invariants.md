@@ -1,8 +1,14 @@
 # Domain Invariants
 
-This document is the contract that agents must preserve when modifying business logic.
+This document is the **narrative contract** that agents must preserve when modifying business logic.
+
+The **canonical ID catalog** (statement, why it matters, schema / service / test map) is [`docs/domain/invariants.md`](../domain/invariants.md). Stable IDs also live in `server/src/shared/domain/invariants.ts`.
+
+Do not maintain a second conflicting list. When a rule changes, update the catalog and this narrative in the same change.
 
 ## Listings
+
+IDs: `INV-LISTING-EXCLUSIVE-RESERVE`, `INV-LISTING-SOLD-IRREVERSIBLE`, `INV-LISTING-RESERVATION-TTL`.
 
 A listing represents a unique marketplace item.
 
@@ -29,6 +35,8 @@ Rules:
 
 ## Orders
 
+IDs: `INV-ORDER-TOTAL-COMPOSITION`, `INV-ORDER-ITEM-UNIQUE`, `INV-ORDER-PRICE-SNAPSHOT`, `INV-ORDER-ATOMIC-CREATE`, `INV-ORDER-IDEMPOTENCY`, `INV-ORDER-STATUS-MACHINE`.
+
 Allowed fulfillment lifecycle:
 
 ```text
@@ -50,6 +58,8 @@ PENDING → CONFIRMED → SHIPPED → DELIVERED
 
 ## Payments
 
+IDs: `INV-PAYMENT-TRUSTED-CONFIRM`, `INV-PAYMENT-WEBHOOK-AUTHENTIC`, `INV-PAYMENT-WEBHOOK-IDEMPOTENT`, `INV-PAYMENT-LINK-IDEMPOTENT`.
+
 1. A payment confirmation is idempotent.
 2. Duplicate webhook delivery must not create duplicate seller transactions or duplicate balance increments.
 3. Webhook authenticity must be verified before trusting an event. Required PayPal headers: `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url`, `paypal-auth-algo`. `paypal-transmission-time` must be a valid RFC 3339 timestamp within 5 minutes of the server clock (absolute skew).
@@ -63,6 +73,8 @@ PENDING → CONFIRMED → SHIPPED → DELIVERED
 11. Optional `returnUrl` and `cancelUrl` on `POST /payments/create` are forwarded to PayPal `OrdersCreate` as `application_context.return_url` / `cancel_url` when present, and omitted when absent. The server does not invent defaults or env-based URLs. Buyer return/cancel at PayPal does not mark the order `PAID`; confirmation remains webhook or reconciliation.
 
 ## Seller finances
+
+IDs: `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`.
 
 For a confirmed payment:
 
@@ -81,6 +93,8 @@ Rules:
 
 ## Authorization
 
+IDs: `INV-AUTH-OWNERSHIP`, `INV-AUDIT-APPEND-ONLY`.
+
 1. Customers can access only their own orders and customer-scoped data.
 2. Sellers can access order information only when they own an item in the order.
 3. Administrative operations require the appropriate role.
@@ -88,6 +102,8 @@ Rules:
 5. Sensitive mutations persist an append-only `AuditLog` row (actor, action, resource, non-sensitive before/after, timestamp, optional IP/user-agent). Read access is ADMIN-only (`GET /admin/audit-logs`). Retention is 365 days; see `docs/adr/0010-audit-log.md`. Credentials, JWT/refresh tokens, passwords, PayPal secrets, and full payment payloads must not be stored on the trail.
 
 ## Database integrity
+
+ID: `INV-DB-ENUMS`.
 
 Database constraints are part of the business model. Agents must prefer constraints, conditional updates and transactions over assumptions in application code.
 
@@ -104,7 +120,7 @@ Critical lifecycle fields are PostgreSQL/Prisma enums so invalid labels cannot b
 
 When changing an invariant, the agent must:
 
-1. update this document;
+1. update this document **and** `docs/domain/invariants.md`;
 2. update the Prisma schema/migration if the database model changes;
 3. add regression/integration tests;
 4. document the architectural decision when the change is significant.

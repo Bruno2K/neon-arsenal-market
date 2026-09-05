@@ -119,6 +119,7 @@ Remaining P-back catalog work after this ADR landed as the **C2 skip commit**. L
 Maintain:
 
 - `docs/architecture/current-state.md`
+- `docs/domain/invariants.md`
 - `docs/architecture/domain-invariants.md`
 - `docs/architecture/c4.md`
 - `docs/architecture/scaling-path.md`

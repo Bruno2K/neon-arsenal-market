@@ -14,11 +14,12 @@ Read in this order:
 2. `docs/agents/README.md` — team operating model.
 3. `docs/agents/roles.md` — responsibilities and boundaries.
 4. `docs/architecture/current-state.md` — known architectural reality and gaps.
-5. `docs/architecture/domain-invariants.md` — business invariants that must not be violated.
-6. `docs/roadmap.md` — prioritized backlog.
-7. The relevant source code, schema, migrations, and tests.
-8. The relevant ADRs and operational documentation.
-9. `docs/observability.md` when the task touches logs, traces, metrics or request correlation.
+5. `docs/domain/invariants.md` — canonical invariant ID catalog and enforcement map.
+6. `docs/architecture/domain-invariants.md` — narrative invariant contract (must stay in sync with the catalog).
+7. `docs/roadmap.md` — prioritized backlog.
+8. The relevant source code, schema, migrations, and tests.
+9. The relevant ADRs and operational documentation.
+10. `docs/observability.md` when the task touches logs, traces, metrics or request correlation.
 
 If code and documentation disagree, the agent must inspect the code and flag the documentation as stale. It must not silently invent behavior.
 

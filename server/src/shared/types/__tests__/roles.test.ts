@@ -57,4 +57,10 @@ describe("Prisma domain enums", () => {
     expect(listOrdersQueryDto.safeParse({ paymentStatus: "CAPTURED" }).success).toBe(false);
     expect(listListingsQueryDto.safeParse({ status: "CANCELLED" }).success).toBe(false);
   });
+
+  it("strips client paymentStatus from PATCH /orders/:id/status", () => {
+    expect(updateOrderStatusDto.parse({ status: "CANCELLED", paymentStatus: "PAID" })).toEqual({
+      status: "CANCELLED",
+    });
+  });
 });
