@@ -18,6 +18,7 @@ Read in this order:
 6. `docs/roadmap.md` — prioritized backlog.
 7. The relevant source code, schema, migrations, and tests.
 8. The relevant ADRs and operational documentation.
+9. `docs/observability.md` when the task touches logs, traces, metrics or request correlation.
 
 If code and documentation disagree, the agent must inspect the code and flag the documentation as stale. It must not silently invent behavior.
 

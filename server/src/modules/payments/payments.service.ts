@@ -17,6 +17,9 @@ import {
 } from "../../shared/config/paypal.js";
 import { Prisma } from "@prisma/client";
 import type { CreatePaymentInput } from "./payments.dto.js";
+import { appMetrics } from "../../shared/observability/metrics.js";
+import { markSpanOutcome } from "../../shared/observability/outcomes.js";
+import { withSpan } from "../../shared/observability/tracing.js";
 
 const WEBHOOK_PROVIDER = "PAYPAL";
 
@@ -51,12 +54,21 @@ export const paymentsService = {
   },
 
   async handleWebhook(body: unknown) {
+    return withSpan(
+      "paypal.webhook.handle",
+      { attributes: { "paypal.event_type": "unknown" } },
+      async (span) => {
     const parsed = parsePayPalWebhookEvent(body);
     if (!parsed) {
       logger.warn("paypal webhook missing event id or type");
+      markSpanOutcome(span, "webhook_failed");
+      appMetrics.webhooksReceived();
+      appMetrics.webhooksFailed();
       return;
     }
 
+    span.setAttribute("paypal.event_type", parsed.eventType);
+    appMetrics.webhooksReceived();
     logger.info(
       { eventId: parsed.eventId, eventType: parsed.eventType },
       "paypal webhook received"
@@ -64,6 +76,8 @@ export const paymentsService = {
 
     const claim = await claimWebhookEvent(parsed.eventId, parsed.eventType);
     if (claim === "duplicate") {
+      markSpanOutcome(span, "webhook_duplicate");
+      appMetrics.webhooksDuplicate();
       logger.info(
         { eventId: parsed.eventId, eventType: parsed.eventType },
         "paypal webhook duplicate ignored"
@@ -87,6 +101,7 @@ export const paymentsService = {
         }
         await this.confirmPayment(orderId);
         await markWebhookEvent(parsed.eventId, { status: "PROCESSED", orderId });
+        markSpanOutcome(span, "confirmed");
         logger.info(
           { eventId: parsed.eventId, eventType: parsed.eventType, orderId },
           "paypal capture webhook processed"
@@ -101,6 +116,8 @@ export const paymentsService = {
           orderId,
           failureReason: "intermediate_event",
         });
+        markSpanOutcome(span, "webhook_ignored");
+        appMetrics.webhooksIgnored();
         logger.info(
           { eventId: parsed.eventId, eventType: parsed.eventType, orderId },
           "paypal approved webhook stored without capture confirmation"
@@ -112,6 +129,8 @@ export const paymentsService = {
         status: "IGNORED",
         failureReason: "unhandled_event_type",
       });
+      markSpanOutcome(span, "webhook_ignored");
+      appMetrics.webhooksIgnored();
       logger.info(
         { eventId: parsed.eventId, eventType: parsed.eventType },
         "paypal webhook ignored: event type not applied locally"
@@ -122,6 +141,8 @@ export const paymentsService = {
           status: "FAILED",
           failureReason: "reservation_expired",
         });
+        markSpanOutcome(span, "reservation_expired");
+        appMetrics.webhooksFailed();
         logger.warn(
           { eventId: parsed.eventId, eventType: parsed.eventType },
           "paypal webhook not applied: reservation expired"
@@ -129,18 +150,26 @@ export const paymentsService = {
         return;
       }
       if (err instanceof AppError && err.statusCode === 503) {
+        appMetrics.webhooksFailed();
         throw err;
       }
       await markWebhookEvent(parsed.eventId, {
         status: "FAILED",
         failureReason: "processing_error",
       });
+      appMetrics.webhooksFailed();
       throw err;
     }
+      }
+    );
   },
 
   async confirmPayment(orderId: string) {
-    await prisma.$transaction(async (tx) => {
+    return withSpan("payments.confirm", {}, async (span) => {
+    let claimedCount = 0;
+    try {
+    await withSpan("payments.confirm.transaction", {}, async () =>
+    prisma.$transaction(async (tx) => {
       // Claim unpaid pending orders only. Duplicate webhooks and cancelled
       // expired orders see count = 0 and do not issue another seller payout.
       const claimed = await tx.order.updateMany({
@@ -152,6 +181,7 @@ export const paymentsService = {
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
 
+      claimedCount = claimed.count;
       if (claimed.count === 0) return;
 
       const order = await tx.order.findUnique({
@@ -220,10 +250,23 @@ export const paymentsService = {
           data: { balance: { increment: netAmount } },
         });
       }
+    })
+    );
+      if (claimedCount === 0) {
+        markSpanOutcome(span, "already_confirmed");
+        return;
+      }
+      markSpanOutcome(span, "confirmed");
+      appMetrics.paymentsConfirmed();
+    } catch (err) {
+      appMetrics.paymentsFailed();
+      throw err;
+    }
     });
   },
 
   async reconcilePendingPaypalOrders() {
+    return withSpan("payments.reconcile", {}, async (span) => {
     const cutoff = new Date(Date.now() - PAYPAL_RECONCILE_MIN_AGE_MS);
     const pending = await prisma.order.findMany({
       where: {
@@ -254,7 +297,10 @@ export const paymentsService = {
         logger.warn({ err, orderId: order.id }, "paypal reconciliation lookup failed");
       }
     }
+    span.setAttribute("app.reconcile_scanned", pending.length);
+    span.setAttribute("app.reconcile_confirmed", confirmed);
     return { scanned: pending.length, confirmed };
+    });
   },
 };
 

@@ -1,6 +1,10 @@
-import { app } from "./app.js";
-import { startReservationExpiryJob } from "./shared/jobs/reservationExpiryJob.js";
-import { startPaypalReconciliationJob } from "./shared/jobs/paypalReconciliationJob.js";
+import { startTelemetry } from "./shared/observability/sdk.js";
+
+await startTelemetry();
+
+const { app } = await import("./app.js");
+const { startReservationExpiryJob } = await import("./shared/jobs/reservationExpiryJob.js");
+const { startPaypalReconciliationJob } = await import("./shared/jobs/paypalReconciliationJob.js");
 
 const PORT = process.env.PORT ?? 3001;
 

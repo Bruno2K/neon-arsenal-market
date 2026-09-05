@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 import { errorHandler } from "./shared/errors/index.js";
 import { notFound, requestId } from "./shared/middlewares/index.js";
+import { httpTelemetry } from "./shared/observability/http.js";
 import { apiLimiter, authLimiter } from "./shared/middlewares/rateLimit.js";
 import { healthRoutes } from "./shared/routes/health.routes.js";
 import { docsRoutes } from "./shared/routes/docs.routes.js";
@@ -20,6 +21,7 @@ import { adminRoutes } from "./modules/admin/admin.routes.js";
 const app = express();
 
 app.use(requestId);
+app.use(httpTelemetry);
 
 // ─── CORS ────────────────────────────────────────────────────────────────────
 // Restrict to the configured frontend origin (defaults to localhost:5173 for dev)
@@ -43,7 +45,14 @@ app.use(
     },
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "X-Request-Id", "Idempotency-Key"],
+    allowedHeaders: [
+      "Content-Type",
+      "Authorization",
+      "X-Request-Id",
+      "Idempotency-Key",
+      "traceparent",
+      "tracestate",
+    ],
   })
 );
 app.use(
