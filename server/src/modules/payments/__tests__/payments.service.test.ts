@@ -5,8 +5,14 @@ vi.mock("../../../shared/database/index.js", () => ({
     order: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
+    },
+    paymentWebhookEvent: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
     },
     listing: {
       update: vi.fn(),
@@ -26,10 +32,11 @@ vi.mock("../../../shared/database/index.js", () => ({
 vi.mock("../../../shared/utils/paypal.js", () => ({
   createPayPalOrder: vi.fn(),
   getPayPalApprovalLink: vi.fn(),
+  getPayPalOrder: vi.fn(),
 }));
 
 import { prisma } from "../../../shared/database/index.js";
-import { createPayPalOrder, getPayPalApprovalLink } from "../../../shared/utils/paypal.js";
+import { createPayPalOrder, getPayPalApprovalLink, getPayPalOrder } from "../../../shared/utils/paypal.js";
 import { paymentsService } from "../payments.service.js";
 import { Prisma } from "@prisma/client";
 
@@ -151,6 +158,7 @@ describe("paymentsService", () => {
           where: {
             id: { in: ["listing-1"] },
             status: "RESERVED",
+            reservedByOrderId: "order-1",
             reservationExpiresAt: { gt: expect.any(Date) },
           },
           data: expect.objectContaining({ status: "SOLD", soldAt: expect.any(Date) }),
@@ -226,20 +234,50 @@ describe("paymentsService", () => {
   });
 
   describe("handleWebhook()", () => {
-    it("ignores non-payment events", async () => {
+    beforeEach(() => {
+      vi.mocked(prisma.paymentWebhookEvent.create).mockResolvedValue({} as never);
+      vi.mocked(prisma.paymentWebhookEvent.update).mockResolvedValue({} as never);
+    });
+
+    it("ignores payloads without an event id", async () => {
       await paymentsService.handleWebhook({ event_type: "SOME.OTHER.EVENT" });
-      expect(prisma.order.findUnique).not.toHaveBeenCalled();
+      expect(prisma.paymentWebhookEvent.create).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
     });
 
-    it("routes CHECKOUT.ORDER.APPROVED to confirmPayment by reference_id", async () => {
+    it("stores CHECKOUT.ORDER.APPROVED without confirming payment", async () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "order-1" } as never);
+
+      await paymentsService.handleWebhook({
+        id: "WH-APPROVED-1",
+        event_type: "CHECKOUT.ORDER.APPROVED",
+        resource: { id: "paypal-order-1", purchase_units: [{ reference_id: "order-1" }] },
+      });
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(prisma.paymentWebhookEvent.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "IGNORED", orderId: "order-1" }),
+        })
+      );
+    });
+
+    it("confirms payment on PAYMENT.CAPTURE.COMPLETED using related PayPal order id", async () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue({ id: "order-1" } as never);
       setupWebhookTransaction();
 
       await paymentsService.handleWebhook({
-        event_type: "CHECKOUT.ORDER.APPROVED",
-        resource: { purchase_units: [{ reference_id: "order-1" }] },
+        id: "WH-CAPTURE-1",
+        event_type: "PAYMENT.CAPTURE.COMPLETED",
+        resource: {
+          id: "CAPTURE-99",
+          supplementary_data: { related_ids: { order_id: "paypal-order-99" } },
+        },
       });
 
+      expect(prisma.order.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { paypalOrderId: "paypal-order-99" } })
+      );
       expect(prisma.order.updateMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: { id: "order-1", paymentStatus: "PENDING", status: "PENDING" },
@@ -247,18 +285,74 @@ describe("paymentsService", () => {
       );
     });
 
-    it("routes PAYMENT.CAPTURE.COMPLETED by paypalOrderId when no reference_id", async () => {
-      vi.mocked(prisma.order.findFirst).mockResolvedValue({ id: "order-1" } as never);
-      setupWebhookTransaction();
+    it("is a no-op when the same event was already processed", async () => {
+      vi.mocked(prisma.paymentWebhookEvent.create).mockRejectedValue(
+        new Prisma.PrismaClientKnownRequestError("Unique constraint failed", {
+          code: "P2002",
+          clientVersion: "5.22.0",
+        })
+      );
+      vi.mocked(prisma.paymentWebhookEvent.findUnique).mockResolvedValue({
+        status: "PROCESSED",
+      } as never);
 
       await paymentsService.handleWebhook({
+        id: "WH-DUP-1",
         event_type: "PAYMENT.CAPTURE.COMPLETED",
-        resource: { id: "paypal-order-99" },
+        resource: {
+          supplementary_data: { related_ids: { order_id: "paypal-order-99" } },
+        },
       });
 
-      expect(prisma.order.findFirst).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { paypalOrderId: "paypal-order-99" } })
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it("signals PayPal to retry when a capture cannot resolve a local order", async () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(null);
+
+      await expect(
+        paymentsService.handleWebhook({
+          id: "WH-ORPHAN-1",
+          event_type: "PAYMENT.CAPTURE.COMPLETED",
+          resource: {
+            supplementary_data: { related_ids: { order_id: "paypal-unknown" } },
+          },
+        })
+      ).rejects.toMatchObject({ statusCode: 503 });
+
+      expect(prisma.paymentWebhookEvent.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ status: "FAILED", failureReason: "order_not_resolved" }),
+        })
       );
+    });
+  });
+
+  describe("reconcilePendingPaypalOrders()", () => {
+    it("confirms locally when PayPal reports COMPLETED", async () => {
+      vi.mocked(prisma.order.findMany).mockResolvedValue([
+        { id: "order-1", paypalOrderId: "paypal-1" },
+      ] as never);
+      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      setupWebhookTransaction();
+
+      const result = await paymentsService.reconcilePendingPaypalOrders();
+
+      expect(getPayPalOrder).toHaveBeenCalledWith("paypal-1");
+      expect(prisma.order.updateMany).toHaveBeenCalled();
+      expect(result).toEqual({ scanned: 1, confirmed: 1 });
+    });
+
+    it("does not confirm when PayPal is not COMPLETED", async () => {
+      vi.mocked(prisma.order.findMany).mockResolvedValue([
+        { id: "order-1", paypalOrderId: "paypal-1" },
+      ] as never);
+      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
+
+      const result = await paymentsService.reconcilePendingPaypalOrders();
+
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+      expect(result).toEqual({ scanned: 1, confirmed: 0 });
     });
   });
 });

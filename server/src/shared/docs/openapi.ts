@@ -67,6 +67,7 @@ export const openApiSpec = {
           tradeLockUntil: { type: "string", format: "date-time", nullable: true },
           reservedAt: { type: "string", format: "date-time", nullable: true },
           reservationExpiresAt: { type: "string", format: "date-time", nullable: true },
+          reservedByOrderId: { type: "string", nullable: true },
           steamAssetId: { type: "string", nullable: true },
           createdAt: { type: "string", format: "date-time" },
           soldAt: { type: "string", format: "date-time", nullable: true },
@@ -362,11 +363,22 @@ export const openApiSpec = {
     "/payments/webhook": {
       post: {
         tags: ["Payments"],
-        summary: "PayPal webhook receiver (PAYMENT.CAPTURE.COMPLETED)",
+        summary: "PayPal webhook receiver",
         security: [],
         description:
-          "Receives PayPal webhook events. Signature is verified via `PAYPAL_WEBHOOK_ID` env var.",
-        responses: { 200: { description: "Webhook processed" }, 401: { description: "Invalid signature" } },
+          "Receives PayPal webhook events. Authenticity is verified with official RSA-SHA256 self-verification (`transmissionId|timestamp|webhookId|crc32(rawBody)` plus the certificate at `paypal-cert-url`). `paypal-transmission-time` must be RFC 3339 and within 5 minutes of the server clock (absolute skew) to reject replayed signed requests. Required headers: `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url`, `paypal-auth-algo`. Only `PAYMENT.CAPTURE.COMPLETED` confirms local payment. `CHECKOUT.ORDER.APPROVED` is stored as an intermediate event and does not sell listings. Duplicate event IDs are idempotent. HTTP 200 is returned for business-rule failures such as an expired reservation so PayPal does not retry forever; HTTP 503 is returned when the local order cannot be resolved yet.",
+        parameters: [
+          { name: "paypal-transmission-id", in: "header", required: true, schema: { type: "string" } },
+          { name: "paypal-transmission-time", in: "header", required: true, schema: { type: "string" } },
+          { name: "paypal-transmission-sig", in: "header", required: true, schema: { type: "string" } },
+          { name: "paypal-cert-url", in: "header", required: true, schema: { type: "string" } },
+          { name: "paypal-auth-algo", in: "header", required: true, schema: { type: "string", example: "SHA256withRSA" } },
+        ],
+        responses: {
+          200: { description: "Webhook accepted, duplicated, ignored, or rejected by business rule" },
+          401: { description: "Invalid or missing signature" },
+          503: { description: "Capture event could not be matched to a local order yet; PayPal should retry" },
+        },
       },
     },
     "/sellers/apply": {

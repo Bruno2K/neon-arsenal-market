@@ -9,6 +9,7 @@ vi.mock("../../../shared/database/index.js", () => ({
     order: {
       updateMany: vi.fn(),
     },
+    $executeRaw: vi.fn(),
     seller: {
       findUnique: vi.fn(),
     },
@@ -95,7 +96,7 @@ describe("listingsService reservation lifecycle", () => {
   describe("expireReservations()", () => {
     it("releases only RESERVED listings whose expiration has passed", async () => {
       vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 2 });
-      vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 });
+      vi.mocked(prisma.$executeRaw).mockResolvedValue(1);
       const now = new Date("2026-09-04T12:00:00.000Z");
 
       const result = await listingsService.expireReservations(now);
@@ -109,22 +110,16 @@ describe("listingsService reservation lifecycle", () => {
           status: "ACTIVE",
           reservedAt: null,
           reservationExpiresAt: null,
+          reservedByOrderId: null,
         },
       });
-      expect(prisma.order.updateMany).toHaveBeenCalledWith({
-        where: {
-          paymentStatus: "PENDING",
-          status: "PENDING",
-          items: { some: { listing: { status: { not: "RESERVED" } } } },
-        },
-        data: { status: "CANCELLED" },
-      });
+      expect(prisma.$executeRaw).toHaveBeenCalled();
       expect(result).toEqual({ expiredListingCount: 2, cancelledOrderCount: 1 });
     });
 
     it("does not target SOLD listings", async () => {
       vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 0 });
-      vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 0 });
+      vi.mocked(prisma.$executeRaw).mockResolvedValue(0);
 
       await listingsService.expireReservations();
 

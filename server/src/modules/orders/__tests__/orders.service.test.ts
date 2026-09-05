@@ -62,6 +62,14 @@ const mockOrder = (overrides = {}) => ({
 describe("ordersService", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(prisma.order.create).mockResolvedValue({
+      id: "order-1",
+      customerId: "user-1",
+      totalAmount: new Prisma.Decimal(0),
+      status: "PENDING",
+      paymentStatus: "PENDING",
+    } as never);
+    vi.mocked(prisma.order.update).mockResolvedValue({ id: "order-1" } as never);
   });
 
   describe("create()", () => {
@@ -100,6 +108,7 @@ describe("ordersService", () => {
             status: "RESERVED",
             reservedAt: expect.any(Date),
             reservationExpiresAt: expect.any(Date),
+            reservedByOrderId: "order-1",
           },
         })
       );
