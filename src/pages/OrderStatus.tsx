@@ -4,12 +4,14 @@ import { useQuery } from "@tanstack/react-query";
 import { getOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
 import { ErrorState, PageSkeleton } from "@/components/page-state";
+import { ReservationHold } from "@/components/ReservationHold";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
+  EXPIRED_HOLD_COPY,
+  VERIFYING_RESERVATION_COPY,
   canRetryPayment,
   earliestReservationExpiresAt,
-  formatReservationCountdown,
   isOrderAccessError,
   isPaymentConfirmed,
   isReservationExpired,
@@ -25,11 +27,11 @@ import type { Order } from "@/types/api";
 function OrderHeadline({
   order,
   intent,
-  countdown,
+  expired,
 }: {
   order: Order;
   intent: ReturnType<typeof orderPageIntent>;
-  countdown: string | null;
+  expired: boolean;
 }) {
   if (isPaymentConfirmed(order)) {
     return (
@@ -45,33 +47,28 @@ function OrderHeadline({
     );
   }
 
-  if (intent === "cancel") {
-    const expired = isReservationExpired(order);
-    return (
-      <>
-        <h1 className="text-2xl font-semibold tracking-tight">
-          Você cancelou o pagamento.
-        </h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          {expired
-            ? "A reserva deste pedido já expirou. O pagamento continua pendente até o PayPal confirmar — esta tela não marca o pedido como pago."
-            : countdown
-              ? `Sua reserva expira em ${countdown}. O pedido ainda está pendente.`
-              : "O pedido ainda está pendente. A reserva pode expirar se o pagamento não for concluído."}
-        </p>
-      </>
-    );
-  }
-
-  if (isReservationExpired(order)) {
+  if (expired) {
     return (
       <>
         <h1 className="text-2xl font-semibold tracking-tight">
           Reserva expirada.
         </h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          O pagamento não foi confirmado pelo PayPal. Esta página não marca o
-          pedido como pago.
+          Não conclua o pagamento neste pedido. Esta tela não marca o pedido
+          como pago.
+        </p>
+      </>
+    );
+  }
+
+  if (intent === "cancel") {
+    return (
+      <>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Você cancelou o pagamento.
+        </h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          O pedido ainda está pendente. Esta tela não marca o pedido como pago.
         </p>
       </>
     );
@@ -137,7 +134,7 @@ export default function OrderStatusPage() {
   }
 
   if (isLoading) {
-    return <PageSkeleton label="Carregando pedido" />;
+    return <PageSkeleton label={VERIFYING_RESERVATION_COPY} />;
   }
 
   if (isError || !order) {
@@ -177,8 +174,9 @@ export default function OrderStatusPage() {
 
   const paid = isPaymentConfirmed(order);
   const retryEnabled = canRetryPayment(order, now);
-  const countdown = formatReservationCountdown(expiresAt, now);
   const expired = isReservationExpired(order, now);
+  const showPayButton =
+    !paid && order.status !== "CANCELLED" && order.paymentStatus === "PENDING";
 
   const handleRetry = async () => {
     if (!retryEnabled || retrying) return;
@@ -209,8 +207,11 @@ export default function OrderStatusPage() {
 
   return (
     <div className="container max-w-2xl py-8">
-      <div className="mb-8">
-        <OrderHeadline order={order} intent={intent} countdown={countdown} />
+      <div className="mb-8 space-y-4">
+        <OrderHeadline order={order} intent={intent} expired={expired} />
+        {!paid ? (
+          <ReservationHold phase="order" expiresAt={expiresAt} now={now} />
+        ) : null}
       </div>
 
       <section className="space-y-4 rounded-md border border-border bg-card p-4">
@@ -255,7 +256,7 @@ export default function OrderStatusPage() {
             {order.status === "CANCELLED"
               ? "Este pedido foi cancelado. Não é possível reutilizar o mesmo pedido para pagar."
               : expired
-                ? "A reserva expirou. Não é possível pagar novamente neste pedido."
+                ? "O pagamento não deve ser concluído neste pedido."
                 : "Pagar novamente só fica disponível enquanto o pagamento estiver pendente."}
           </p>
         ) : null}
@@ -265,11 +266,12 @@ export default function OrderStatusPage() {
               <Link to={`/orders/${order.id}`}>Ver pedido</Link>
             </Button>
           ) : null}
-          {retryEnabled ? (
+          {showPayButton ? (
             <Button
               type="button"
               onClick={() => void handleRetry()}
-              disabled={retrying}
+              disabled={!retryEnabled || retrying}
+              title={expired ? EXPIRED_HOLD_COPY : undefined}
             >
               {retrying ? "Abrindo o PayPal..." : "Pagar novamente"}
             </Button>

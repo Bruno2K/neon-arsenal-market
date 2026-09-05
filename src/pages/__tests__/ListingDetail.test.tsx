@@ -9,10 +9,12 @@ const getListing = vi.fn();
 const listListings = vi.fn();
 const getPriceHistory = vi.fn();
 const addItem = vi.fn();
+const reserveListing = vi.fn();
 
 vi.mock("@/api/listings", () => ({
   getListing: (...args: unknown[]) => getListing(...args),
   listListings: (...args: unknown[]) => listListings(...args),
+  reserveListing: (...args: unknown[]) => reserveListing(...args),
 }));
 
 vi.mock("@/api/price-history", () => ({
@@ -94,6 +96,7 @@ describe("ListingDetail", () => {
     listListings.mockReset();
     getPriceHistory.mockReset();
     addItem.mockReset();
+    reserveListing.mockReset();
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
   });
@@ -135,6 +138,9 @@ describe("ListingDetail", () => {
     expect(addButton).not.toHaveProperty("disabled", true);
     addButton.click();
     expect(addItem).toHaveBeenCalledTimes(1);
+    expect(reserveListing).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
+    expect(screen.queryByText(/15:00/)).toBeNull();
   });
 
   it("disables purchase when the listing is not ACTIVE", async () => {

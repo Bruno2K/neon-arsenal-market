@@ -1,17 +1,23 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
 import { EmptyState } from "@/components/page-state";
+import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
 import {
   resolveCheckoutIdempotencyKey,
   type CheckoutIdempotencyState,
 } from "@/lib/checkoutIdempotency";
+import {
+  earliestReservationExpiresAt,
+  isReservationExpired,
+} from "@/lib/orderPaymentView";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
 import { redirectToExternal } from "@/lib/redirect";
+import type { Order } from "@/types/api";
 
 export default function Checkout() {
   const { items, totalPrice, removeItems } = useCart();
@@ -19,12 +25,26 @@ export default function Checkout() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   const inFlightRef = useRef(false);
   const idempotencyRef = useRef<CheckoutIdempotencyState | null>(null);
   const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
+  const expiresAt = createdOrder
+    ? earliestReservationExpiresAt(createdOrder)
+    : null;
+  const reservationExpired = createdOrder
+    ? isReservationExpired(createdOrder, now)
+    : false;
 
-  if (items.length === 0 && !loading) {
+  useEffect(() => {
+    if (expiresAt == null) return;
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(timer);
+  }, [expiresAt]);
+
+  if (items.length === 0 && !loading && !createdOrder) {
     return (
       <div className="container py-8">
         <h1 className="sr-only">Checkout</h1>
@@ -82,6 +102,7 @@ export default function Checkout() {
         { idempotencyKey: idempotencyRef.current.key },
       );
       createdOrderId = order.id;
+      setCreatedOrder(order);
       removeItems(listingIds);
       const payment = await createPaymentLink({
         orderId: order.id,
@@ -114,6 +135,14 @@ export default function Checkout() {
         <p className="mt-1 text-sm text-muted-foreground">
           Revise os itens e pague no PayPal. Nada é confirmado nesta tela.
         </p>
+      </div>
+
+      <div className="mb-6">
+        <ReservationHold
+          phase={createdOrder ? "order" : "pre-order"}
+          expiresAt={expiresAt}
+          now={now}
+        />
       </div>
 
       <div className="space-y-6">
@@ -171,7 +200,12 @@ export default function Checkout() {
             className="w-full"
             size="lg"
             onClick={handlePay}
-            disabled={loading}
+            disabled={loading || reservationExpired}
+            title={
+              reservationExpired
+                ? "A reserva expirou. O item pode ter voltado ao Market."
+                : undefined
+            }
           >
             {loading
               ? "Abrindo o PayPal..."

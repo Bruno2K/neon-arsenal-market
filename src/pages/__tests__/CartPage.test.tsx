@@ -3,6 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import CartPage from "../CartPage";
 import type { Listing } from "@/types/api";
+import { PRE_ORDER_HOLD_COPY } from "@/lib/orderPaymentView";
 
 const cartState = {
   items: [] as { listing: Listing }[],
@@ -78,6 +79,20 @@ describe("CartPage", () => {
     expect(screen.getByText("$5.00")).toBeTruthy();
     expect(screen.getByText("$105.00")).toBeTruthy();
     expect(screen.getByText("Finalizar compra")).toBeTruthy();
+    expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
+    expect(screen.queryByText(/15:00/)).toBeNull();
     expect(screen.queryByText("SKINMARKET")).toBeNull();
+  });
+
+  it("does not claim the listing is held in the cart", () => {
+    cartState.items = [{ listing: listing("listing-ak", 100) }];
+    cartState.totalPrice = 100;
+    cartState.totalItems = 1;
+    renderCart();
+    expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
+    expect(screen.getByText(/não segura o item/i)).toBeTruthy();
+    expect(screen.queryByText(/Reservado para você/)).toBeNull();
+    expect(screen.queryByRole("timer")).toBeNull();
   });
 });
