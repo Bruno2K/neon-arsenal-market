@@ -152,7 +152,7 @@ For the common split deployment, use Vercel for the Vite frontend and Render for
 - In Vercel, add `API_URL` as **Config** (not Sensitive) with the public Render API origin, for example `https://neon-arsenal-market-api.onrender.com`. Do not use the `VITE_` prefix. A production frontend build fails if this still points at localhost.
 - In Render, set `FRONTEND_URL` to the public frontend origin. Use a comma-separated list when allowing both production and preview origins.
 - In Render, set `RESEND_API_KEY` and `EMAIL_FROM` so production registration can send verification codes.
-- Keep `SEED_DEMO_DATA=true` only for demo/test deployments that should expose the seeded accounts shown on the login page.
+- Keep `SEED_DEMO_DATA=true` only for demo/test deployments. On boot the API upserts the fake catalog (accounts, products, listings) shown on the login page. Re-running the seed is idempotent and does not overwrite rows that already exist.
 - `vercel.json` rewrites React Router paths to `index.html`, and the production build also emits `dist/404.html`, so direct page refreshes do not return Vercel's NOT_FOUND page. In the Vercel project, set Framework Preset to **Vite**, not Other.
 
 The Render Blueprint also defines an optional `neon-arsenal-web` static site. If you deploy the frontend on Render instead of Vercel, set its `API_URL`; the Blueprint includes the same SPA rewrite to `index.html`.
