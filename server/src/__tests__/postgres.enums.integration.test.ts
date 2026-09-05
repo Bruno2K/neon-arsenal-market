@@ -3,15 +3,11 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../shared/database/index.js";
 import { createCheckoutGraph, createOrder, createUser, orderKey, uniqueSuffix } from "./helpers/index.js";
 
-function expectDatabaseOrPrismaEnumRejection(error: unknown) {
-  const message = error instanceof Error ? `${error.message} ${error.name}` : String(error);
+function expectInvalidEnumLabel(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
   const prismaValidation = error instanceof Prisma.PrismaClientValidationError;
-  const known = error instanceof Prisma.PrismaClientKnownRequestError ? error : null;
-  const pgEnum =
-    /invalid input value for enum/i.test(message) ||
-    /invalid_text_representation/i.test(message) ||
-    (known !== null && (known.code === "P2010" || known.code === "P2006" || known.code === "P2023"));
-  expect(prismaValidation || pgEnum).toBe(true);
+  const pgInvalidLabel = /invalid input value for enum/i.test(message);
+  expect(prismaValidation || pgInvalidLabel).toBe(true);
 }
 
 describe("PostgreSQL domain enums", () => {
@@ -29,7 +25,7 @@ describe("PostgreSQL domain enums", () => {
     } catch (error) {
       caught = error;
     }
-    expectDatabaseOrPrismaEnumRejection(caught);
+    expectInvalidEnumLabel(caught);
     expect(await prisma.user.count({ where: { email: { contains: "bad-role-" } } })).toBe(0);
   });
 
@@ -45,23 +41,23 @@ describe("PostgreSQL domain enums", () => {
 
     const attempts: Array<{ sql: string; values: string[] }> = [
       {
-        sql: `UPDATE "User" SET "role" = $1 WHERE "id" = $2`,
+        sql: `UPDATE "User" SET "role" = $1::"UserRole" WHERE "id" = $2`,
         values: ["SUPERUSER", userId],
       },
       {
-        sql: `UPDATE "Order" SET "status" = $1 WHERE "id" = $2`,
+        sql: `UPDATE "Order" SET "status" = $1::"OrderStatus" WHERE "id" = $2`,
         values: ["CANCELED", order.id],
       },
       {
-        sql: `UPDATE "Order" SET "paymentStatus" = $1 WHERE "id" = $2`,
+        sql: `UPDATE "Order" SET "paymentStatus" = $1::"PaymentStatus" WHERE "id" = $2`,
         values: ["CAPTURED", order.id],
       },
       {
-        sql: `UPDATE "Listing" SET "status" = $1 WHERE "id" = $2`,
+        sql: `UPDATE "Listing" SET "status" = $1::"ListingStatus" WHERE "id" = $2`,
         values: ["CANCELLED", listingId],
       },
       {
-        sql: `UPDATE "PaymentWebhookEvent" SET "status" = $1 WHERE "id" = $2`,
+        sql: `UPDATE "PaymentWebhookEvent" SET "status" = $1::"WebhookEventStatus" WHERE "id" = $2`,
         values: ["ACKED", "placeholder"],
       },
     ];
@@ -83,7 +79,7 @@ describe("PostgreSQL domain enums", () => {
       } catch (error) {
         caught = error;
       }
-      expectDatabaseOrPrismaEnumRejection(caught);
+      expectInvalidEnumLabel(caught);
     }
 
     const persistedUser = await prisma.user.findUnique({ where: { id: userId } });
@@ -130,23 +126,27 @@ describe("PostgreSQL domain enums", () => {
 
     let linkError: unknown;
     try {
-      await prisma.$executeRawUnsafe(`UPDATE "PaymentLink" SET "status" = $1 WHERE "orderId" = $2`, "DONE", link.orderId);
+      await prisma.$executeRawUnsafe(
+        `UPDATE "PaymentLink" SET "status" = $1::"ClaimStatus" WHERE "orderId" = $2`,
+        "DONE",
+        link.orderId
+      );
     } catch (error) {
       linkError = error;
     }
-    expectDatabaseOrPrismaEnumRejection(linkError);
+    expectInvalidEnumLabel(linkError);
 
     let keyError: unknown;
     try {
       await prisma.$executeRawUnsafe(
-        `UPDATE "OrderIdempotencyKey" SET "status" = $1 WHERE "id" = $2`,
+        `UPDATE "OrderIdempotencyKey" SET "status" = $1::"ClaimStatus" WHERE "id" = $2`,
         "DONE",
         key!.id
       );
     } catch (error) {
       keyError = error;
     }
-    expectDatabaseOrPrismaEnumRejection(keyError);
+    expectInvalidEnumLabel(keyError);
 
     expect((await prisma.paymentLink.findUnique({ where: { orderId: order.id } }))?.status).toBe("IN_PROGRESS");
     expect((await prisma.orderIdempotencyKey.findUnique({ where: { id: key!.id } }))?.status).toBe("COMPLETED");
@@ -173,14 +173,14 @@ describe("PostgreSQL domain enums", () => {
     let caught: unknown;
     try {
       await prisma.$executeRawUnsafe(
-        `UPDATE "SellerTransaction" SET "status" = $1 WHERE "id" = $2`,
+        `UPDATE "SellerTransaction" SET "status" = $1::"PaymentStatus" WHERE "id" = $2`,
         "SETTLED",
         txn.id
       );
     } catch (error) {
       caught = error;
     }
-    expectDatabaseOrPrismaEnumRejection(caught);
+    expectInvalidEnumLabel(caught);
     expect((await prisma.sellerTransaction.findUnique({ where: { id: txn.id } }))?.status).toBe("PAID");
   });
 
