@@ -145,6 +145,17 @@ When a payment is confirmed, seller transactions are generated from the order it
 - PayPal
 - Resend
 
+## Deployment
+
+For the common split deployment, use Vercel for the Vite frontend and Render for the Express API:
+
+- In Vercel, set `VITE_API_URL` to the public Render API origin, for example `https://neon-arsenal-api.onrender.com`.
+- In Render, set `FRONTEND_URL` to the public frontend origin. Use a comma-separated list when allowing both production and preview origins.
+- In Render, set `RESEND_API_KEY` and `EMAIL_FROM` so production registration can send verification codes.
+- `vercel.json` rewrites React Router paths to `index.html` so direct page refreshes do not return 404.
+
+The Render Blueprint also defines an optional `neon-arsenal-web` static site. If you deploy the frontend on Render instead of Vercel, set its `VITE_API_URL`; the Blueprint includes the same SPA rewrite to `index.html`.
+
 ### Testing & Documentation
 
 - Vitest
@@ -195,17 +206,6 @@ server/.env.example
 ```
 
 The application uses PostgreSQL for the main database and Docker Compose can provision the local database.
-
-## Deployment notes
-
-For the common split deployment, use Vercel for the Vite frontend and Render for the Express API:
-
-- In Vercel, set `VITE_API_URL` to the public Render API origin, for example `https://neon-arsenal-api.onrender.com`.
-- In Render, set `FRONTEND_URL` to the public frontend origin. Use a comma-separated list when allowing both production and preview origins.
-- In Render, set `RESEND_API_KEY` and `EMAIL_FROM` so production registration can send verification codes.
-- `vercel.json` rewrites React Router paths to `index.html` so direct page refreshes do not return 404.
-
-The Render Blueprint also defines an optional `neon-arsenal-web` static site. If you deploy the frontend on Render instead of Vercel, set its `VITE_API_URL`; the Blueprint includes the same SPA rewrite to `index.html`.
 
 ### Start the infrastructure
 
