@@ -4,6 +4,7 @@ import { authenticate, requireRole, validateQuery } from "../../shared/middlewar
 import { validateBody } from "../../shared/middlewares/validateBody.js";
 import { approveSellerDto } from "../sellers/sellers.dto.js";
 import { listOrdersQueryDto } from "../orders/orders.dto.js";
+import { listAuditLogsQueryDto } from "../audit/audit.dto.js";
 
 const router = Router();
 
@@ -12,6 +13,7 @@ router.use(requireRole("ADMIN"));
 
 router.get("/users", adminController.listUsers);
 router.get("/orders", validateQuery(listOrdersQueryDto), adminController.listOrders);
+router.get("/audit-logs", validateQuery(listAuditLogsQueryDto), adminController.listAuditLogs);
 router.patch(
   "/sellers/:id/approve",
   validateBody(approveSellerDto),

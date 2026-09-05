@@ -1,6 +1,5 @@
 import { prisma } from "../../shared/database/index.js";
 import { listingsRepository } from "./listings.repository.js";
-import { priceHistoryRepository } from "./price-history.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { Prisma } from "@prisma/client";
@@ -14,6 +13,8 @@ import type {
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
+import { auditRepository } from "../audit/audit.repository.js";
+import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 
 const VALID_STATUS_TRANSITIONS: Record<ListingStatus, readonly ListingStatus[]> = {
   ACTIVE: ["RESERVED", "CANCELED"],
@@ -133,7 +134,13 @@ export const listingsService = {
     return listingsRepository.update(listingId, updateData);
   },
 
-  async updatePrice(listingId: string, userId: string, role: string, input: UpdateListingPriceInput) {
+  async updatePrice(
+    listingId: string,
+    userId: string,
+    role: string,
+    input: UpdateListingPriceInput,
+    actor?: AuditActor
+  ) {
     const listing = await listingsRepository.findById(listingId);
     if (!listing) throw new AppError(404, "Listing not found");
 
@@ -156,14 +163,43 @@ export const listingsService = {
       throw new AppError(400, "New price must be different from current price");
     }
 
-    // Update listing price
-    const updatedListing = await listingsRepository.update(listingId, { price: newPrice });
-
-    // Create price history entry
-    await priceHistoryRepository.create({
-      listing: { connect: { id: listingId } },
-      oldPrice,
-      newPrice,
+    const updatedListing = await prisma.$transaction(async (tx) => {
+      const updated = await tx.listing.update({
+        where: { id: listingId },
+        data: { price: newPrice },
+        include: {
+          product: true,
+          seller: {
+            select: {
+              id: true,
+              storeName: true,
+              user: { select: { id: true, name: true } },
+            },
+          },
+        },
+      });
+      await tx.priceHistory.create({
+        data: {
+          listingId,
+          oldPrice,
+          newPrice,
+        },
+      });
+      await auditRepository.create(
+        {
+          actorId: actor?.actorId ?? userId,
+          actorRole: (actor?.actorRole ?? role) as AuditActor["actorRole"],
+          ip: actor?.ip,
+          userAgent: actor?.userAgent,
+          action: AuditAction.LISTING_PRICE_CHANGE,
+          resourceType: AuditResourceType.Listing,
+          resourceId: listingId,
+          before: { price: listing.price.toString() },
+          after: { price: String(newPrice) },
+        },
+        tx
+      );
+      return updated;
     });
 
     return updatedListing;
@@ -280,7 +316,7 @@ export const listingsService = {
     });
   },
 
-  async cancel(listingId: string, userId: string, role: string) {
+  async cancel(listingId: string, userId: string, role: string, actor?: AuditActor) {
     const listing = await listingsRepository.findById(listingId);
     if (!listing) throw new AppError(404, "Listing not found");
 
@@ -296,7 +332,27 @@ export const listingsService = {
       throw new AppError(400, "Cannot cancel a SOLD listing");
     }
 
-    return listingsRepository.updateStatus(listingId, "CANCELED");
+    return prisma.$transaction(async (tx) => {
+      const updated = await tx.listing.update({
+        where: { id: listingId },
+        data: { status: "CANCELED" },
+      });
+      await auditRepository.create(
+        {
+          actorId: actor?.actorId ?? userId,
+          actorRole: (actor?.actorRole ?? role) as AuditActor["actorRole"],
+          ip: actor?.ip,
+          userAgent: actor?.userAgent,
+          action: AuditAction.LISTING_CANCEL,
+          resourceType: AuditResourceType.Listing,
+          resourceId: listingId,
+          before: { status: listing.status },
+          after: { status: "CANCELED" },
+        },
+        tx
+      );
+      return updated;
+    });
   },
 
   async getBySellerUserId(userId: string) {

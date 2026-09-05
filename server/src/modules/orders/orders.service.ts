@@ -12,6 +12,8 @@ import { Prisma } from "@prisma/client";
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
+import { auditRepository } from "../audit/audit.repository.js";
+import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
@@ -225,7 +227,7 @@ export const ordersService = {
     return ordersRepository.findMany(filters);
   },
 
-  async updateStatus(orderId: string, userId: string, role: string, status: string) {
+  async updateStatus(orderId: string, userId: string, role: string, status: string, actor?: AuditActor) {
     const order = await ordersRepository.findById(orderId);
     if (!order) throw new AppError(404, "Order not found");
     if (role === "SELLER") throw new AppError(403, "Sellers cannot edit orders");
@@ -236,10 +238,29 @@ export const ordersService = {
     const toStatus = parseOrderStatus(status);
     assertOrderStatusTransition(fromStatus, toStatus, role);
 
-    const moved = await ordersRepository.transitionStatus(orderId, fromStatus, toStatus);
-    if (moved !== 1) {
-      throw new AppError(409, "Order status changed concurrently");
-    }
+    await prisma.$transaction(async (tx) => {
+      const moved = await tx.order.updateMany({
+        where: { id: orderId, status: fromStatus },
+        data: { status: toStatus },
+      });
+      if (moved.count !== 1) {
+        throw new AppError(409, "Order status changed concurrently");
+      }
+      await auditRepository.create(
+        {
+          actorId: actor?.actorId ?? userId,
+          actorRole: (actor?.actorRole ?? role) as AuditActor["actorRole"],
+          ip: actor?.ip,
+          userAgent: actor?.userAgent,
+          action: AuditAction.ORDER_STATUS_CHANGE,
+          resourceType: AuditResourceType.Order,
+          resourceId: orderId,
+          before: { status: fromStatus },
+          after: { status: toStatus },
+        },
+        tx
+      );
+    });
 
     const updated = await ordersRepository.findById(orderId);
     if (!updated) throw new AppError(404, "Order not found");

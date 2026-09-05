@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { listingsService } from "./listings.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { auditActorFromRequest } from "../audit/audit.service.js";
 import type { ListListingsQuery } from "./listings.dto.js";
 
 export const listingsController = {
@@ -45,7 +46,13 @@ export const listingsController = {
   async updatePrice(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const listing = await listingsService.updatePrice(req.params.id, user.id, user.role, req.body);
+      const listing = await listingsService.updatePrice(
+        req.params.id,
+        user.id,
+        user.role,
+        req.body,
+        auditActorFromRequest(req)
+      );
       res.json(listing);
     } catch (e) {
       next(e);
@@ -73,7 +80,7 @@ export const listingsController = {
   async cancel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      await listingsService.cancel(req.params.id, user.id, user.role);
+      await listingsService.cancel(req.params.id, user.id, user.role, auditActorFromRequest(req));
       res.status(204).send();
     } catch (e) {
       next(e);

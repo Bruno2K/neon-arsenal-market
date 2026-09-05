@@ -31,6 +31,9 @@ vi.mock("../../../shared/database/index.js", () => ({
     sellerTransaction: {
       create: vi.fn(),
     },
+    auditLog: {
+      create: vi.fn(),
+    },
     $transaction: vi.fn(),
   },
 }));
@@ -263,6 +266,7 @@ describe("paymentsService", () => {
         vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as never);
         vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
         vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
+        vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
         return fn(prisma);
       });
     };
@@ -276,6 +280,18 @@ describe("paymentsService", () => {
         where: { id: "order-1", paymentStatus: "PENDING", status: "PENDING" },
         data: { paymentStatus: "PAID", status: "CONFIRMED" },
       });
+      expect(prisma.auditLog.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            action: "PAYMENT_CONFIRMED",
+            resourceType: "Order",
+            resourceId: "order-1",
+            actorId: null,
+            before: { paymentStatus: "PENDING", status: "PENDING" },
+            after: { paymentStatus: "PAID", status: "CONFIRMED" },
+          }),
+        })
+      );
     });
 
     it("marks reserved listings as SOLD after payment", async () => {
@@ -337,6 +353,7 @@ describe("paymentsService", () => {
       expect(prisma.sellerTransaction.create).not.toHaveBeenCalled();
       expect(prisma.seller.update).not.toHaveBeenCalled();
       expect(prisma.listing.updateMany).not.toHaveBeenCalled();
+      expect(prisma.auditLog.create).not.toHaveBeenCalled();
     });
 
     it("does not perform seller payout when payment claim fails", async () => {
@@ -495,6 +512,7 @@ function setupWebhookTransaction() {
     vi.mocked(prisma.seller.findUnique).mockResolvedValue({ commissionRate: new Prisma.Decimal("0.1") } as never);
     vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
     vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
+    vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
     return fn(prisma);
   });
 }
