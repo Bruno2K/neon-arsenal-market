@@ -1,16 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ListingDetail from "../ListingDetail";
+import { CartProvider, useCart } from "@/contexts/CartContext";
 import type { Listing, PriceHistory } from "@/types/api";
 import { USER_FACING_NOT_FOUND } from "@/lib/userFacingApiError";
+import {
+  CART_ADDED_MESSAGE,
+  CART_CTA_ADD,
+  CART_CTA_IN_CART,
+  CART_CTA_SIMILAR,
+  CART_CTA_VIEW_CART,
+} from "@/lib/listingCartCta";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
 const getPriceHistory = vi.fn();
-const addItem = vi.fn();
 const reserveListing = vi.fn();
+const toast = vi.fn();
 
 vi.mock("@/api/listings", () => ({
   getListing: (...args: unknown[]) => getListing(...args),
@@ -22,8 +30,8 @@ vi.mock("@/api/price-history", () => ({
   getPriceHistory: (...args: unknown[]) => getPriceHistory(...args),
 }));
 
-vi.mock("@/contexts/CartContext", () => ({
-  useCart: () => ({ addItem }),
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast }),
 }));
 
 function makeListing(overrides: Partial<Listing> = {}): Listing {
@@ -76,6 +84,11 @@ function history(): PriceHistory[] {
   ];
 }
 
+function CartProbe() {
+  const { totalItems } = useCart();
+  return <span data-testid="cart-count">{totalItems}</span>;
+}
+
 function renderDetail(id = "listing-1") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -83,9 +96,12 @@ function renderDetail(id = "listing-1") {
   return render(
     <QueryClientProvider client={client}>
       <MemoryRouter initialEntries={[`/listing/${id}`]}>
-        <Routes>
-          <Route path="/listing/:id" element={<ListingDetail />} />
-        </Routes>
+        <CartProvider>
+          <Routes>
+            <Route path="/listing/:id" element={<ListingDetail />} />
+          </Routes>
+          <CartProbe />
+        </CartProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -96,8 +112,8 @@ describe("ListingDetail", () => {
     getListing.mockReset();
     listListings.mockReset();
     getPriceHistory.mockReset();
-    addItem.mockReset();
     reserveListing.mockReset();
+    toast.mockReset();
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
   });
@@ -133,42 +149,62 @@ describe("ListingDetail", () => {
     expect(screen.getByText("Histórico de Preços")).toBeTruthy();
     expect(screen.getByText("Outros listings desta skin")).toBeTruthy();
 
-    const addButton = screen.getByRole("button", {
-      name: "Adicionar ao Carrinho",
-    });
+    const addButton = screen.getAllByRole("button", {
+      name: CART_CTA_ADD,
+    })[0];
     expect(addButton).not.toHaveProperty("disabled", true);
-    addButton.click();
-    expect(addItem).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
+    fireEvent.click(addButton);
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(toast).toHaveBeenCalledWith({ title: CART_ADDED_MESSAGE });
+    expect(screen.getByText(CART_ADDED_MESSAGE)).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
     expect(reserveListing).not.toHaveBeenCalled();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(screen.queryByText(/15:00/)).toBeNull();
   });
 
-  it("disables purchase when the listing is not ACTIVE", async () => {
+  it("replaces the add CTA on a SOLD listing with Vendido and similar items", async () => {
     getListing.mockResolvedValue(makeListing({ status: "SOLD" }));
     renderDetail();
 
-    const addButton = await screen.findByRole("button", {
-      name: "Adicionar ao Carrinho",
-    });
-    expect(addButton).toHaveProperty("disabled", true);
-    addButton.click();
-    expect(addItem).not.toHaveBeenCalled();
-    expect(screen.getByText("Status: Vendido")).toBeTruthy();
+    expect(await screen.findByText("Status: Vendido")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getAllByText("Vendido").length).toBeGreaterThan(0);
+    const similar = screen.getByRole("link", { name: CART_CTA_SIMILAR });
+    expect(similar).toHaveAttribute("href", "/products");
+    fireEvent.click(similar);
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
+    expect(toast).not.toHaveBeenCalled();
   });
 
-  it("disables purchase while a future trade lock is active", async () => {
+  it("shows a visible trade lock reason instead of a dimmed add button", async () => {
     const future = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
     getListing.mockResolvedValue(makeListing({ tradeLockUntil: future }));
     renderDetail();
 
-    const addButton = await screen.findByRole("button", {
-      name: "Adicionar ao Carrinho",
-    });
-    expect(addButton).toHaveProperty("disabled", true);
-    expect(screen.getByText("Trade Lock até")).toBeTruthy();
-    addButton.click();
-    expect(addItem).not.toHaveBeenCalled();
+    expect(await screen.findByText("Trade Lock até")).toBeTruthy();
+    expect(screen.getByText(/Trade lock até/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
+  });
+
+  it("explains a second add of the same listing as already in the cart", async () => {
+    getListing.mockResolvedValue(makeListing());
+    renderDetail();
+
+    const addButton = await screen.findByRole("button", { name: CART_CTA_ADD });
+    fireEvent.click(addButton);
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(screen.getByText(CART_CTA_IN_CART)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    const viewCart = screen.getByRole("link", { name: CART_CTA_VIEW_CART });
+    expect(viewCart).toHaveAttribute("href", "/cart");
+    fireEvent.click(viewCart);
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(toast).toHaveBeenCalledTimes(1);
   });
 
   it("does not offer purchase when the listing is missing", async () => {

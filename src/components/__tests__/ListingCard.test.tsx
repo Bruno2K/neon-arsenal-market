@@ -1,9 +1,22 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ListingCard } from "../ProductCard";
 import { CartProvider, useCart } from "../../contexts/CartContext";
 import type { Listing } from "@/types/api";
+import {
+  CART_ADDED_MESSAGE,
+  CART_CTA_ADD,
+  CART_CTA_IN_CART,
+  CART_CTA_SIMILAR,
+  CART_CTA_VIEW_CART,
+} from "@/lib/listingCartCta";
+
+const toast = vi.fn();
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast }),
+}));
 
 function makeListing(overrides: Partial<Listing> = {}): Listing {
   return {
@@ -60,11 +73,14 @@ function renderCard(listing: Listing) {
 
 function addButton() {
   return screen.getByRole("button", {
-    name: /adicionar ao carrinho|item não disponível/i,
+    name: CART_CTA_ADD,
   });
 }
 
 describe("ListingCard", () => {
+  beforeEach(() => {
+    toast.mockReset();
+  });
   it("renders weapon | skin (exterior) as the display name", () => {
     renderCard(makeListing());
     expect(
@@ -135,8 +151,8 @@ describe("ListingCard", () => {
     renderCard(makeListing({ status: "ACTIVE", tradeLockUntil: null }));
     const button = addButton();
     expect(button).toBeEnabled();
-    expect(button).toHaveAttribute("title", "Adicionar ao carrinho");
-    expect(button).toHaveAttribute("aria-label", "Adicionar ao carrinho");
+    expect(button).toHaveAttribute("aria-label", CART_CTA_ADD);
+    expect(button).not.toHaveAttribute("title");
   });
 
   it("enables add-to-cart when trade lock has already expired", () => {
@@ -147,39 +163,43 @@ describe("ListingCard", () => {
       }),
     );
     expect(addButton()).toBeEnabled();
-    expect(addButton()).toHaveAttribute("title", "Adicionar ao carrinho");
+    expect(addButton()).toHaveAttribute("aria-label", CART_CTA_ADD);
   });
 
-  it("disables add-to-cart when status is SOLD", () => {
+  it("shows Vendido and similar items instead of a disabled add button when SOLD", () => {
     renderCard(makeListing({ status: "SOLD" }));
-    const button = addButton();
-    expect(button).toBeDisabled();
-    expect(button).toHaveAttribute("title", "Item não disponível");
-    expect(button).toHaveAttribute("aria-label", "Item não disponível");
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByText("Vendido")).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: CART_CTA_SIMILAR }),
+    ).toHaveAttribute("href", "/products");
+    fireEvent.click(screen.getByRole("link", { name: CART_CTA_SIMILAR }));
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
+    expect(toast).not.toHaveBeenCalled();
   });
 
-  it("disables add-to-cart when status is RESERVED", () => {
+  it("shows Reservado instead of add-to-cart when status is RESERVED", () => {
     renderCard(makeListing({ status: "RESERVED" }));
-    expect(addButton()).toBeDisabled();
-    expect(addButton()).toHaveAttribute("title", "Item não disponível");
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByText("Reservado")).toBeInTheDocument();
   });
 
-  it("disables add-to-cart when status is CANCELED", () => {
+  it("shows Cancelado instead of add-to-cart when status is CANCELED", () => {
     renderCard(makeListing({ status: "CANCELED" }));
-    expect(addButton()).toBeDisabled();
-    expect(addButton()).toHaveAttribute("title", "Item não disponível");
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByText("Cancelado")).toBeInTheDocument();
   });
 
-  it("disables add-to-cart when tradeLockUntil is in the future", () => {
+  it("shows a visible trade lock reason when tradeLockUntil is in the future", () => {
     const future = new Date(Date.now() + 60 * 60 * 1000).toISOString();
     renderCard(makeListing({ tradeLockUntil: future }));
-    expect(addButton()).toBeDisabled();
-    expect(addButton()).toHaveAttribute("title", "Item não disponível");
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByText(/Trade lock até/)).toBeInTheDocument();
   });
 
-  it("does not add a SOLD listing when the disabled button is activated", () => {
+  it("does not add a SOLD listing from the similar-items path", () => {
     renderCard(makeListing({ status: "SOLD" }));
-    fireEvent.click(addButton());
+    fireEvent.click(screen.getByRole("link", { name: CART_CTA_SIMILAR }));
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
   });
 
@@ -188,6 +208,25 @@ describe("ListingCard", () => {
     expect(screen.getByTestId("cart-count")).toHaveTextContent("0");
     fireEvent.click(addButton());
     expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(toast).toHaveBeenCalledWith({ title: CART_ADDED_MESSAGE });
+    expect(screen.getByText(CART_ADDED_MESSAGE)).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+  });
+
+  it("explains a second add of the same listing as already in the cart", () => {
+    renderCard(makeListing({ status: "ACTIVE" }));
+    fireEvent.click(addButton());
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(screen.queryByRole("button", { name: CART_CTA_ADD })).toBeNull();
+    expect(screen.getByText(CART_CTA_IN_CART)).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: CART_CTA_VIEW_CART }),
+    ).toHaveAttribute("href", "/cart");
+    fireEvent.click(screen.getByRole("link", { name: CART_CTA_VIEW_CART }));
+    expect(screen.getByTestId("cart-count")).toHaveTextContent("1");
+    expect(toast).toHaveBeenCalledTimes(1);
   });
 
   it("shows pattern when present and hides it when null", () => {
@@ -207,11 +246,10 @@ describe("ListingCard", () => {
 
   it("links both the image and the title to /listing/:id", () => {
     renderCard(makeListing({ id: "listing-abc" }));
-    const links = screen.getAllByRole("link");
-    expect(links).toHaveLength(2);
-    for (const link of links) {
-      expect(link).toHaveAttribute("href", "/listing/listing-abc");
-    }
+    const listingLinks = screen
+      .getAllByRole("link")
+      .filter((link) => link.getAttribute("href") === "/listing/listing-abc");
+    expect(listingLinks).toHaveLength(2);
   });
 
   it("does not leak SKINMARKET or CS2 Skin Marketplace copy", () => {
