@@ -93,23 +93,26 @@ See `docs/performance.md`, `docs/architecture/scaling-path.md` and `docs/adr/000
 
 ## P2 — Cloud and operational maturity
 
-Target architecture:
+**Current production** (see `docs/adr/0007-cloud-target-render.md`):
 
 ```text
 Internet
    ↓
-Load Balancer
+Vite SPA (Vercel, or Render static neon-arsenal-web)
    ↓
-ECS/Fargate API
+Render web service neon-arsenal-api (Docker)
    ↓
-RDS PostgreSQL
-   ↓
-Secrets Manager
-   ↓
-CloudWatch + OpenTelemetry
+Render PostgreSQL neon-arsenal-db
+   + PayPal / Resend
 ```
 
-Do **not** start AWS/Terraform from this list. Remaining backend work is the P-back catalog (`docs/backend-sprint.md`): payment-link idempotency, capture-after-expiry ops, Render runbook, threat model, C4, then a **cloud-target ADR (C1)**. Implement AWS only if that ADR selects it (C2). Render (`render.yaml`) is the current production deploy.
+The ECS/Fargate sketch below is a **future option**, not a committed migration. Do not provision it. C2 must skip Terraform while ADR 0007 stands.
+
+```text
+Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → CloudWatch
+```
+
+Remaining P-back work after this ADR: **C2 skip commit** (no AWS). Catalog: `docs/backend-sprint.md`. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`.
 
 ## Documentation deliverables
 
