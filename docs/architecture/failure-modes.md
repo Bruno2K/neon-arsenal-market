@@ -69,14 +69,18 @@ Should Neon Arsenal later reverse captured funds automatically, and with which *
 On SIGTERM/SIGINT the API:
 
 1. Marks itself shutting down (`GET /ready` returns 503 `shutting_down`).
-2. Stops reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation timers (in-flight sweeps may finish).
+2. Stops reservation-expiry, PayPal-reconciliation, seller-ledger-reconciliation, and outbox-dispatcher timers (in-flight sweeps may finish).
 3. Stops accepting new HTTP connections and drains in-flight requests for up to 10s, then closes remaining connections.
 4. Disconnects Prisma.
 5. Shuts down OpenTelemetry exporters.
 
 `GET /health` remains 200 until exit so liveness probes do not kill a draining instance early. New work is refused by `server.close()` and by `/ready`.
 
-A crash during shutdown is the same as any other crash: PostgreSQL constraints plus webhook/reconciliation recover payment; the next process starts new job timers.
+A crash during shutdown is the same as any other crash: PostgreSQL constraints plus webhook/reconciliation recover payment; unpublished outbox rows stay `PENDING` or stale `PROCESSING` and are claimed by the next process; the next process starts new job timers.
+
+## Transactional outbox
+
+Payment confirmation inserts `PAYMENT_CONFIRMED` and `ORDER_CONFIRMED` in the same local transaction as the domain write (`docs/adr/0012-transactional-outbox.md`). Duplicate confirm does not insert again. The in-process dispatcher claims with `FOR UPDATE SKIP LOCKED`, retries with bounded backoff, and treats a second publish of `PUBLISHED` as a no-op. The first handler is log + metric only; it does not confirm payment again. Crash after claim: stale `PROCESSING` rows are reclaimed. This is not SQS.
 
 ## What this document does not add
 

@@ -82,8 +82,8 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 - Schema: `Order.paymentStatus` is `PaymentStatus`. `PaymentWebhookEvent` unique `(provider, externalEventId)`.
 - HTTP: `POST /payments/create` (authenticated customer) opens a PayPal order; `POST /payments/webhook` verifies PayPal headers then confirms. There is no `POST /payments/confirm`. `PATCH /orders/:id/status` accepts only fulfillment `status`; unknown `paymentStatus` on that body is stripped. CUSTOMER cannot `PENDING → CONFIRMED`.
-- Service: `confirmPayment` claims `paymentStatus = PENDING AND status = PENDING`. Duplicate claims are no-ops. Expired/mismatched reservations roll back the claim (HTTP 409).
-- Tests: `server/src/__tests__/paypal.webhook.integration.test.ts`; `server/src/modules/payments/__tests__/payments.controller.test.ts` (signature required); `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/order.status.integration.test.ts` (CUSTOMER cannot skip payment; cancel leaves `paymentStatus` PENDING); `server/src/shared/types/__tests__/roles.test.ts` (status DTO strips `paymentStatus`).
+- Service: `confirmPayment` claims `paymentStatus = PENDING AND status = PENDING`. Duplicate claims are no-ops. Expired/mismatched reservations roll back the claim (HTTP 409). The same transaction inserts `PAYMENT_CONFIRMED` and `ORDER_CONFIRMED` outbox rows (ADR 0012).
+- Tests: `server/src/__tests__/paypal.webhook.integration.test.ts`; `server/src/modules/payments/__tests__/payments.controller.test.ts` (signature required); `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/order.status.integration.test.ts` (CUSTOMER cannot skip payment; cancel leaves `paymentStatus` PENDING); `server/src/shared/types/__tests__/roles.test.ts` (status DTO strips `paymentStatus`); `server/src/__tests__/outbox.integration.test.ts`.
 
 **Related:** `INV-PAYMENT-WEBHOOK-AUTHENTIC`, `INV-PAYMENT-WEBHOOK-IDEMPOTENT`, `INV-PAYMENT-LINK-IDEMPOTENT`.
 
@@ -158,6 +158,8 @@ These are already specified in the architecture narrative. This table is the ID 
 | `INV-SELLER-TXN-UNIQUE` | One seller transaction per `(sellerId, orderId)`. | schema unique + confirm claim | `postgres.constraints.integration.test.ts`, `seller.ledger.integration.test.ts` |
 | `INV-AUDIT-APPEND-ONLY` | Sensitive mutations append `AuditLog`; ADMIN-only read; 365-day retention; no secrets on the trail. | `auditRepository`, `GET /admin/audit-logs` | `audit.integration.test.ts`, `docs/adr/0010-audit-log.md` |
 | `INV-DB-ENUMS` | Lifecycle columns are PostgreSQL enums; invalid labels fail with `22P02`. | Prisma enums | `postgres.enums.integration.test.ts`, `roles.test.ts` |
+
+Transactional outbox (#46) is implemented: `OutboxEvent` in the confirm transaction, in-process skip-locked dispatcher, no SQS. See `docs/adr/0012-transactional-outbox.md`.
 
 ## Changing an invariant
 

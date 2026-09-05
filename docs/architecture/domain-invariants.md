@@ -71,6 +71,7 @@ IDs: `INV-PAYMENT-TRUSTED-CONFIRM`, `INV-PAYMENT-WEBHOOK-AUTHENTIC`, `INV-PAYMEN
 9. External PayPal calls have an explicit timeout. Creating or capturing a PayPal order is not retried. Looking up PayPal order status, fetching an OAuth token, or downloading a webhook certificate may retry HTTP 5xx/429, timeouts and network errors (max 3 attempts, exponential backoff).
 10. `POST /payments` (create payment link) is idempotent per local order. A durable `PaymentLink` row claims the order before `OrdersCreate`. A retry that finds `paypalOrderId` or a completed `PaymentLink` must return the original PayPal order without calling `OrdersCreate` again. Concurrent identical requests have one `OrdersCreate`. An in-progress claim returns HTTP 409.
 11. Optional `returnUrl` and `cancelUrl` on `POST /payments/create` are forwarded to PayPal `OrdersCreate` as `application_context.return_url` / `cancel_url` when present, and omitted when absent. The server does not invent defaults or env-based URLs. Buyer return/cancel at PayPal does not mark the order `PAID`; confirmation remains webhook or reconciliation.
+12. `confirmPayment` inserts `PAYMENT_CONFIRMED` and `ORDER_CONFIRMED` outbox rows in the same local transaction as the domain write. Duplicate confirm does not insert again. An in-process dispatcher claims with `FOR UPDATE SKIP LOCKED`. The first handler is log + metric only and must not confirm payment again (`docs/adr/0012-transactional-outbox.md`).
 
 ## Seller finances
 
@@ -117,6 +118,7 @@ Critical lifecycle fields are PostgreSQL/Prisma enums so invalid labels cannot b
 - `ListingStatus` — `Listing.status` (`ACTIVE`, `SOLD`, `RESERVED`, `CANCELED`)
 - `ClaimStatus` — `PaymentLink.status`, `OrderIdempotencyKey.status` (`IN_PROGRESS`, `COMPLETED`)
 - `WebhookEventStatus` / `PaymentProvider` — `PaymentWebhookEvent.status` and `.provider`
+- `OutboxEventStatus` — `OutboxEvent.status` (`PENDING`, `PROCESSING`, `PUBLISHED`, `FAILED`)
 
 `PaymentWebhookEvent.eventType` remains text so unknown PayPal events can still be claimed and marked `IGNORED`. Catalog fields (game, rarity, exterior, currency) are not enums.
 

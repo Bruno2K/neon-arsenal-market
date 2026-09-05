@@ -10,7 +10,7 @@ Client  →  Express API (one or more replicas)
               →  PayPal / Resend (timeouts, classified retries)
 ```
 
-Replicas do not shard business state. Reservation, idempotency and payment confirmation are conditional writes and unique constraints. Extra API processes only add more in-process sweeps, which are already idempotent.
+Replicas do not shard business state. Reservation, idempotency and payment confirmation are conditional writes and unique constraints. Extra API processes only add more in-process sweeps (expiry, PayPal GET, seller ledger, outbox), which are already idempotent.
 
 ## What is fast enough today
 

@@ -213,4 +213,28 @@ describe("PostgreSQL domain enums", () => {
     expect(order.status).toBe("CANCELLED");
     expect(order.paymentStatus).toBe("REFUNDED");
   });
+
+  it("rejects an invalid outbox status at PostgreSQL", async () => {
+    const event = await prisma.outboxEvent.create({
+      data: {
+        type: "PAYMENT_CONFIRMED",
+        aggregateId: `order-enum-${uniqueSuffix()}`,
+        payload: { orderId: "order-enum" },
+        status: "PENDING",
+      },
+    });
+
+    let caught: unknown;
+    try {
+      await prisma.$executeRawUnsafe(
+        `UPDATE "OutboxEvent" SET "status" = $1::"OutboxEventStatus" WHERE "id" = $2`,
+        "SENT",
+        event.id
+      );
+    } catch (error) {
+      caught = error;
+    }
+    expectInvalidEnumLabel(caught);
+    expect((await prisma.outboxEvent.findUnique({ where: { id: event.id } }))?.status).toBe("PENDING");
+  });
 });

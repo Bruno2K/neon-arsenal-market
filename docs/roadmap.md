@@ -91,6 +91,18 @@ Implemented:
 
 See `docs/performance.md`, `docs/architecture/scaling-path.md` and `docs/adr/0006-hot-path-indexes.md`.
 
+### P1.5 Transactional outbox
+
+Implemented:
+
+- `OutboxEvent` committed in the same PostgreSQL transaction as payment confirmation (`PAYMENT_CONFIRMED` / `ORDER_CONFIRMED`);
+- in-process dispatcher (`setInterval` + `unref` + `FOR UPDATE SKIP LOCKED`);
+- bounded retries, backoff, stale-claim recovery, unique `(type, aggregateId)`;
+- first handler is structured log + metrics (no second `confirmPayment`);
+- not SQS / Kafka / Redis.
+
+See `docs/adr/0012-transactional-outbox.md`.
+
 ## P2 — Cloud and operational maturity
 
 **Current production** (see `docs/adr/0007-cloud-target-render.md`):

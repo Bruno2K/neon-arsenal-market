@@ -3,6 +3,7 @@ import {
   ClaimStatus,
   ListingStatus,
   OrderStatus,
+  OutboxEventStatus,
   PaymentProvider,
   PaymentStatus,
   UserRole,
@@ -15,6 +16,7 @@ import {
   CLAIM_STATUSES,
   LISTING_STATUSES,
   ORDER_STATUSES,
+  OUTBOX_EVENT_STATUSES,
   PAYMENT_PROVIDERS,
   PAYMENT_STATUSES,
   REGISTRATION_ROLES,
@@ -35,6 +37,7 @@ describe("Prisma domain enums", () => {
     expect([...CLAIM_STATUSES].sort()).toEqual(labelsOf(ClaimStatus));
     expect([...WEBHOOK_EVENT_STATUSES].sort()).toEqual(labelsOf(WebhookEventStatus));
     expect([...PAYMENT_PROVIDERS].sort()).toEqual(labelsOf(PaymentProvider));
+    expect([...OUTBOX_EVENT_STATUSES].sort()).toEqual(labelsOf(OutboxEventStatus));
   });
 
   it("preserves listing CANCELED vs order CANCELLED spellings", () => {
