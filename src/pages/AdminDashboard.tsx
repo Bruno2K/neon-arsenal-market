@@ -1,314 +1,325 @@
-import {
-  BarChart3,
-  Users,
-  ShoppingBag,
-  DollarSign,
-  CheckCircle,
-  XCircle,
-  Clock,
-  Loader2,
-} from "lucide-react";
-import { motion } from "framer-motion";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { listAdminOrders, adminApproveSeller } from "@/api/admin";
-import { listSellers } from "@/api/sellers";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { adminApproveSeller, listAdminOrders } from "@/api/admin";
 import { listProducts } from "@/api/products";
+import { listSellers } from "@/api/sellers";
+import { EmptyState, ErrorState } from "@/components/page-state";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { useToast } from "@/hooks/use-toast";
+import type { Order, Seller } from "@/types/api";
+
+function formatMoney(value: string | number): string {
+  return `$${Number(value).toFixed(2)}`;
+}
+
+function formatCommission(rate: Seller["commissionRate"]): string {
+  return `${(Number(rate ?? 0.1) * 100).toFixed(0)}%`;
+}
 
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
-  const { data: orders = [] } = useQuery({
+  const ordersQuery = useQuery({
     queryKey: ["admin-orders"],
     queryFn: listAdminOrders,
   });
-  const { data: sellers = [] } = useQuery({
+  const sellersQuery = useQuery({
     queryKey: ["admin-sellers"],
     queryFn: listSellers,
   });
-  const { data: productsData } = useQuery({
+  const productsQuery = useQuery({
     queryKey: ["admin-products"],
     queryFn: () => listProducts({ limit: 1 }),
   });
 
-  const totalRevenue = orders.reduce((s, o) => s + Number(o.totalAmount), 0);
-  const pendingSellers = sellers.filter((s) => !s.isApproved);
+  const orders = ordersQuery.data ?? [];
+  const sellers = sellersQuery.data ?? [];
+  const pendingSellers = sellers.filter((seller) => !seller.isApproved);
+  const recentOrders = orders.slice(0, 10);
+  const totalRevenue = orders.reduce(
+    (sum, order) => sum + Number(order.totalAmount),
+    0,
+  );
 
-  const approveMutation = useMutation({
+  const approveSeller = useMutation({
     mutationFn: ({ id, isApproved }: { id: string; isApproved: boolean }) =>
       adminApproveSeller(id, isApproved),
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: ["admin-sellers"] }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-sellers"] });
+      toast({
+        title: variables.isApproved
+          ? "Vendedor aprovado"
+          : "Vendedor rejeitado",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Não foi possível atualizar o vendedor",
+        variant: "destructive",
+      });
+    },
   });
 
-  const globalStats = [
-    {
-      icon: DollarSign,
-      label: "Receita Total",
-      value: `$${totalRevenue.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-      color: "text-primary",
-    },
-    {
-      icon: ShoppingBag,
-      label: "Produtos",
-      value: String(productsData?.total ?? "—"),
-      color: "text-secondary",
-    },
-    {
-      icon: Users,
-      label: "Vendedores",
-      value: String(sellers.length),
-      color: "text-primary",
-    },
-    {
-      icon: BarChart3,
-      label: "Pedidos",
-      value: String(orders.length),
-      color: "text-secondary",
-    },
+  const isLoading =
+    ordersQuery.isLoading || sellersQuery.isLoading || productsQuery.isLoading;
+  const isError =
+    ordersQuery.isError || sellersQuery.isError || productsQuery.isError;
+  const error = ordersQuery.error ?? sellersQuery.error ?? productsQuery.error;
+
+  if (isLoading) {
+    return (
+      <div className="space-y-6" role="status" aria-label="Carregando">
+        <Skeleton className="h-8 w-48" />
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+          <Skeleton className="h-24 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <ErrorState
+        title="Erro ao carregar o painel"
+        description={
+          error instanceof Error
+            ? error.message
+            : "Tente novamente em instantes."
+        }
+        action={
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              void ordersQuery.refetch();
+              void sellersQuery.refetch();
+              void productsQuery.refetch();
+            }}
+          >
+            Tentar novamente
+          </Button>
+        }
+      />
+    );
+  }
+
+  const stats = [
+    { label: "Receita", value: formatMoney(totalRevenue) },
+    { label: "Produtos", value: String(productsQuery.data?.total ?? 0) },
+    { label: "Vendedores", value: String(sellers.length) },
+    { label: "Pedidos", value: String(orders.length) },
   ];
 
   return (
     <div className="space-y-8">
-      <h1 className="text-3xl font-heading text-foreground">Admin Panel</h1>
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Painel admin</h1>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Catálogo, vendedores e pedidos da plataforma.
+        </p>
+      </div>
 
-      {/* Global Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {globalStats.map((s, i) => (
-          <motion.div
-            key={s.label}
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.05 }}
-            className="p-4 rounded-lg border border-border bg-card"
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {stats.map((stat) => (
+          <div
+            key={stat.label}
+            className="rounded-md border border-border bg-card p-4"
           >
-            <div className="flex items-center gap-2 mb-2">
-              <s.icon className={`h-4 w-4 ${s.color}`} />
-              <span className="text-xs text-muted-foreground font-heading">
-                {s.label}
-              </span>
-            </div>
-            <span className={`font-heading text-2xl ${s.color}`}>
-              {s.value}
-            </span>
-          </motion.div>
+            <p className="text-xs text-muted-foreground">{stat.label}</p>
+            <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
+              {stat.value}
+            </p>
+          </div>
         ))}
       </div>
 
-      {/* Pending Sellers */}
-      <div>
-        <h2 className="text-xl font-heading text-foreground mb-4">
-          Aprovação de Vendedores
-          {pendingSellers.length > 0 && (
-            <span className="ml-2 text-sm bg-secondary/10 text-secondary px-2 py-0.5 rounded">
-              {pendingSellers.length} pendente(s)
-            </span>
-          )}
-        </h2>
-        {pendingSellers.length === 0 ? (
-          <p className="text-muted-foreground text-sm p-4 rounded-lg border border-border bg-card">
-            Nenhum vendedor pendente de aprovação
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-tight">
+            Vendedores pendentes
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Aprove ou rejeite cadastros aguardando revisão.
           </p>
+        </div>
+        {pendingSellers.length === 0 ? (
+          <EmptyState
+            title="Nenhum vendedor pendente de aprovação"
+            description="Todos os cadastros já foram revisados."
+          />
         ) : (
-          <div className="space-y-3">
-            {pendingSellers.map((s) => (
-              <div
-                key={s.id}
-                className="flex items-center justify-between p-4 rounded-lg border border-border bg-card"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <Users className="h-5 w-5 text-muted-foreground" />
-                  </div>
-                  <div>
-                    <span className="text-sm font-medium text-foreground block">
-                      {s.storeName}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      {s.user?.name ?? s.userId}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex gap-2">
+          <PendingSellersTable
+            sellers={pendingSellers}
+            busy={approveSeller.isPending}
+            onApprove={(id) => approveSeller.mutate({ id, isApproved: true })}
+            onReject={(id) => approveSeller.mutate({ id, isApproved: false })}
+          />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Todos os vendedores
+        </h2>
+        {sellers.length === 0 ? (
+          <EmptyState title="Nenhum vendedor cadastrado" />
+        ) : (
+          <SellersOverviewTable sellers={sellers} />
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight">
+          Pedidos recentes
+        </h2>
+        {recentOrders.length === 0 ? (
+          <EmptyState title="Nenhum pedido encontrado" />
+        ) : (
+          <RecentOrdersTable orders={recentOrders} />
+        )}
+      </section>
+    </div>
+  );
+}
+
+function PendingSellersTable({
+  sellers,
+  busy,
+  onApprove,
+  onReject,
+}: {
+  sellers: Seller[];
+  busy: boolean;
+  onApprove: (id: string) => void;
+  onReject: (id: string) => void;
+}) {
+  return (
+    <div className="overflow-hidden rounded-md border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Loja</TableHead>
+            <TableHead>Usuário</TableHead>
+            <TableHead className="text-right">Ações</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sellers.map((seller) => (
+            <TableRow key={seller.id}>
+              <TableCell className="font-medium">{seller.storeName}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {seller.user?.name ?? "—"}
+              </TableCell>
+              <TableCell className="text-right">
+                <div className="flex justify-end gap-2">
                   <Button
+                    type="button"
                     size="sm"
-                    disabled={approveMutation.isPending}
-                    onClick={() =>
-                      approveMutation.mutate({ id: s.id, isApproved: true })
-                    }
+                    disabled={busy}
+                    onClick={() => onApprove(seller.id)}
                   >
-                    {approveMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4 mr-1" />
-                    )}
                     Aprovar
                   </Button>
                   <Button
-                    variant="outline"
+                    type="button"
                     size="sm"
-                    disabled={approveMutation.isPending}
-                    onClick={() =>
-                      approveMutation.mutate({ id: s.id, isApproved: false })
-                    }
+                    variant="outline"
+                    disabled={busy}
+                    onClick={() => onReject(seller.id)}
                   >
-                    <XCircle className="h-4 w-4 mr-1" />
                     Rejeitar
                   </Button>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
-      {/* All Sellers */}
-      <div>
-        <h2 className="text-xl font-heading text-foreground mb-4">
-          Todos os Vendedores
-        </h2>
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">
-                  Loja
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden sm:table-cell">
-                  Usuário
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden md:table-cell">
-                  Comissão
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden md:table-cell">
-                  Rating
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sellers.map((s) => (
-                <tr
-                  key={s.id}
-                  className="border-t border-border hover:bg-muted/50 transition-colors"
-                >
-                  <td className="p-3 text-foreground font-medium">
-                    {s.storeName}
-                  </td>
-                  <td className="p-3 text-muted-foreground hidden sm:table-cell">
-                    {s.user?.name ?? "—"}
-                  </td>
-                  <td className="p-3 text-muted-foreground hidden md:table-cell">
-                    {(Number(s.commissionRate ?? 0.1) * 100).toFixed(0)}%
-                  </td>
-                  <td className="p-3 text-muted-foreground hidden md:table-cell">
-                    ★ {Number(s.rating).toFixed(1)}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`text-xs font-heading px-2 py-1 rounded ${s.isApproved ? "bg-primary/10 text-primary" : "bg-secondary/10 text-secondary"}`}
-                    >
-                      {s.isApproved ? "Aprovado" : "Pendente"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+function SellersOverviewTable({ sellers }: { sellers: Seller[] }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Loja</TableHead>
+            <TableHead>Usuário</TableHead>
+            <TableHead>Comissão</TableHead>
+            <TableHead>Avaliação</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {sellers.map((seller) => (
+            <TableRow key={seller.id}>
+              <TableCell className="font-medium">{seller.storeName}</TableCell>
+              <TableCell className="text-muted-foreground">
+                {seller.user?.name ?? "—"}
+              </TableCell>
+              <TableCell>{formatCommission(seller.commissionRate)}</TableCell>
+              <TableCell>{Number(seller.rating).toFixed(1)}</TableCell>
+              <TableCell>
+                <Badge variant={seller.isApproved ? "default" : "secondary"}>
+                  {seller.isApproved ? "Aprovado" : "Pendente"}
+                </Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  );
+}
 
-      {/* Recent Orders */}
-      <div>
-        <h2 className="text-xl font-heading text-foreground mb-4">
-          Pedidos Recentes
-        </h2>
-        <div className="rounded-lg border border-border overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-muted">
-              <tr>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">
-                  ID
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden sm:table-cell">
-                  Total
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs hidden md:table-cell">
-                  Data
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">
-                  Pagamento
-                </th>
-                <th className="text-left p-3 font-heading text-muted-foreground text-xs">
-                  Status
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {orders.slice(0, 10).map((o) => (
-                <tr
-                  key={o.id}
-                  className="border-t border-border hover:bg-muted/50 transition-colors"
-                >
-                  <td className="p-3 text-muted-foreground font-mono text-xs">
-                    #{o.id.slice(0, 8)}
-                  </td>
-                  <td className="p-3 text-primary font-heading hidden sm:table-cell">
-                    ${Number(o.totalAmount).toFixed(2)}
-                  </td>
-                  <td className="p-3 text-muted-foreground hidden md:table-cell">
-                    {new Date(o.createdAt).toLocaleDateString("pt-BR")}
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`text-xs font-heading px-2 py-1 rounded ${
-                        o.paymentStatus === "PAID"
-                          ? "bg-primary/10 text-primary"
-                          : o.paymentStatus === "REFUNDED"
-                            ? "bg-destructive/10 text-destructive"
-                            : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {o.paymentStatus}
-                    </span>
-                  </td>
-                  <td className="p-3">
-                    <span
-                      className={`inline-flex items-center gap-1 text-xs font-heading px-2 py-1 rounded ${
-                        o.status === "DELIVERED"
-                          ? "bg-primary/10 text-primary"
-                          : o.status === "SHIPPED"
-                            ? "bg-secondary/10 text-secondary"
-                            : o.status === "CANCELLED"
-                              ? "bg-destructive/10 text-destructive"
-                              : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {o.status === "PENDING" && <Clock className="h-3 w-3" />}
-                      {o.status === "DELIVERED" && (
-                        <CheckCircle className="h-3 w-3" />
-                      )}
-                      {o.status}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-              {orders.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="p-6 text-center text-muted-foreground"
-                  >
-                    Nenhum pedido encontrado
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+function RecentOrdersTable({ orders }: { orders: Order[] }) {
+  return (
+    <div className="overflow-hidden rounded-md border border-border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>ID</TableHead>
+            <TableHead>Total</TableHead>
+            <TableHead>Data</TableHead>
+            <TableHead>Pagamento</TableHead>
+            <TableHead>Status</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {orders.map((order) => (
+            <TableRow key={order.id}>
+              <TableCell className="font-mono text-xs">
+                #{order.id.slice(0, 8)}
+              </TableCell>
+              <TableCell>{formatMoney(order.totalAmount)}</TableCell>
+              <TableCell>
+                {new Date(order.createdAt).toLocaleDateString("pt-BR")}
+              </TableCell>
+              <TableCell>
+                <Badge variant="outline">{order.paymentStatus}</Badge>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">{order.status}</Badge>
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </div>
   );
 }
