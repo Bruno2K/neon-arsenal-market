@@ -10,7 +10,7 @@ export const HOME_NEW_SORT_COPY =
 
 export const HOME_SHORTCUTS_HEADING = "Descobrir no Market";
 export const HOME_SHORTCUTS_COPY =
-  "Atalhos para skins do catálogo. O Market filtra pelo productId.";
+  "Atalhos para skins do catálogo. Cada um abre o Market nessa skin.";
 
 export const HOME_TRUST_HEADING = "Como comprar";
 export const HOME_TRUST_ITEMS = [
