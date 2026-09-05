@@ -109,6 +109,10 @@ async function destroyFixture(fixture: Fixture) {
   });
 }
 
+function orderKey(label: string) {
+  return `order-${label}-${randomUUID()}`;
+}
+
 describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
   afterAll(async () => {
     await prisma.$disconnect();
@@ -120,7 +124,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
       const before = Date.now();
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("reserve-sold"));
       const reserved = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
       expect(reserved?.status).toBe("RESERVED");
       expect(reserved?.reservedByOrderId).toBe(created.id);
@@ -152,8 +156,16 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     });
     try {
       const results = await Promise.allSettled([
-        ordersService.create(fixture.customerId, { items: [{ listingId: fixture.listingId }] }),
-        ordersService.create(otherBuyer.id, { items: [{ listingId: fixture.listingId }] }),
+        ordersService.create(
+          fixture.customerId,
+          { items: [{ listingId: fixture.listingId }] },
+          orderKey("buyer-one")
+        ),
+        ordersService.create(
+          otherBuyer.id,
+          { items: [{ listingId: fixture.listingId }] },
+          orderKey("buyer-two")
+        ),
       ]);
 
       const fulfilled = results.filter((r) => r.status === "fulfilled");
@@ -182,7 +194,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     try {
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("expire-active"));
 
       await listingsService.expireReservations();
       const reserved = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
@@ -213,7 +225,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     try {
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("expire-sold"));
       await paymentsService.confirmPayment(created.id);
       await prisma.listing.update({
         where: { id: fixture.listingId },
@@ -234,7 +246,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     try {
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("expired-payment"));
       await prisma.listing.update({
         where: { id: fixture.listingId },
         data: { reservationExpiresAt: new Date(Date.now() - 1000) },
@@ -259,7 +271,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     try {
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("payment-wins"));
       // Far-future TTL: expire's WHERE reservationExpiresAt <= now cannot match.
       await prisma.listing.update({
         where: { id: fixture.listingId },
@@ -290,7 +302,7 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     try {
       const created = await ordersService.create(fixture.customerId, {
         items: [{ listingId: fixture.listingId }],
-      });
+      }, orderKey("expiration-wins"));
       // Past TTL: payment's WHERE reservationExpiresAt > now cannot match.
       await prisma.listing.update({
         where: { id: fixture.listingId },

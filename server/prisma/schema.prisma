@@ -16,9 +16,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  seller        Seller?
-  orders        Order[]         @relation("CustomerOrders")
-  reviews       Review[]
+  seller               Seller?
+  orders               Order[]               @relation("CustomerOrders")
+  orderIdempotencyKeys OrderIdempotencyKey[]
+  reviews              Review[]
 }
 
 // Pending sign-up: user is created only after email verification (code confirmation)
@@ -27,46 +28,46 @@ model PendingRegistration {
   email        String   @unique
   name         String
   passwordHash String
-  role         String   // CUSTOMER | SELLER
-  storeName    String?  // required when role = SELLER
+  role         String // CUSTOMER | SELLER
+  storeName    String? // required when role = SELLER
   code         String
   expiresAt    DateTime
   createdAt    DateTime @default(now())
 }
 
 model Seller {
-  id              String   @id @default(cuid())
-  userId          String   @unique
-  storeName       String
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  storeName      String
   commissionRate Decimal  @default(0.1)
-  balance         Decimal  @default(0)
-  rating          Float    @default(0)
-  isApproved      Boolean  @default(false)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  balance        Decimal  @default(0)
+  rating         Float    @default(0)
+  isApproved     Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
-  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user         User                @relation(fields: [userId], references: [id], onDelete: Cascade)
   listings     Listing[]
   orderItems   OrderItem[]
   transactions SellerTransaction[]
 }
 
 model Product {
-  id          String   @id @default(cuid())
-  game        String   // CS2, CSGO, etc. - prepared for multi-game
-  weapon      String
-  skinName    String
-  rarity      String
-  exterior    String   // Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred
-  collection  String?
-  imageUrl     String?
-  isStattrak   Boolean  @default(false)
-  isSouvenir   Boolean  @default(false)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  id         String   @id @default(cuid())
+  game       String // CS2, CSGO, etc. - prepared for multi-game
+  weapon     String
+  skinName   String
+  rarity     String
+  exterior   String // Factory New, Minimal Wear, Field-Tested, Well-Worn, Battle-Scarred
+  collection String?
+  imageUrl   String?
+  isStattrak Boolean  @default(false)
+  isSouvenir Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  listings    Listing[]
-  reviews     Review[]
+  listings Listing[]
+  reviews  Review[]
 
   @@index([game])
   @@index([weapon])
@@ -88,13 +89,31 @@ model Order {
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
 
-  customer  User        @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
-  items     OrderItem[]
-  transactions SellerTransaction[]
+  customer               User                 @relation("CustomerOrders", fields: [customerId], references: [id], onDelete: Cascade)
+  items                  OrderItem[]
+  transactions           SellerTransaction[]
+  creationIdempotencyKey OrderIdempotencyKey?
 
   @@index([customerId])
   @@index([status])
   @@index([paymentStatus])
+}
+
+model OrderIdempotencyKey {
+  id          String   @id @default(cuid())
+  customerId  String
+  key         String
+  requestHash String
+  status      String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  orderId     String?  @unique
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  customer User   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  order    Order? @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([customerId, key])
+  @@index([customerId])
 }
 
 model PaymentWebhookEvent {
@@ -114,27 +133,27 @@ model PaymentWebhookEvent {
 }
 
 model Listing {
-  id                   String   @id @default(cuid())
+  id                   String    @id @default(cuid())
   productId            String
   sellerId             String
   floatValue           Decimal
   pattern              Int?
   price                Decimal
-  currency             String   @default("USD")
-  status               String   @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
+  currency             String    @default("USD")
+  status               String    @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
   tradeLockUntil       DateTime?
   reservedAt           DateTime?
   reservationExpiresAt DateTime?
   reservedByOrderId    String?
   steamAssetId         String?
-  createdAt            DateTime @default(now())
+  createdAt            DateTime  @default(now())
   soldAt               DateTime?
-  updatedAt            DateTime @updatedAt
+  updatedAt            DateTime  @updatedAt
 
-  product       Product       @relation(fields: [productId], references: [id], onDelete: Restrict)
-  seller        Seller        @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  priceHistory  PriceHistory[]
-  orderItems    OrderItem[]
+  product      Product        @relation(fields: [productId], references: [id], onDelete: Restrict)
+  seller       Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  priceHistory PriceHistory[]
+  orderItems   OrderItem[]
 
   @@index([productId])
   @@index([price])
@@ -160,7 +179,7 @@ model PriceHistory {
 }
 
 model OrderItem {
-  id            String   @id @default(cuid())
+  id            String  @id @default(cuid())
   orderId       String
   listingId     String
   sellerId      String
@@ -195,7 +214,7 @@ model SellerTransaction {
 
 model Review {
   id        String   @id @default(cuid())
-  productId String   // Reviews are for the product catalog, not individual listings
+  productId String // Reviews are for the product catalog, not individual listings
   userId    String
   rating    Int
   comment   String?

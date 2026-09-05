@@ -31,7 +31,6 @@
     "jsonwebtoken": "^9.0.2",
     "pino": "^9.5.0",
     "pino-pretty": "^13.0.0",
-    "vite_react_shadcn_ts": "file:..",
     "zod": "^3.23.8"
   },
   "devDependencies": {
