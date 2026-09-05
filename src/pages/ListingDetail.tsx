@@ -1,11 +1,11 @@
 import { useParams, Link, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { ArrowLeft, ShoppingCart } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { ListingCard } from "@/components/ProductCard";
+import { ListingCartCta } from "@/components/ListingCartCta";
 import { ErrorState } from "@/components/page-state";
 import { getListing, listListings } from "@/api/listings";
 import { getPriceHistory } from "@/api/price-history";
-import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -17,7 +17,6 @@ import {
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { addItem } = useCart();
 
   const {
     data: listing,
@@ -54,10 +53,6 @@ export default function ListingDetail() {
   const productName = listing
     ? `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`
     : "";
-  const isAvailable =
-    listing?.status === "ACTIVE" &&
-    (!listing.tradeLockUntil || new Date(listing.tradeLockUntil) <= new Date());
-
   if (isLoading) {
     return (
       <div className="container py-10">
@@ -211,22 +206,7 @@ export default function ListingDetail() {
                 Última alteração: ${Number(latestHistory.newPrice).toFixed(2)}
               </p>
             ) : null}
-            <div className="flex gap-3">
-              <Button
-                className="flex-1"
-                size="lg"
-                onClick={() => addItem(listing)}
-                disabled={!isAvailable}
-                title={
-                  !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
-                }
-              >
-                <ShoppingCart className="mr-2 h-5 w-5" /> Adicionar ao Carrinho
-              </Button>
-              <Button variant="outline" size="lg" asChild>
-                <Link to="/cart">Ver Carrinho</Link>
-              </Button>
-            </div>
+            <ListingCartCta listing={listing} variant="detail" />
           </div>
 
           {priceHistory && priceHistory.length > 0 ? (

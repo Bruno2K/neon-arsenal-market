@@ -1,19 +1,13 @@
 import { Link } from "react-router-dom";
-import { ShoppingCart } from "lucide-react";
 import type { Listing } from "@/types/api";
-import { useCart } from "@/contexts/CartContext";
-import { Button } from "@/components/ui/button";
+import { ListingCartCta } from "@/components/ListingCartCta";
 
 export function ListingCard({ listing }: { listing: Listing }) {
-  const { addItem } = useCart();
   const price =
     typeof listing.price === "number" ? listing.price : Number(listing.price);
   const sellerName =
     listing.seller?.user?.name ?? listing.seller?.storeName ?? "";
   const productName = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
-  const isAvailable =
-    listing.status === "ACTIVE" &&
-    (!listing.tradeLockUntil || new Date(listing.tradeLockUntil) <= new Date());
   const monogram = listing.product.weapon.slice(0, 3).toUpperCase();
 
   return (
@@ -54,27 +48,11 @@ export function ListingCard({ listing }: { listing: Listing }) {
             Pattern: {listing.pattern}
           </span>
         )}
-        <div className="mt-auto flex items-center justify-between border-t border-border pt-2">
+        <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-2">
           <span className="tabular-nums text-base font-semibold text-foreground">
             ${price.toFixed(2)}
           </span>
-          <Button
-            size="icon"
-            variant="outline"
-            onClick={(e) => {
-              e.preventDefault();
-              addItem(listing);
-            }}
-            disabled={!isAvailable}
-            title={
-              !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
-            }
-            aria-label={
-              !isAvailable ? "Item não disponível" : "Adicionar ao carrinho"
-            }
-          >
-            <ShoppingCart className="h-4 w-4" />
-          </Button>
+          <ListingCartCta listing={listing} variant="card" />
         </div>
       </div>
     </article>
