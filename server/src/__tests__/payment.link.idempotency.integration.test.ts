@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../shared/database/index.js";
 import { createCheckoutGraph, createOrder, orderKey } from "./helpers/index.js";
@@ -21,6 +21,10 @@ function uniqueViolation(error: unknown) {
 }
 
 describe("payment link idempotency (postgres)", () => {
+  beforeEach(() => {
+    vi.mocked(createPayPalOrder).mockReset();
+    vi.mocked(getPayPalApprovalLink).mockReset();
+  });
   it("replays POST /payments without a second PayPal OrdersCreate", async () => {
     const fixture = await createCheckoutGraph();
     const order = await createOrder(
