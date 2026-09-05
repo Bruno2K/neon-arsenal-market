@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { Prisma } from "@prisma/client";
 
 vi.mock("../../../shared/database/index.js", () => ({
   prisma: {
@@ -19,6 +20,7 @@ vi.mock("../commissions.repository.js", () => ({
 import { prisma } from "../../../shared/database/index.js";
 import { commissionsRepository } from "../commissions.repository.js";
 import { commissionsService } from "../commissions.service.js";
+import { openApiSpec } from "../../../shared/docs/openapi.js";
 
 const mockSeller = (overrides = {}) => ({
   id: "seller-1",
@@ -70,14 +72,42 @@ describe("commissionsService", () => {
   });
 
   describe("getBalance()", () => {
-    it("returns seller balance as a number", async () => {
-      vi.mocked(prisma.seller.findUnique).mockResolvedValue(mockSeller({ balance: 375.5 }) as any);
-      vi.mocked(commissionsRepository.getBalance).mockResolvedValue(375.5 as any);
+    it("returns seller balance as Prisma Decimal, not a JavaScript number", async () => {
+      const stored = new Prisma.Decimal("1250.75");
+      vi.mocked(prisma.seller.findUnique).mockResolvedValue(mockSeller({ balance: stored }) as any);
+      vi.mocked(commissionsRepository.getBalance).mockResolvedValue(stored);
 
       const result = await commissionsService.getBalance("user-1");
 
-      expect(result).toEqual({ balance: 375.5 });
-      expect(typeof result.balance).toBe("number");
+      expect(result.balance).toBeInstanceOf(Prisma.Decimal);
+      expect(result.balance.equals(stored)).toBe(true);
+      expect(typeof result.balance).not.toBe("number");
+    });
+
+    it("JSON-serializes balance as a Decimal string that keeps scale", async () => {
+      const stored = new Prisma.Decimal("1250.75");
+      vi.mocked(prisma.seller.findUnique).mockResolvedValue(mockSeller({ balance: stored }) as any);
+      vi.mocked(commissionsRepository.getBalance).mockResolvedValue(stored);
+
+      const result = await commissionsService.getBalance("user-1");
+      const json = JSON.parse(JSON.stringify(result)) as { balance: unknown };
+
+      expect(typeof json.balance).toBe("string");
+      expect(json.balance).toBe("1250.75");
+      expect(new Prisma.Decimal(json.balance as string).equals(stored)).toBe(true);
+    });
+
+    it("does not coerce 0.10 + 0.20 through JavaScript number on the HTTP JSON path", async () => {
+      const stored = new Prisma.Decimal("0.10").plus(new Prisma.Decimal("0.20"));
+      vi.mocked(prisma.seller.findUnique).mockResolvedValue(mockSeller({ balance: stored }) as any);
+      vi.mocked(commissionsRepository.getBalance).mockResolvedValue(stored);
+
+      const result = await commissionsService.getBalance("user-1");
+      const json = JSON.parse(JSON.stringify(result)) as { balance: unknown };
+
+      expect(typeof json.balance).toBe("string");
+      expect(new Prisma.Decimal(json.balance as string).equals(new Prisma.Decimal("0.30"))).toBe(true);
+      expect(json.balance).not.toBe(0.1 + 0.2);
     });
 
     it("throws 404 when seller not found", async () => {
@@ -87,5 +117,15 @@ describe("commissionsService", () => {
         statusCode: 404,
       });
     });
+  });
+});
+
+describe("OpenAPI GET /commissions/balance", () => {
+  it("documents balance as a Decimal string, not a JSON number", () => {
+    const schema = openApiSpec.paths["/commissions/balance"].get.responses[200].content[
+      "application/json"
+    ].schema;
+    expect(schema.properties.balance.type).toBe("string");
+    expect(schema.properties.balance.type).not.toBe("number");
   });
 });

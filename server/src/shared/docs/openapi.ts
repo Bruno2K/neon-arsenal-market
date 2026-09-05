@@ -509,7 +509,14 @@ export const openApiSpec = {
               "application/json": {
                 schema: {
                   type: "object",
-                  properties: { balance: { type: "number", example: 135.0 } },
+                  properties: {
+                    balance: {
+                      type: "string",
+                      example: "135.00",
+                      description:
+                        "Seller.balance projection as a Prisma Decimal JSON string (same wire format as listing price and order totalAmount). Not a JSON number.",
+                    },
+                  },
                 },
               },
             },

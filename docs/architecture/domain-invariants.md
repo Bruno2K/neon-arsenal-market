@@ -91,6 +91,7 @@ Rules:
 3. Confirmation writes `status = PAID`. `REFUNDED` is not an application path.
 4. `Seller.balance` is a materialized projection of PAID net amounts, updated in the same local database transaction as the ledger insert. If they disagree, the ledger wins.
 5. Duplicate confirm, webhook replay, and concurrent confirmation must not insert a second row or double-credit the projection.
+6. `GET /commissions/balance` exposes that projection as Prisma Decimal JSON (string), not a JavaScript `number`. Demo seed writes `"0.00"` with no ledger rows so display data cannot diverge from an empty SUM.
 
 ## Authorization
 

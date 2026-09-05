@@ -91,6 +91,8 @@ export async function seedDemoData(client: PrismaClient = prisma): Promise<SeedS
           userId: user.id,
           storeName: account.seller.storeName,
           commissionRate: account.seller.commissionRate,
+          // Zero projection: no SellerTransaction rows are seeded. confirmPayment
+          // is the only writer of non-zero Seller.balance (ADR 0011 / #140).
           balance: account.seller.balance,
           isApproved: account.seller.isApproved,
         },
