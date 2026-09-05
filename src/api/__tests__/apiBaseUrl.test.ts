@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveApiBaseUrl } from "../apiBaseUrl";
+import { assertProductionApiBaseUrl, resolveApiBaseUrl } from "../apiBaseUrl";
 
 describe("resolveApiBaseUrl", () => {
   it("prefers API_URL without a public framework prefix", () => {
@@ -19,5 +19,11 @@ describe("resolveApiBaseUrl", () => {
 
   it("defaults to the local API when neither variable is set", () => {
     expect(resolveApiBaseUrl({})).toBe("http://localhost:3001");
+  });
+
+  it("rejects a localhost API origin for production builds", () => {
+    expect(() => assertProductionApiBaseUrl("http://localhost:3001")).toThrow(
+      /API_URL/,
+    );
   });
 });
