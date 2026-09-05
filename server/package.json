@@ -13,6 +13,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:all": "npm run test:unit && npm run test:integration",
     "test:watch": "vitest",
+    "perf:evidence": "tsx src/scripts/perfEvidence.ts",
     "test:db:prepare": "prisma migrate deploy",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",

@@ -15,6 +15,7 @@ From `server/`:
 | `npm run test:integration` | PostgreSQL integration tests. Fails if the database is missing. |
 | `npm run test:all` | Unit tests, then integration tests. |
 | `npm run test:db:prepare` | `prisma migrate deploy` against `DATABASE_URL`. |
+| `npm run perf:evidence` | Seed a disposable catalog, print `EXPLAIN ANALYZE` + `listingsService.list` timings. |
 
 Frontend unit tests remain `npm test` at the repository root.
 
@@ -103,5 +104,8 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `reservation.lifecycle.integration.test.ts` | Reservation timestamps, concurrent buyers, expiration vs payment, no duplicate seller transactions. |
 | `paypal.webhook.integration.test.ts` | Duplicate/out-of-order events, expired capture, stale-order capture, payment rollback. PayPal remains isolated. |
 | `observability.integration.test.ts` | Order/reservation/payment/webhook spans and counters against real PostgreSQL. No secrets or high-cardinality labels. |
+| `performance.evidence.integration.test.ts` | `EXPLAIN ANALYZE` on market/expiry/reconciliation SQL uses the hot-path indexes; listing/order/payment timings stay bounded. |
 
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.
+
+`cd server && npm run perf:evidence` reprints EXPLAIN and `listingsService.list` timings against the current database. Use a disposable catalog (the integration database), not production.

@@ -102,6 +102,10 @@ Concurrency, rollback, unique constraints and reservation/payment races are prov
 
 See `docs/testing.md`.
 
+## Performance
+
+Market browse (`status = ACTIVE ORDER BY createdAt DESC`) and PayPal reconciliation have composite indexes chosen from `EXPLAIN ANALYZE`. `COUNT(*)` for listing pagination is the slower sibling of the page query and is still cheap at a few thousand rows. Scaling triggers: `docs/architecture/scaling-path.md`. Measurements: `docs/performance.md`.
+
 ## Runtime configuration
 
 The backend package provides scripts for development, build, type checking, unit tests, PostgreSQL integration tests and Prisma migrations.

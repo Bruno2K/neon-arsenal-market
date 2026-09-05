@@ -96,7 +96,7 @@ model Order {
 
   @@index([customerId])
   @@index([status])
-  @@index([paymentStatus])
+  @@index([paymentStatus, status, updatedAt])
 }
 
 model OrderIdempotencyKey {
@@ -158,9 +158,9 @@ model Listing {
   @@index([productId])
   @@index([price])
   @@index([floatValue])
-  @@index([status])
   @@index([sellerId])
   @@index([productId, status])
+  @@index([status, createdAt])
   @@index([status, reservationExpiresAt])
   @@index([reservedByOrderId])
 }
