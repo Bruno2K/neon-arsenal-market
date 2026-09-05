@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from "express";
 import { adminService } from "./admin.service.js";
+import type { ListOrdersQuery } from "../orders/orders.dto.js";
 
 export const adminController = {
   async listUsers(_req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -13,10 +14,7 @@ export const adminController = {
 
   async listOrders(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const orders = await adminService.listOrders({
-        status: req.query.status as import("../../shared/types/roles.js").OrderStatus | undefined,
-        paymentStatus: req.query.paymentStatus as import("../../shared/types/roles.js").PaymentStatus | undefined,
-      });
+      const orders = await adminService.listOrders(req.query as ListOrdersQuery);
       res.json(orders);
     } catch (e) {
       next(e);

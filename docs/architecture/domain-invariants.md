@@ -89,6 +89,17 @@ Rules:
 
 Database constraints are part of the business model. Agents must prefer constraints, conditional updates and transactions over assumptions in application code.
 
+Critical lifecycle fields are PostgreSQL/Prisma enums so invalid labels cannot be persisted:
+
+- `UserRole` — `User.role`, `PendingRegistration.role` (`ADMIN`, `SELLER`, `CUSTOMER`)
+- `OrderStatus` — `Order.status` (`PENDING`, `CONFIRMED`, `SHIPPED`, `DELIVERED`, `CANCELLED`)
+- `PaymentStatus` — `Order.paymentStatus`, `SellerTransaction.status` (`PENDING`, `PAID`, `REFUNDED`)
+- `ListingStatus` — `Listing.status` (`ACTIVE`, `SOLD`, `RESERVED`, `CANCELED`)
+- `ClaimStatus` — `PaymentLink.status`, `OrderIdempotencyKey.status` (`IN_PROGRESS`, `COMPLETED`)
+- `WebhookEventStatus` / `PaymentProvider` — `PaymentWebhookEvent.status` and `.provider`
+
+`PaymentWebhookEvent.eventType` remains text so unknown PayPal events can still be claimed and marked `IGNORED`. Catalog fields (game, rarity, exterior, currency) are not enums.
+
 When changing an invariant, the agent must:
 
 1. update this document;

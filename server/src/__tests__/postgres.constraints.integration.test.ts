@@ -50,7 +50,7 @@ describe("PostgreSQL unique constraints", () => {
       customerId: customer.id,
       key: "ABC",
       requestHash: "hash-concurrent",
-      status: "IN_PROGRESS",
+      status: "IN_PROGRESS" as const,
     };
 
     const results = await Promise.allSettled([

@@ -7,12 +7,58 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// Domain lifecycle enums. Labels match the previous TEXT values exactly.
+// PayPal webhook eventType stays String so unknown provider events can be persisted and ignored.
+
+enum UserRole {
+  ADMIN
+  SELLER
+  CUSTOMER
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+}
+
+enum ListingStatus {
+  ACTIVE
+  SOLD
+  RESERVED
+  CANCELED
+}
+
+enum ClaimStatus {
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum WebhookEventStatus {
+  RECEIVED
+  PROCESSED
+  IGNORED
+  FAILED
+}
+
+enum PaymentProvider {
+  PAYPAL
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
   email     String   @unique
   password  String
-  role      String   @default("CUSTOMER") // ADMIN | SELLER | CUSTOMER
+  role      UserRole @default(CUSTOMER)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -28,7 +74,7 @@ model PendingRegistration {
   email        String   @unique
   name         String
   passwordHash String
-  role         String // CUSTOMER | SELLER
+  role         UserRole // CUSTOMER | SELLER at registration; ADMIN is seed-only
   storeName    String? // required when role = SELLER
   code         String
   expiresAt    DateTime
@@ -81,8 +127,8 @@ model Order {
   id              String   @id @default(cuid())
   customerId      String
   totalAmount     Decimal
-  status          String   @default("PENDING") // PENDING | CONFIRMED | SHIPPED | DELIVERED | CANCELLED
-  paymentStatus   String   @default("PENDING") // PENDING | PAID | REFUNDED
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
   paypalOrderId   String?  @unique
   trackingCode    String?
   trackingCarrier String?
@@ -104,9 +150,9 @@ model PaymentLink {
   orderId       String   @id
   paypalOrderId String?  @unique
   approvalUrl   String?
-  status        String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  status        ClaimStatus @default(IN_PROGRESS)
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
@@ -116,7 +162,7 @@ model OrderIdempotencyKey {
   customerId  String
   key         String
   requestHash String
-  status      String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  status      ClaimStatus @default(IN_PROGRESS)
   orderId     String?  @unique
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
@@ -130,10 +176,10 @@ model OrderIdempotencyKey {
 
 model PaymentWebhookEvent {
   id              String    @id @default(cuid())
-  provider        String    @default("PAYPAL")
+  provider        PaymentProvider    @default(PAYPAL)
   externalEventId String
   eventType       String
-  status          String    @default("RECEIVED") // RECEIVED | PROCESSED | IGNORED | FAILED
+  status          WebhookEventStatus @default(RECEIVED)
   orderId         String?
   receivedAt      DateTime  @default(now())
   processedAt     DateTime?
@@ -152,7 +198,7 @@ model Listing {
   pattern              Int?
   price                Decimal
   currency             String    @default("USD")
-  status               String    @default("ACTIVE") // ACTIVE | SOLD | RESERVED | CANCELED
+  status               ListingStatus @default(ACTIVE)
   tradeLockUntil       DateTime?
   reservedAt           DateTime?
   reservationExpiresAt DateTime?
@@ -213,7 +259,7 @@ model SellerTransaction {
   grossAmount      Decimal
   commissionAmount Decimal
   netAmount        Decimal
-  status           String   @default("PENDING") // PENDING | PAID | REFUNDED
+  status           PaymentStatus @default(PENDING)
   createdAt        DateTime @default(now())
 
   seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)

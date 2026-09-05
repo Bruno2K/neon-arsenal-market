@@ -1,5 +1,6 @@
 import { prisma } from "../../shared/database/index.js";
 import type { Prisma } from "@prisma/client";
+import type { ListingStatus } from "../../shared/types/roles.js";
 
 export const listingsRepository = {
   async findMany(params: {
@@ -107,7 +108,7 @@ export const listingsRepository = {
     });
   },
 
-  async updateStatus(id: string, status: string, soldAt?: Date) {
+  async updateStatus(id: string, status: ListingStatus, soldAt?: Date) {
     return prisma.listing.update({
       where: { id },
       data: {

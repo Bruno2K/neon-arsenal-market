@@ -3,7 +3,7 @@ import { prisma } from "../../shared/database/index.js";
 import { ordersRepository } from "./orders.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
-import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
+import type { CreateOrderInput, ListOrdersQuery, UpdateOrderTrackingInput } from "./orders.dto.js";
 import {
   assertOrderStatusTransition,
   parseOrderStatus,
@@ -221,10 +221,8 @@ export const ordersService = {
     return ordersRepository.findManyBySellerId(seller.id);
   },
 
-  async listAdmin(filters?: { status?: string; paymentStatus?: string }) {
-    return ordersRepository.findMany(
-      filters as Parameters<typeof ordersRepository.findMany>[0]
-    );
+  async listAdmin(filters?: ListOrdersQuery) {
+    return ordersRepository.findMany(filters);
   },
 
   async updateStatus(orderId: string, userId: string, role: string, status: string) {

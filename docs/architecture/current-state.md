@@ -62,7 +62,7 @@ This is not an emergency rewrite target. Agents should avoid broad refactors. Wh
 
 PostgreSQL is the source of truth for business state. Prisma is the data-access layer.
 
-The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews and revoked tokens. Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint.
+The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews and revoked tokens. Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint. Critical lifecycle columns (`User.role`, `Order.status`, `Order.paymentStatus`, `Listing.status`, payment-link and idempotency claim status, webhook processing status/provider, seller-transaction status) are PostgreSQL enums. PayPal `eventType` stays text so unknown provider events can be persisted and ignored. See `docs/adr/0009-prisma-domain-enums.md`.
 
 ## Critical workflows
 
