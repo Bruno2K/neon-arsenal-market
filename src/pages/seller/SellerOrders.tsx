@@ -1,5 +1,7 @@
+import { Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listOrders } from "@/api/orders";
+import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,8 @@ function orderTotal(order: Order): number {
 }
 
 export default function SellerOrdersPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const {
     data: orders = [],
     isLoading,
@@ -28,7 +32,12 @@ export default function SellerOrdersPage() {
   } = useQuery({
     queryKey: ["sellerOrders"],
     queryFn: () => listOrders(),
+    enabled: user?.role === "SELLER",
   });
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   if (isLoading) {
     return (

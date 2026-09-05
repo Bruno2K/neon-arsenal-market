@@ -1,6 +1,7 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { ErrorState, PageSkeleton } from "@/components/page-state";
+import { homePathForRole, isSellerPath } from "@/lib/postLoginPath";
 import type { Role } from "@/types/api";
 
 interface ProtectedRouteProps {
@@ -21,6 +22,10 @@ export function ProtectedRoute({
 
   if (!isAuthenticated || !user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (isSellerPath(location.pathname) && user.role === "ADMIN") {
+    return <Navigate to={homePathForRole("ADMIN")} replace />;
   }
 
   if (

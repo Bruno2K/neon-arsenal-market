@@ -1,7 +1,8 @@
-import { Link } from "react-router-dom";
+import { Link, Navigate } from "react-router-dom";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "@/api/products";
+import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -17,15 +18,22 @@ import {
 const PAGE_SIZE = 20;
 
 export default function SellerProductsPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === "ADMIN";
   const [page, setPage] = useState(1);
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["products", { page, limit: PAGE_SIZE }],
     queryFn: () => listProducts({ page, limit: PAGE_SIZE }),
+    enabled: user?.role === "SELLER",
   });
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  if (isAdmin) {
+    return <Navigate to="/admin" replace />;
+  }
 
   if (isLoading) {
     return (
