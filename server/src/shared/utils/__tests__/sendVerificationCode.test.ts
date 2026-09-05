@@ -80,7 +80,8 @@ describe("sendVerificationCode", () => {
   it("maps provider failures to an operational error", async () => {
     process.env.RESEND_API_KEY = "resend-key";
     process.env.EMAIL_FROM = "SkinMarket <noreply@example.com>";
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("bad request", { status: 400 })));
+    const fetchMock = vi.fn().mockResolvedValue(new Response("bad request", { status: 400 }));
+    vi.stubGlobal("fetch", fetchMock);
 
     const { sendVerificationCode } = await import("../sendVerificationCode.js");
 
@@ -88,5 +89,20 @@ describe("sendVerificationCode", () => {
       statusCode: 502,
       message: "Failed to send verification email",
     });
+    expect(fetchMock).toHaveBeenCalledOnce();
+  });
+
+  it("retries Resend HTTP 5xx then succeeds", async () => {
+    process.env.RESEND_API_KEY = "resend-key";
+    process.env.EMAIL_FROM = "SkinMarket <noreply@example.com>";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response("upstream", { status: 503 }))
+      .mockResolvedValueOnce(new Response("{}", { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { sendVerificationCode } = await import("../sendVerificationCode.js");
+    await sendVerificationCode("new@test.com", "123456");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

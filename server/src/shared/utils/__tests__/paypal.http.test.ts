@@ -59,7 +59,7 @@ describe("PayPal HTTP policy", () => {
     expect(orderCalls).toBe(3);
   });
 
-  it("times out a hung PayPal OrdersGet", async () => {
+  it("times out a hung PayPal OrdersGet after bounded retries", async () => {
     const fetchMock = vi.fn(async (input: string | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.includes("/v1/oauth2/token")) {
@@ -77,6 +77,25 @@ describe("PayPal HTTP policy", () => {
     vi.stubGlobal("fetch", fetchMock);
 
     const { getPayPalOrder } = await import("../paypal.js");
-    await expect(getPayPalOrder("paypal-1")).rejects.toBeInstanceOf(Error);
+    await expect(getPayPalOrder("paypal-1")).rejects.toMatchObject({ statusCode: 504 });
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).includes("/v2/checkout/orders"))).toHaveLength(3);
+  });
+
+  it("retries PayPal OAuth on HTTP 5xx then succeeds", async () => {
+    let tokenCalls = 0;
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/v1/oauth2/token")) {
+        tokenCalls += 1;
+        if (tokenCalls < 2) return new Response("upstream", { status: 503 });
+        return new Response(JSON.stringify({ access_token: "token", expires_in: 300 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: "paypal-1", status: "COMPLETED" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getPayPalOrder } = await import("../paypal.js");
+    await expect(getPayPalOrder("paypal-1")).resolves.toEqual({ id: "paypal-1", status: "COMPLETED" });
+    expect(tokenCalls).toBe(2);
   });
 });

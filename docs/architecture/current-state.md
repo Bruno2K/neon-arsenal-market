@@ -32,7 +32,7 @@ Express API --> PayPal
 Express API --> Resend
 ```
 
-The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling.
+The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, HTTP server spans, CORS, JSON parsing, rate limiting, health/docs routes, domain routes, 404 handling and centralized error handling. `startApiProcess` binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry and PayPal-reconciliation jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins.
 
 Observability is optional. `OTEL_ENABLED` defaults to off so `npm run dev` does not need a collector. See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
 
@@ -76,7 +76,7 @@ Expired reservations are released by an in-process sweep that calls `listingsSer
 
 ### Payment confirmation
 
-Payment creation calls PayPal outside the database transaction, with an explicit timeout (`PAYPAL_API_TIMEOUT_MS`, default 10s). `OrdersCreate` is not retried. The PayPal order ID is stored on the local order.
+Payment creation calls PayPal outside the database transaction, with an explicit timeout (`PAYPAL_API_TIMEOUT_MS`, default 10s). `OrdersCreate` and `OrdersCapture` are not retried. Idempotent PayPal reads (order GET, OAuth token, webhook certificate) retry HTTP 5xx/429, timeouts and network errors up to 3 times with exponential backoff. The PayPal order ID is stored on the local order.
 
 Webhook handling:
 

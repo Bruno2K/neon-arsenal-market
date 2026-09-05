@@ -29,3 +29,9 @@ export function getPayPalApiBaseUrl(): string {
     ? "https://api-m.paypal.com"
     : "https://api-m.sandbox.paypal.com";
 }
+
+/** Lookup/token/cert fetches may retry; mutating PayPal calls must not. */
+export const PAYPAL_IDEMPOTENT_RETRY = {
+  maxAttempts: 3,
+  baseDelayMs: 200,
+} as const;

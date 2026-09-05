@@ -69,15 +69,16 @@ See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
 
 ### P1.3 Resilience
 
-Add explicit:
+Implemented:
 
-- external request timeouts;
-- bounded retries with backoff;
-- retry classification;
-- graceful shutdown;
-- reconciliation jobs where needed.
+- shared retry classification (timeout/network/429/5xx vs other 4xx) with max 3 attempts and exponential backoff;
+- PayPal `OrdersCreate` / `OrdersCapture` still not retried;
+- PayPal `OrdersGet`, OAuth token and webhook certificate download retry retryable failures;
+- Resend verification email retries retryable failures; 4xx is not retried;
+- SIGTERM/SIGINT drains HTTP (10s), stops in-process jobs, disconnects Prisma, shuts down telemetry;
+- `GET /ready` returns 503 `shutting_down` during drain.
 
-Use circuit breakers only when a concrete failure mode justifies them.
+See `docs/adr/0005-external-retry-and-graceful-shutdown.md` and `docs/architecture/failure-modes.md`.
 
 ### P1.4 Performance evidence
 

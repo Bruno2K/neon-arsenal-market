@@ -1,7 +1,8 @@
 import { createVerify } from "node:crypto";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { logger } from "../logger.js";
-import { getPayPalApiTimeoutMs, PAYPAL_WEBHOOK_MAX_SKEW_MS } from "../config/paypal.js";
+import { getPayPalApiTimeoutMs, PAYPAL_IDEMPOTENT_RETRY, PAYPAL_WEBHOOK_MAX_SKEW_MS } from "../config/paypal.js";
+import { classifyHttpStatus, isTimeoutError, withRetry } from "../resilience/retry.js";
 
 const PAYPAL_CERT_HOSTS = new Set([
   "api.paypal.com",
@@ -195,11 +196,36 @@ export async function downloadPayPalCertificate(url: string): Promise<string> {
     throw new Error("PayPal certificate URL host is not allowlisted");
   }
 
-  const response = await fetch(url, { signal: AbortSignal.timeout(getPayPalApiTimeoutMs()) });
-  if (!response.ok) {
-    throw new Error(`PayPal certificate download failed: ${response.status}`);
-  }
-  const pem = await response.text();
+  const pem = await withRetry(
+    async () => {
+      let response: Response;
+      try {
+        response = await fetch(url, { signal: AbortSignal.timeout(getPayPalApiTimeoutMs()) });
+      } catch (err) {
+        if (isTimeoutError(err)) {
+          throw Object.assign(new Error("PayPal certificate download timed out"), {
+            retryable: true,
+            reason: "timeout" as const,
+          });
+        }
+        throw err;
+      }
+      if (!response.ok) {
+        throw Object.assign(
+          new Error(`PayPal certificate download failed: ${response.status}`),
+          classifyHttpStatus(response.status)
+        );
+      }
+      return response.text();
+    },
+    {
+      maxAttempts: PAYPAL_IDEMPOTENT_RETRY.maxAttempts,
+      baseDelayMs: PAYPAL_IDEMPOTENT_RETRY.baseDelayMs,
+      onRetry: ({ attempt, reason }) => {
+        logger.warn({ attempt, reason }, "PayPal certificate download retrying");
+      },
+    }
+  );
   certCache.set(url, { pem, cachedAt: Date.now() });
   return pem;
 }

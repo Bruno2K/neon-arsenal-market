@@ -48,7 +48,7 @@ Rules:
 6. A crash must not permanently leave the system unable to reconcile external payment state with local state.
 7. Each PayPal webhook event id is persisted (`PaymentWebhookEvent`) with a unique constraint on `(provider, externalEventId)`.
 8. Only `PAYMENT.CAPTURE.COMPLETED` confirms local payment. `CHECKOUT.ORDER.APPROVED` is intermediate and must not sell listings or create seller transactions.
-9. External PayPal calls have an explicit timeout. Creating a PayPal order is not retried. Looking up PayPal order status may retry HTTP 5xx/429.
+9. External PayPal calls have an explicit timeout. Creating or capturing a PayPal order is not retried. Looking up PayPal order status, fetching an OAuth token, or downloading a webhook certificate may retry HTTP 5xx/429, timeouts and network errors (max 3 attempts, exponential backoff).
 
 ## Seller finances
 

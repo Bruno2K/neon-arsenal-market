@@ -47,8 +47,20 @@ describe("Health routes", () => {
   });
 
   describe("GET /ready", () => {
-    beforeEach(() => {
+    beforeEach(async () => {
       vi.clearAllMocks();
+      const { resetLifecycleForTests } = await import("../../lifecycle/state.js");
+      resetLifecycleForTests();
+    });
+
+    it("returns 503 when the process is shutting down", async () => {
+      const { beginShutdown } = await import("../../lifecycle/state.js");
+      const { prisma } = await import("../../database/index.js");
+      beginShutdown();
+      const res = await fetch(`${baseUrl}/ready`);
+      expect(res.status).toBe(503);
+      expect(await res.json()).toEqual({ status: "shutting_down" });
+      expect(prisma.$queryRaw).not.toHaveBeenCalled();
     });
 
     it("returns 200 when DB is reachable", async () => {
