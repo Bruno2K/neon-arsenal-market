@@ -87,7 +87,7 @@ Webhook handling:
 1. Capture the raw body and verify RSA-SHA256 using `PAYPAL_WEBHOOK_ID` and the certificate at `paypal-cert-url`. `paypal-transmission-time` must be within 5 minutes of the server clock.
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
-4. `confirmPayment` claims the pending order, sells held listings, and writes seller transactions in one PostgreSQL transaction.
+4. `confirmPayment` claims the pending order, sells held listings, and writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection in one PostgreSQL transaction (ADR 0011).
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20) and reuses `confirmPayment`.
 

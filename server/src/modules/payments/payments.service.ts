@@ -23,6 +23,7 @@ import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType } from "../audit/audit.types.js";
+import { computeSellerLedgerAmounts } from "../../shared/money/sellerLedger.js";
 
 const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
@@ -295,16 +296,20 @@ export const paymentsService = {
         }
       }
 
-      // INV-SELLER-COMMISSION-DECIMAL: Prisma.Decimal, not JavaScript number.
+      // INV-SELLER-LEDGER-SOURCE / INV-SELLER-COMMISSION-DECIMAL:
+      // SellerTransaction is the ledger. Seller.balance is incremented in this
+      // same local transaction as a projection of PAID net amounts.
       for (const [sellerId, data] of bySeller) {
-        const commissionAmount = data.grossAmount.mul(data.commissionRate);
-        const netAmount = data.grossAmount.minus(commissionAmount);
+        const { grossAmount, commissionAmount, netAmount } = computeSellerLedgerAmounts(
+          data.grossAmount,
+          data.commissionRate
+        );
 
         await tx.sellerTransaction.create({
           data: {
             sellerId,
             orderId,
-            grossAmount: data.grossAmount,
+            grossAmount,
             commissionAmount,
             netAmount,
             status: "PAID",

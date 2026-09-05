@@ -86,6 +86,8 @@ model Seller {
   userId         String   @unique
   storeName      String
   commissionRate Decimal  @default(0.1)
+  /// Materialized projection of SUM(PAID SellerTransaction.netAmount).
+  /// SellerTransaction is the source of truth if they disagree (ADR 0011).
   balance        Decimal  @default(0)
   rating         Float    @default(0)
   isApproved     Boolean  @default(false)
@@ -252,6 +254,9 @@ model OrderItem {
   @@index([sellerId])
 }
 
+/// Authoritative seller ledger. One row per (sellerId, orderId). Amounts are BRL
+/// (PayPal capture currency). netAmount = grossAmount − commissionAmount
+/// (PostgreSQL CHECK). Seller.balance is a projection of PAID net rows.
 model SellerTransaction {
   id               String   @id @default(cuid())
   sellerId         String
@@ -259,6 +264,8 @@ model SellerTransaction {
   grossAmount      Decimal
   commissionAmount Decimal
   netAmount        Decimal
+  /// PaymentStatus: confirmation writes PAID. PENDING default is unused.
+  /// REFUNDED exists on the enum; there is no refund application path.
   status           PaymentStatus @default(PENDING)
   createdAt        DateTime @default(now())
 

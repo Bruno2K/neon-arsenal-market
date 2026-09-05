@@ -14,6 +14,15 @@ function expectUniqueViolation(error: unknown, tokens: string[]) {
   }
 }
 
+function expectCheckViolation(error: unknown, constraint: string) {
+  expect(error).toBeDefined();
+  const message = error instanceof Error ? error.message : String(error);
+  const code =
+    error instanceof Prisma.PrismaClientKnownRequestError ? error.code : undefined;
+  expect(code === "P2004" || /23514|check constraint/i.test(message)).toBe(true);
+  expect(message).toContain(constraint);
+}
+
 describe("PostgreSQL unique constraints", () => {
   it("enforces OrderIdempotencyKey(customerId, key)", async () => {
     const customer = await createUser();
@@ -156,6 +165,96 @@ describe("PostgreSQL unique constraints", () => {
 
     expectUniqueViolation(caught, ["sellerId", "orderId"]);
     expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(1);
+  });
+
+  it("rejects concurrent SellerTransaction inserts for the same seller and order", async () => {
+    const fixture = await createCheckoutGraph();
+    const order = await createOrder(
+      fixture.customer.id,
+      [fixture.listings[0].id],
+      orderKey("txn-unique-concurrent")
+    );
+    const payload = {
+      sellerId: fixture.seller.id,
+      orderId: order.id,
+      grossAmount: new Prisma.Decimal("100"),
+      commissionAmount: new Prisma.Decimal("10"),
+      netAmount: new Prisma.Decimal("90"),
+      status: "PAID" as const,
+    };
+
+    const results = await Promise.allSettled([
+      prisma.sellerTransaction.create({ data: payload }),
+      prisma.sellerTransaction.create({ data: payload }),
+    ]);
+    const fulfilled = results.filter((result) => result.status === "fulfilled");
+    const rejected = results.filter((result) => result.status === "rejected");
+    expect(fulfilled).toHaveLength(1);
+    expect(rejected).toHaveLength(1);
+    expectUniqueViolation((rejected[0] as PromiseRejectedResult).reason, ["sellerId", "orderId"]);
+    expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(1);
+  });
+
+  it("rejects a SellerTransaction whose net is not gross minus commission", async () => {
+    const fixture = await createCheckoutGraph();
+    const order = await createOrder(
+      fixture.customer.id,
+      [fixture.listings[0].id],
+      orderKey("txn-net-check")
+    );
+
+    let caught: unknown;
+    try {
+      await prisma.sellerTransaction.create({
+        data: {
+          sellerId: fixture.seller.id,
+          orderId: order.id,
+          grossAmount: new Prisma.Decimal("100"),
+          commissionAmount: new Prisma.Decimal("10"),
+          netAmount: new Prisma.Decimal("89"),
+          status: "PAID",
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expectCheckViolation(caught, "SellerTransaction_net_identity_chk");
+    expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(0);
+  });
+
+  it("rejects a SellerTransaction with a negative net amount", async () => {
+    const fixture = await createCheckoutGraph();
+    const order = await createOrder(
+      fixture.customer.id,
+      [fixture.listings[0].id],
+      orderKey("txn-negative-check")
+    );
+
+    let caught: unknown;
+    try {
+      await prisma.sellerTransaction.create({
+        data: {
+          sellerId: fixture.seller.id,
+          orderId: order.id,
+          grossAmount: new Prisma.Decimal("10"),
+          commissionAmount: new Prisma.Decimal("20"),
+          netAmount: new Prisma.Decimal("-10"),
+          status: "PAID",
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expect(caught).toBeDefined();
+    const message = caught instanceof Error ? caught.message : String(caught);
+    expect(
+      /SellerTransaction_amounts_non_negative_chk|SellerTransaction_net_identity_chk|23514|check constraint/i.test(
+        message
+      )
+    ).toBe(true);
+    expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(0);
   });
 
   it("enforces PaymentLink(orderId)", async () => {

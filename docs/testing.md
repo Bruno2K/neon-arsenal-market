@@ -29,6 +29,7 @@ The flagship invariants are database-backed (catalog: `docs/domain/invariants.md
 - `PaymentLink(orderId)` uniqueness serializes concurrent `POST /payments` so only one `OrdersCreate` runs.
 - Payment confirmation claims an order with `updateMany` and rolls back if listings cannot be sold.
 - `(provider, externalEventId)` and `(sellerId, orderId)` prevent duplicate webhook/payout effects.
+- `SellerTransaction` CHECK `netAmount = grossAmount - commissionAmount` and non-negative amounts.
 
 Unit tests with Prisma mocks still exist for validation, error mapping and control flow. They are not a substitute for the integration suite.
 

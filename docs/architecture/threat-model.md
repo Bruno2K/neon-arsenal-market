@@ -126,7 +126,7 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 - Listing reserve: `ACTIVE` → `RESERVED` via conditional update (lost update → conflict).
 - Order create: durable `OrderIdempotencyKey` before PayPal.
 - Money: Prisma Decimal, not IEEE floats.
-- Unique seller ledger row per order.
+- Unique seller ledger row per `(sellerId, orderId)`. `Seller.balance` is a projection; the ledger wins if they disagree (ADR 0011).
 
 These are **correctness** controls; they also limit economic abuse (double spend of a unique listing, double credit).
 
