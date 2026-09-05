@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import Checkout from "../Checkout";
 import type { Listing, User } from "@/types/api";
 
@@ -11,6 +11,7 @@ const cartState = {
   items: [] as { listing: Listing }[],
   totalPrice: 0,
   clearCart: vi.fn(),
+  removeItems: vi.fn(),
 };
 
 const authState = {
@@ -64,11 +65,22 @@ function listing(price = 100, id = "listing-ak"): Listing {
   } as Listing;
 }
 
+function expectedPaypalUrls(orderId: string) {
+  return {
+    returnUrl: `${window.location.origin}/orders/${orderId}/return`,
+    cancelUrl: `${window.location.origin}/orders/${orderId}/cancel`,
+  };
+}
+
 function CheckoutHarness({ nonce = 0 }: { nonce?: number }) {
   void nonce;
   return (
-    <MemoryRouter>
-      <Checkout />
+    <MemoryRouter initialEntries={["/checkout"]}>
+      <Routes>
+        <Route path="/checkout" element={<Checkout />} />
+        <Route path="/orders/:id" element={<div>Pedido destino</div>} />
+        <Route path="/login" element={<div>Login</div>} />
+      </Routes>
     </MemoryRouter>
   );
 }
@@ -103,6 +115,7 @@ describe("Checkout", () => {
     cartState.items = [];
     cartState.totalPrice = 0;
     cartState.clearCart.mockReset();
+    cartState.removeItems.mockReset();
     authState.user = null;
     authState.isAuthenticated = false;
     createOrder.mockReset();
@@ -111,6 +124,7 @@ describe("Checkout", () => {
     vi.spyOn(crypto, "randomUUID").mockImplementation(
       () => uuidKeys[uuidIndex++] ?? "overflow-uuid",
     );
+    vi.spyOn(window.location, "assign").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -151,12 +165,14 @@ describe("Checkout", () => {
     ).toBeTruthy();
   });
 
-  it("calls createOrder + createPaymentLink and errors without claiming success", async () => {
+  it("sends absolute returnUrl and cancelUrl and prunes ordered listings", async () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;
     asCustomer();
     createOrder.mockResolvedValue({ id: "order-1" });
-    createPaymentLink.mockResolvedValue({});
+    createPaymentLink.mockResolvedValue({
+      approvalUrl: "https://www.paypal.com/checkoutnow?token=EC-1",
+    });
 
     renderCheckout();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
@@ -166,17 +182,66 @@ describe("Checkout", () => {
         { items: [{ listingId: "listing-ak" }] },
         { idempotencyKey: uuidKeys[0] },
       );
-      expect(createPaymentLink).toHaveBeenCalledWith({ orderId: "order-1" });
+      expect(createPaymentLink).toHaveBeenCalledWith({
+        orderId: "order-1",
+        ...expectedPaypalUrls("order-1"),
+      });
     });
 
-    expect(
-      screen.getByText(/pagamento ainda não foi confirmado/i),
-    ).toBeTruthy();
+    const urls = createPaymentLink.mock.calls[0][0] as {
+      returnUrl: string;
+      cancelUrl: string;
+    };
+    expect(() => new URL(urls.returnUrl)).not.toThrow();
+    expect(() => new URL(urls.cancelUrl)).not.toThrow();
+    expect(urls.returnUrl.startsWith("http")).toBe(true);
+    expect(urls.cancelUrl.startsWith("http")).toBe(true);
+    expect(cartState.removeItems).toHaveBeenCalledWith(["listing-ak"]);
     expect(cartState.clearCart).not.toHaveBeenCalled();
+    expect(window.location.assign).toHaveBeenCalledWith(
+      "https://www.paypal.com/checkoutnow?token=EC-1",
+    );
     expect(screen.queryByText(/Pedido Confirmado/i)).toBeNull();
-    expect(
-      screen.getByRole("button", { name: "Tentar novamente" }),
-    ).toBeTruthy();
+    expect(screen.queryByText(/Pagamento confirmado/i)).toBeNull();
+  });
+
+  it("removes only listings that entered the order, keeping others", async () => {
+    cartState.items = [
+      { listing: listing(80, "listing-ak") },
+      { listing: listing(20, "listing-awp") },
+    ];
+    cartState.totalPrice = 100;
+    asCustomer();
+    createOrder.mockResolvedValue({ id: "order-2" });
+    createPaymentLink.mockResolvedValue({});
+
+    renderCheckout();
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
+
+    await waitFor(() => {
+      expect(cartState.removeItems).toHaveBeenCalledWith([
+        "listing-ak",
+        "listing-awp",
+      ]);
+    });
+    expect(cartState.clearCart).not.toHaveBeenCalled();
+    expect(await screen.findByText("Pedido destino")).toBeTruthy();
+  });
+
+  it("does not prune the cart when createOrder fails", async () => {
+    cartState.items = [{ listing: listing(100) }];
+    cartState.totalPrice = 100;
+    asCustomer();
+    createOrder.mockRejectedValue(new Error("Falha de rede"));
+
+    renderCheckout();
+    fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));
+
+    await waitFor(() => expect(createOrder).toHaveBeenCalledTimes(1));
+    expect(cartState.removeItems).not.toHaveBeenCalled();
+    expect(cartState.clearCart).not.toHaveBeenCalled();
+    expect(createPaymentLink).not.toHaveBeenCalled();
+    expect(screen.getByText("Falha de rede")).toBeTruthy();
   });
 
   it("sends a non-empty Idempotency-Key of at most 128 characters", async () => {
@@ -277,5 +342,9 @@ describe("Checkout", () => {
 
     expect(createOrder).toHaveBeenCalledTimes(1);
     expect(idempotencyKeyOf(createOrder.mock.calls[0])).toBe(uuidKeys[0]);
+    expect(createPaymentLink.mock.calls[0][0]).toMatchObject({
+      orderId: "order-1",
+      ...expectedPaypalUrls("order-1"),
+    });
   });
 });

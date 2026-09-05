@@ -36,8 +36,15 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
 }
 
 function CartConsumer() {
-  const { items, addItem, removeItem, clearCart, totalItems, totalPrice } =
-    useCart();
+  const {
+    items,
+    addItem,
+    removeItem,
+    removeItems,
+    clearCart,
+    totalItems,
+    totalPrice,
+  } = useCart();
   const futureLock = new Date(Date.now() + 60 * 60 * 1000).toISOString();
 
   return (
@@ -132,6 +139,12 @@ function CartConsumer() {
       <button data-testid="remove-ak" onClick={() => removeItem("listing-ak")}>
         Remove AK
       </button>
+      <button
+        data-testid="remove-ordered"
+        onClick={() => removeItems(["listing-ak"])}
+      >
+        Remove ordered
+      </button>
       <button data-testid="clear" onClick={clearCart}>
         Clear
       </button>
@@ -223,6 +236,19 @@ describe("CartContext", () => {
       fireEvent.click(screen.getByTestId("remove-ak"));
 
       expect(screen.getByTestId("count").textContent).toBe("1");
+    });
+  });
+
+  describe("removeItems()", () => {
+    it("removes only the listings that entered the order", () => {
+      renderCart();
+      fireEvent.click(screen.getByTestId("add-ak"));
+      fireEvent.click(screen.getByTestId("add-m4"));
+      fireEvent.click(screen.getByTestId("remove-ordered"));
+
+      expect(screen.getByTestId("count").textContent).toBe("1");
+      expect(screen.queryByTestId("item-listing-ak")).toBeNull();
+      expect(screen.getByTestId("item-listing-m4")).toBeTruthy();
     });
   });
 

@@ -107,6 +107,8 @@ export interface CreateOrderBody {
 
 export interface OrderItemListing {
   id: string;
+  status?: Listing["status"];
+  reservationExpiresAt?: string | null;
   product: {
     id: string;
     weapon: string;

@@ -10,9 +10,10 @@ import {
   resolveCheckoutIdempotencyKey,
   type CheckoutIdempotencyState,
 } from "@/lib/checkoutIdempotency";
+import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
 
 export default function Checkout() {
-  const { items, totalPrice } = useCart();
+  const { items, totalPrice, removeItems } = useCart();
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -22,7 +23,7 @@ export default function Checkout() {
   const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
 
-  if (items.length === 0) {
+  if (items.length === 0 && !loading) {
     return (
       <div className="container py-8">
         <h1 className="sr-only">Checkout</h1>
@@ -67,6 +68,8 @@ export default function Checkout() {
     inFlightRef.current = true;
     setError(null);
     setLoading(true);
+    let createdOrderId: string | null = null;
+    let leftCheckout = false;
     try {
       const listingIds = items.map(({ listing }) => listing.id);
       idempotencyRef.current = resolveCheckoutIdempotencyKey(
@@ -77,19 +80,29 @@ export default function Checkout() {
         { items: listingIds.map((listingId) => ({ listingId })) },
         { idempotencyKey: idempotencyRef.current.key },
       );
-      const payment = await createPaymentLink({ orderId: order.id });
+      createdOrderId = order.id;
+      removeItems(listingIds);
+      const payment = await createPaymentLink({
+        orderId: order.id,
+        ...paypalCheckoutUrls(order.id),
+      });
       if (payment.approvalUrl) {
-        window.location.href = payment.approvalUrl;
+        leftCheckout = true;
+        window.location.assign(payment.approvalUrl);
         return;
       }
-      setError(
-        "Não foi possível obter o link do PayPal. O pagamento ainda não foi confirmado.",
-      );
+      leftCheckout = true;
+      navigate(`/orders/${order.id}`);
     } catch (e) {
+      if (createdOrderId) {
+        leftCheckout = true;
+        navigate(`/orders/${createdOrderId}`);
+        return;
+      }
       setError(e instanceof Error ? e.message : "Falha ao criar pedido");
     } finally {
       inFlightRef.current = false;
-      setLoading(false);
+      if (!leftCheckout) setLoading(false);
     }
   };
 
