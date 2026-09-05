@@ -8,6 +8,7 @@ export const AuditAction = {
   LISTING_CANCEL: "LISTING_CANCEL",
   ORDER_STATUS_CHANGE: "ORDER_STATUS_CHANGE",
   PAYMENT_CONFIRMED: "PAYMENT_CONFIRMED",
+  SELLER_BALANCE_RECONCILED: "SELLER_BALANCE_RECONCILED",
 } as const;
 
 export type AuditActionName = (typeof AuditAction)[keyof typeof AuditAction];

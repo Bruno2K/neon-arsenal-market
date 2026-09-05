@@ -5,7 +5,10 @@ import {
   SELLER_LEDGER_CURRENCY,
   SELLER_LEDGER_PRICE_SCALE,
   computeSellerLedgerAmounts,
+  findSellerProjectionDrifts,
   ledgerNetMatchesGrossMinusCommission,
+  paidLedgerSumOrZero,
+  sellerProjectionMatchesLedger,
 } from "../sellerLedger.js";
 
 describe(`${DomainInvariant.SELLER_COMMISSION_DECIMAL} seller ledger amounts`, () => {
@@ -47,5 +50,52 @@ describe(`${DomainInvariant.SELLER_COMMISSION_DECIMAL} seller ledger amounts`, (
 
     expect(amounts.netAmount.equals(new Prisma.Decimal("0.00"))).toBe(true);
     expect(ledgerNetMatchesGrossMinusCommission(amounts)).toBe(true);
+  });
+});
+
+describe(`${DomainInvariant.SELLER_LEDGER_SOURCE} projection vs PAID SUM`, () => {
+  it("treats a missing SUM as Decimal zero", () => {
+    expect(paidLedgerSumOrZero(null).equals(new Prisma.Decimal(0))).toBe(true);
+    expect(paidLedgerSumOrZero(undefined).equals(new Prisma.Decimal(0))).toBe(true);
+    expect(paidLedgerSumOrZero(new Prisma.Decimal("90.00")).equals(new Prisma.Decimal("90.00"))).toBe(
+      true
+    );
+  });
+
+  it("matches projection to ledger with Decimal.equals, not JavaScript number", () => {
+    const projected = new Prisma.Decimal("0.10").plus(new Prisma.Decimal("0.20"));
+    expect(sellerProjectionMatchesLedger(projected, new Prisma.Decimal("0.30"))).toBe(true);
+    expect(sellerProjectionMatchesLedger(projected, new Prisma.Decimal("0.300"))).toBe(true);
+    expect(0.1 + 0.2).not.toBe(0.3);
+  });
+
+  it("finds no drifts when every projection equals PAID SUM", () => {
+    const drifts = findSellerProjectionDrifts(
+      [
+        { id: "seller-a", balance: new Prisma.Decimal("90.00") },
+        { id: "seller-b", balance: new Prisma.Decimal(0) },
+      ],
+      [
+        { sellerId: "seller-a", netAmount: new Prisma.Decimal("90.00") },
+      ]
+    );
+    expect(drifts).toEqual([]);
+  });
+
+  it("flags a stale projection and an empty-ledger seller with leftover balance", () => {
+    const drifts = findSellerProjectionDrifts(
+      [
+        { id: "seller-a", balance: new Prisma.Decimal("80.00") },
+        { id: "seller-b", balance: new Prisma.Decimal("1250.75") },
+      ],
+      [{ sellerId: "seller-a", netAmount: new Prisma.Decimal("90.00") }]
+    );
+
+    expect(drifts).toHaveLength(2);
+    expect(drifts[0]?.sellerId).toBe("seller-a");
+    expect(drifts[0]?.projected.equals(new Prisma.Decimal("80.00"))).toBe(true);
+    expect(drifts[0]?.ledgerSum.equals(new Prisma.Decimal("90.00"))).toBe(true);
+    expect(drifts[1]?.sellerId).toBe("seller-b");
+    expect(drifts[1]?.ledgerSum.equals(new Prisma.Decimal(0))).toBe(true);
   });
 });

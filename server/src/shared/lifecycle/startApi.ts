@@ -3,6 +3,7 @@ import type { Server } from "node:http";
 import { logger } from "../logger.js";
 import { startPaypalReconciliationJob } from "../jobs/paypalReconciliationJob.js";
 import { startReservationExpiryJob } from "../jobs/reservationExpiryJob.js";
+import { startSellerLedgerReconciliationJob } from "../jobs/sellerLedgerReconciliationJob.js";
 import { installProcessShutdownHandlers } from "./shutdown.js";
 
 export function startApiProcess(
@@ -16,7 +17,11 @@ export function startApiProcess(
   const server = app.listen(port, host, () => {
     logger.info({ host, port }, "http server listening");
     console.log(`Server running on http://${host}:${port}`);
-    jobs.push(startReservationExpiryJob(), startPaypalReconciliationJob());
+    jobs.push(
+      startReservationExpiryJob(),
+      startPaypalReconciliationJob(),
+      startSellerLedgerReconciliationJob()
+    );
   });
 
   const stopJobs = () => {

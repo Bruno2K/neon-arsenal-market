@@ -69,7 +69,7 @@ Should Neon Arsenal later reverse captured funds automatically, and with which *
 On SIGTERM/SIGINT the API:
 
 1. Marks itself shutting down (`GET /ready` returns 503 `shutting_down`).
-2. Stops reservation-expiry and PayPal-reconciliation timers (in-flight sweeps may finish).
+2. Stops reservation-expiry, PayPal-reconciliation, and seller-ledger-reconciliation timers (in-flight sweeps may finish).
 3. Stops accepting new HTTP connections and drains in-flight requests for up to 10s, then closes remaining connections.
 4. Disconnects Prisma.
 5. Shuts down OpenTelemetry exporters.

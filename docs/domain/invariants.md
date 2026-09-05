@@ -130,12 +130,13 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 **Enforced:**
 
 - Schema: unique `(sellerId, orderId)`; CHECK net identity and non-negative amounts. `Seller.balance` documented as projection (ADR 0011).
-- Service: `confirmPayment` claim (`paymentStatus = PENDING AND status = PENDING`) plus ledger insert. Duplicate claims are no-ops.
+- Service: `confirmPayment` claim (`paymentStatus = PENDING AND status = PENDING`) plus ledger insert. Duplicate claims are no-ops. `commissionsService.reconcileSellerLedger` SETs a drifted `Seller.balance` to PAID `SUM(netAmount)` under `FOR UPDATE`; it does not insert or delete ledger rows.
 - HTTP: `GET /commissions/balance` returns the Prisma Decimal projection (JSON string via Decimal#toJSON). No `Number()`.
-- Seed: demo `Seller.balance` is `"0.00"` with no ledger rows so the projection matches empty PAID SUM. Re-seed writes that catalog zero only when the seller has no PAID ledger rows; if PAID rows exist, seed sets the projection to `SUM(netAmount)` and does not wipe credited net. Confirm remains the only production non-zero writer.
-- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`; `commissions.service.test.ts`; `demoCatalog.test.ts`; `seed.ledger.integration.test.ts`.
+- Seed: demo `Seller.balance` is `"0.00"` with no ledger rows so the projection matches empty PAID SUM. Re-seed writes that catalog zero only when the seller has no PAID ledger rows; if PAID rows exist, seed sets the projection to `SUM(netAmount)` and does not wipe credited net. Confirm remains the only production non-zero writer of ledger rows.
+- Job: in-process interval (60s) started with the PayPal/reservation jobs. Second run is a no-op when aligned. Concurrent confirm vs reconcile cannot double-credit because the corrective write holds the seller row and assigns SUM rather than incrementing.
+- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `seller.ledger.reconcile.integration.test.ts`; `commissions.reconcile.test.ts`; `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`; `commissions.service.test.ts`; `demoCatalog.test.ts`; `seed.ledger.integration.test.ts`.
 
-**Related:** `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`. Issue #45 (not implemented) can reconcile projection vs `SUM(netAmount) WHERE status = 'PAID'`.
+**Related:** `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`. Periodic projection vs PAID SUM reconciliation is implemented (issue #45); see ADR 0011.
 
 ---
 
@@ -165,4 +166,4 @@ These are already specified in the architecture narrative. This table is the ID 
 3. Add or extend the regression/integration test named in the row.
 4. Write an ADR when the change is significant.
 
-Periodic financial reconciliation as a product (#45) is a separate issue. The ledger contract in ADR 0011 is the input that work would use.
+Periodic financial reconciliation as a product (#45) is implemented: in-process job, ledger-wins SET of `Seller.balance`, audit + metrics. See `docs/adr/0011-seller-ledger.md`.

@@ -41,3 +41,54 @@ export function computeSellerLedgerAmounts(
 export function ledgerNetMatchesGrossMinusCommission(amounts: SellerLedgerAmounts): boolean {
   return amounts.netAmount.equals(amounts.grossAmount.minus(amounts.commissionAmount));
 }
+
+/** PAID `SUM(netAmount)` is empty → projection must be Decimal zero, not null. */
+export function paidLedgerSumOrZero(sum: Prisma.Decimal | null | undefined): Prisma.Decimal {
+  return sum ?? new Prisma.Decimal(0);
+}
+
+export function sellerProjectionMatchesLedger(
+  projected: Prisma.Decimal,
+  ledgerSum: Prisma.Decimal
+): boolean {
+  return projected.equals(ledgerSum);
+}
+
+export type SellerProjectionRow = {
+  id: string;
+  balance: Prisma.Decimal;
+};
+
+export type PaidLedgerSumRow = {
+  sellerId: string;
+  netAmount: Prisma.Decimal | null;
+};
+
+export type SellerProjectionDrift = {
+  sellerId: string;
+  projected: Prisma.Decimal;
+  ledgerSum: Prisma.Decimal;
+};
+
+/**
+ * Unlocked candidate scan. Callers must re-read `Seller.balance` and PAID SUM
+ * under `SELECT … FOR UPDATE` before correcting (issue #45).
+ */
+export function findSellerProjectionDrifts(
+  projections: SellerProjectionRow[],
+  paidSums: PaidLedgerSumRow[]
+): SellerProjectionDrift[] {
+  const ledgerBySeller = new Map<string, Prisma.Decimal>();
+  for (const row of paidSums) {
+    ledgerBySeller.set(row.sellerId, paidLedgerSumOrZero(row.netAmount));
+  }
+
+  const drifts: SellerProjectionDrift[] = [];
+  for (const seller of projections) {
+    const ledgerSum = ledgerBySeller.get(seller.id) ?? new Prisma.Decimal(0);
+    if (!sellerProjectionMatchesLedger(seller.balance, ledgerSum)) {
+      drifts.push({ sellerId: seller.id, projected: seller.balance, ledgerSum });
+    }
+  }
+  return drifts;
+}
