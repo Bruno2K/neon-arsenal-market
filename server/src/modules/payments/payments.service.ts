@@ -25,32 +25,76 @@ const WEBHOOK_PROVIDER = "PAYPAL";
 
 export const paymentsService = {
   async createPaymentLink(userId: string, input: CreatePaymentInput) {
-    const order = await prisma.order.findUnique({
-      where: { id: input.orderId },
-      include: { items: true },
+    return withSpan("payments.create_link", {}, async (span) => {
+      const order = await prisma.order.findUnique({
+        where: { id: input.orderId },
+        include: { items: true, paymentLink: true },
+      });
+      if (!order) throw new AppError(404, "Order not found");
+      if (order.customerId !== userId) throw new AppError(403, "Not your order");
+      if (order.paymentStatus === "PAID") throw new AppError(400, "Order already paid");
+      if (order.status === "CANCELLED") throw new AppError(400, "Order is cancelled");
+
+      const existing = replayablePaymentLink(order);
+      if (existing) {
+        markSpanOutcome(span, "idempotency_replay");
+        return existing;
+      }
+
+      try {
+        await prisma.paymentLink.create({
+          data: { orderId: order.id, status: "IN_PROGRESS" },
+        });
+      } catch (err) {
+        if (!isPaymentLinkPrimaryKeyError(err)) throw err;
+        return replayOrConflictPaymentLink(order.id, span);
+      }
+
+      let openedPaypalOrderId: string | undefined;
+      try {
+        const amount = order.totalAmount.toFixed(2);
+        // OrdersCreate is not retried by the PayPal client. This call happens
+        // only after a durable PaymentLink claim is inserted.
+        const paypalOrder = await createPayPalOrder(amount, "BRL", order.id);
+        openedPaypalOrderId = (paypalOrder as { id?: string }).id;
+        if (!openedPaypalOrderId) {
+          throw new AppError(500, "Failed to create PayPal order");
+        }
+        const approvalLink =
+          getPayPalApprovalLink(
+            paypalOrder as { links?: Array<{ href?: string; rel?: string }> }
+          ) ?? paypalCheckoutUrl(openedPaypalOrderId);
+
+        await prisma.$transaction(async (tx) => {
+          await tx.paymentLink.update({
+            where: { orderId: order.id },
+            data: {
+              status: "COMPLETED",
+              paypalOrderId: openedPaypalOrderId,
+              approvalUrl: approvalLink,
+            },
+          });
+          await tx.order.update({
+            where: { id: order.id },
+            data: { paypalOrderId: openedPaypalOrderId },
+          });
+        });
+
+        markSpanOutcome(span, "created");
+        return {
+          orderId: order.id,
+          paypalOrderId: openedPaypalOrderId,
+          approvalUrl: approvalLink,
+        };
+      } catch (err) {
+        if (!openedPaypalOrderId) {
+          await prisma.paymentLink.deleteMany({
+            where: { orderId: order.id, status: "IN_PROGRESS" },
+          });
+        }
+        throw err;
+      }
     });
-    if (!order) throw new AppError(404, "Order not found");
-    if (order.customerId !== userId) throw new AppError(403, "Not your order");
-    if (order.paymentStatus === "PAID") throw new AppError(400, "Order already paid");
-    if (order.status === "CANCELLED") throw new AppError(400, "Order is cancelled");
-
-    const amount = order.totalAmount.toFixed(2);
-    const paypalOrder = await createPayPalOrder(amount, "BRL", order.id);
-    const approvalLink = getPayPalApprovalLink(
-      paypalOrder as { links?: Array<{ href?: string; rel?: string }> }
-    );
-    if (!approvalLink) throw new AppError(500, "Failed to create PayPal order");
-
-    await prisma.order.update({
-      where: { id: order.id },
-      data: { paypalOrderId: (paypalOrder as { id?: string }).id },
-    });
-
-    return {
-      orderId: order.id,
-      paypalOrderId: (paypalOrder as { id?: string }).id,
-      approvalUrl: approvalLink,
-    };
   },
 
   async handleWebhook(body: unknown) {
@@ -303,6 +347,77 @@ export const paymentsService = {
     });
   },
 };
+
+type PaymentLinkResult = {
+  orderId: string;
+  paypalOrderId: string;
+  approvalUrl: string;
+};
+
+function replayablePaymentLink(order: {
+  id: string;
+  paypalOrderId: string | null;
+  paymentLink?: {
+    status: string;
+    paypalOrderId: string | null;
+    approvalUrl: string | null;
+  } | null;
+}): PaymentLinkResult | null {
+  const link = order.paymentLink;
+  if (link?.status === "COMPLETED" && link.paypalOrderId && link.approvalUrl) {
+    return {
+      orderId: order.id,
+      paypalOrderId: link.paypalOrderId,
+      approvalUrl: link.approvalUrl,
+    };
+  }
+  if (order.paypalOrderId) {
+    return {
+      orderId: order.id,
+      paypalOrderId: order.paypalOrderId,
+      approvalUrl: link?.approvalUrl ?? paypalCheckoutUrl(order.paypalOrderId),
+    };
+  }
+  return null;
+}
+
+async function replayOrConflictPaymentLink(
+  orderId: string,
+  span: Parameters<typeof markSpanOutcome>[0]
+): Promise<PaymentLinkResult> {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { paymentLink: true },
+  });
+  if (!order) throw new AppError(404, "Order not found");
+  const existing = replayablePaymentLink(order);
+  if (existing) {
+    markSpanOutcome(span, "idempotency_replay");
+    return existing;
+  }
+  markSpanOutcome(span, "idempotency_conflict");
+  throw new AppError(409, "Payment link creation is still in progress for this order");
+}
+
+function paypalCheckoutUrl(paypalOrderId: string): string {
+  const mode = process.env.PAYPAL_MODE ?? "sandbox";
+  const host = mode === "production" ? "https://www.paypal.com" : "https://www.sandbox.paypal.com";
+  return `${host}/checkoutnow?token=${encodeURIComponent(paypalOrderId)}`;
+}
+
+function isPaymentLinkPrimaryKeyError(err: unknown) {
+  if (!(err instanceof Prisma.PrismaClientKnownRequestError) || err.code !== "P2002") {
+    return false;
+  }
+  const target = err.meta?.target;
+  if (Array.isArray(target)) {
+    return target.includes("orderId");
+  }
+  if (typeof target === "string") {
+    return target.includes("PaymentLink_pkey") || target.includes("orderId");
+  }
+  return false;
+}
 
 async function resolveLocalOrderId(parsed: {
   referenceOrderId?: string;

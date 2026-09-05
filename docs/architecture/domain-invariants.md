@@ -49,6 +49,7 @@ Rules:
 7. Each PayPal webhook event id is persisted (`PaymentWebhookEvent`) with a unique constraint on `(provider, externalEventId)`.
 8. Only `PAYMENT.CAPTURE.COMPLETED` confirms local payment. `CHECKOUT.ORDER.APPROVED` is intermediate and must not sell listings or create seller transactions.
 9. External PayPal calls have an explicit timeout. Creating or capturing a PayPal order is not retried. Looking up PayPal order status, fetching an OAuth token, or downloading a webhook certificate may retry HTTP 5xx/429, timeouts and network errors (max 3 attempts, exponential backoff).
+10. `POST /payments` (create payment link) is idempotent per local order. A durable `PaymentLink` row claims the order before `OrdersCreate`. A retry that finds `paypalOrderId` or a completed `PaymentLink` must return the original PayPal order without calling `OrdersCreate` again. Concurrent identical requests have one `OrdersCreate`. An in-progress claim returns HTTP 409.
 
 ## Seller finances
 

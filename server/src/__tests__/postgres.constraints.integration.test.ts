@@ -157,4 +157,29 @@ describe("PostgreSQL unique constraints", () => {
     expectUniqueViolation(caught, ["sellerId", "orderId"]);
     expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(1);
   });
+
+  it("enforces PaymentLink(orderId)", async () => {
+    const fixture = await createCheckoutGraph();
+    const order = await createOrder(
+      fixture.customer.id,
+      [fixture.listings[0].id],
+      orderKey("payment-link-unique")
+    );
+
+    await prisma.paymentLink.create({
+      data: { orderId: order.id, status: "IN_PROGRESS" },
+    });
+
+    let caught: unknown;
+    try {
+      await prisma.paymentLink.create({
+        data: { orderId: order.id, status: "COMPLETED" },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expectUniqueViolation(caught, ["orderId"]);
+    expect(await prisma.paymentLink.count({ where: { orderId: order.id } })).toBe(1);
+  });
 });

@@ -93,10 +93,22 @@ model Order {
   items                  OrderItem[]
   transactions           SellerTransaction[]
   creationIdempotencyKey OrderIdempotencyKey?
+  paymentLink            PaymentLink?
 
   @@index([customerId])
   @@index([status])
   @@index([paymentStatus, status, updatedAt])
+}
+
+model PaymentLink {
+  orderId       String   @id
+  paypalOrderId String?  @unique
+  approvalUrl   String?
+  status        String   @default("IN_PROGRESS") // IN_PROGRESS | COMPLETED
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 }
 
 model OrderIdempotencyKey {

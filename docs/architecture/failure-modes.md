@@ -6,7 +6,7 @@ This is the operational map of how Neon Arsenal fails and recovers. PostgreSQL r
 
 | Call | Timeout | Retry | Duplicate risk | Recovery if the process dies after a remote success |
 |---|---|---|---|---|
-| PayPal `OrdersCreate` | `PAYPAL_API_TIMEOUT_MS` (10s) | None | A retry would open a second PayPal order | Buyer retries `POST /payments` or `POST /orders` with the same idempotency key. Orphan PayPal orders are not captured locally. |
+| PayPal `OrdersCreate` | `PAYPAL_API_TIMEOUT_MS` (10s) | None | A retry would open a second PayPal order | `POST /payments` first inserts `PaymentLink(orderId)`. A completed link or existing `paypalOrderId` is replayed without `OrdersCreate`. Concurrent retries serialize on the unique order id. If the process dies after PayPal accepts create but before the local transaction commits, the `IN_PROGRESS` row remains; the next request returns 409 until the row is completed or removed. That orphan PayPal order is not captured locally. |
 | PayPal `OrdersCapture` | same | None | Capture can move funds | Webhook `PAYMENT.CAPTURE.COMPLETED` or GET reconciliation. |
 | PayPal `OrdersGet` | same | 3 attempts, 5xx/429/timeout/network, exponential backoff | Read-only | Next reconciliation sweep. |
 | PayPal OAuth token | same | same as GET | Read-only token | Next call fetches a new token. |
@@ -28,6 +28,7 @@ Classification lives in `server/src/shared/resilience/retry.ts`. Circuit breaker
 - Two buyers, one listing: one `ACTIVE → RESERVED` conditional update wins. See `docs/architecture/domain-invariants.md`.
 - Expiry vs payment: expiry cannot overwrite `SOLD`; payment cannot sell an expired or re-reserved listing. See `docs/adr/0001-in-process-reservation-expiry.md`.
 - Duplicate `POST /orders`: customer `Idempotency-Key` in the same transaction as the reservation. See `docs/adr/0003-order-creation-idempotency.md`.
+- Duplicate `POST /payments`: unique `PaymentLink(orderId)` inserted before `OrdersCreate`. Replay returns the stored PayPal order id and approval URL. The PayPal client still does not retry `OrdersCreate`.
 
 ## Process lifecycle
 
