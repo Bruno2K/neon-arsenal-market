@@ -49,7 +49,7 @@ Local end state after this failure (before or after the sweep):
 
 ### What this repository does not do
 
-There is no in-app refund or void. R2 does **not** add a PayPal refund client, env var, or `Order.paymentStatus = REFUNDED` transition. Guessing that contract would violate `docs/agents/decision-policy.md`.
+There is no in-app refund or void. Schema comments allow `Order.paymentStatus = REFUNDED`, but no code path sets it for this failure. R2 does **not** add a PayPal refund client, env var, or that transition. Guessing the PayPal contract would violate `docs/agents/decision-policy.md`.
 
 Operator steps (dashboard only, until a human chooses an API) are in `docs/operations/runbook.md`.
 
