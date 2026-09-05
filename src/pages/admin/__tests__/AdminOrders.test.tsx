@@ -48,7 +48,7 @@ describe("AdminOrders", () => {
     expect(await screen.findByText("Pedidos")).toBeTruthy();
     expect(screen.getByText("#order-ab")).toBeTruthy();
     expect(screen.getByText("$18.50")).toBeTruthy();
-    expect(screen.getByText("PAID")).toBeTruthy();
+    expect(screen.getByText("Pago")).toBeTruthy();
     expect(listAdminOrders).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
   });

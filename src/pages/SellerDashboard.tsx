@@ -8,6 +8,7 @@ import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { orderStatusLabel } from "@/lib/userFacingApiError";
 import type { Order } from "@/types/api";
 
 function orderTotal(order: Order): number {
@@ -86,11 +87,7 @@ export default function SellerDashboard() {
     return (
       <ErrorState
         title="Erro ao carregar o painel"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button
             type="button"
@@ -182,7 +179,7 @@ export default function SellerDashboard() {
                     ${orderTotal(order).toFixed(2)}
                   </p>
                   <Badge variant="secondary" className="mt-1">
-                    {order.status}
+                    {orderStatusLabel(order.status)}
                   </Badge>
                 </div>
               </li>

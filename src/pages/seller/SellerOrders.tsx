@@ -6,6 +6,7 @@ import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { orderStatusLabel } from "@/lib/userFacingApiError";
 import type { Order } from "@/types/api";
 
 function orderTotal(order: Order): number {
@@ -53,11 +54,7 @@ export default function SellerOrdersPage() {
     return (
       <ErrorState
         title="Erro ao carregar pedidos"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button type="button" variant="outline" onClick={() => refetch()}>
             Tentar novamente
@@ -107,7 +104,9 @@ export default function SellerOrdersPage() {
                     {extra}
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <Badge variant="secondary">{order.status}</Badge>
+                    <Badge variant="secondary">
+                      {orderStatusLabel(order.status)}
+                    </Badge>
                     {order.createdAt ? (
                       <span className="text-xs text-muted-foreground">
                         {new Date(order.createdAt).toLocaleDateString()}

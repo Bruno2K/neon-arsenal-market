@@ -38,11 +38,7 @@ export default function AdminUsers() {
     return (
       <ErrorState
         title="Erro ao carregar os usuários"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button
             type="button"

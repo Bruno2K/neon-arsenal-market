@@ -8,6 +8,10 @@ import {
   EXPIRED_HOLD_COPY,
   VERIFYING_RESERVATION_COPY,
 } from "@/lib/orderPaymentView";
+import {
+  USER_FACING_NETWORK,
+  USER_FACING_ORDER_CANCELLED,
+} from "@/lib/userFacingApiError";
 
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
@@ -109,8 +113,8 @@ describe("OrderStatusPage", () => {
     ).toBeTruthy();
     expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
     expect(screen.getAllByText("$105.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("Pedido PENDING")).toBeTruthy();
-    expect(screen.getByText("Pagamento PENDING")).toBeTruthy();
+    expect(screen.getByText("Pedido Pendente")).toBeTruthy();
+    expect(screen.getByText("Pagamento Pendente")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
     expect(screen.getByText(/confirmação real vem do PayPal/i)).toBeTruthy();
     expect(screen.getAllByText(/Reservado para você/).length).toBeGreaterThan(
@@ -128,7 +132,7 @@ describe("OrderStatusPage", () => {
     expect(
       await screen.findByRole("heading", { name: "Pagamento confirmado." }),
     ).toBeTruthy();
-    expect(screen.getByText("Pagamento PAID")).toBeTruthy();
+    expect(screen.getByText("Pagamento Pago")).toBeTruthy();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Pagar novamente" }),
@@ -149,7 +153,7 @@ describe("OrderStatusPage", () => {
     );
     expect(screen.getByText(/\d{2}:\d{2}/)).toBeTruthy();
     expect(screen.queryByText("15:00")).toBeNull();
-    expect(screen.getByText("Pedido PENDING")).toBeTruthy();
+    expect(screen.getByText("Pedido Pendente")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
     expect(
       screen.getByRole("button", { name: "Pagar novamente" }),
@@ -170,11 +174,17 @@ describe("OrderStatusPage", () => {
   });
 
   it("offers a network retry that does not invent a paid state", async () => {
-    getOrder.mockRejectedValue(new Error("Falha de rede"));
+    getOrder.mockRejectedValue(
+      new Error(
+        "Could not reach API at http://localhost:3001/orders: Failed to fetch",
+      ),
+    );
     renderPage("/orders/order-1/return");
 
     expect(await screen.findByText("Erro ao carregar o pedido")).toBeTruthy();
-    expect(screen.getByText("Falha de rede")).toBeTruthy();
+    expect(screen.getByText(USER_FACING_NETWORK)).toBeTruthy();
+    expect(screen.queryByText(/localhost/i)).toBeNull();
+    expect(screen.queryByText(/Failed to fetch/i)).toBeNull();
     expect(screen.queryByText(/15:00/)).toBeNull();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     getOrder.mockResolvedValue(pendingOrder());
@@ -296,7 +306,7 @@ describe("OrderStatusPage", () => {
     fireEvent.click(
       await screen.findByRole("button", { name: "Pagar novamente" }),
     );
-    expect(await screen.findByText("Order is cancelled")).toBeTruthy();
+    expect(await screen.findByText(USER_FACING_ORDER_CANCELLED)).toBeTruthy();
     expect(createOrder).not.toHaveBeenCalled();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
   });

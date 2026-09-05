@@ -51,6 +51,11 @@ import { EmptyState, ErrorState } from "@/components/page-state";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
+  listingStatusLabel,
+  logTechnicalError,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -94,7 +99,8 @@ export default function SellerListings() {
       setSeller(s);
       return s.id;
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar vendedor");
+      logTechnicalError(e);
+      setError(userFacingApiError(e));
       return null;
     }
   };
@@ -105,7 +111,8 @@ export default function SellerListings() {
       setListings(res.items);
       setTotal(res.total);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar listings");
+      logTechnicalError(e);
+      setError(userFacingApiError(e));
     } finally {
       setLoading(false);
     }
@@ -215,9 +222,10 @@ export default function SellerListings() {
       setFormOpen(false);
       await loadListings();
     } catch (e) {
+      logTechnicalError(e);
       toast({
         title: editingListing ? "Erro ao atualizar" : "Erro ao criar",
-        description: e instanceof Error ? e.message : undefined,
+        description: userFacingApiError(e),
         variant: "destructive",
       });
     } finally {
@@ -239,9 +247,10 @@ export default function SellerListings() {
       setPriceFormOpen(false);
       await loadListings();
     } catch (e) {
+      logTechnicalError(e);
       toast({
         title: "Erro ao atualizar preço",
-        description: e instanceof Error ? e.message : undefined,
+        description: userFacingApiError(e),
         variant: "destructive",
       });
     } finally {
@@ -257,7 +266,7 @@ export default function SellerListings() {
     } catch (e) {
       toast({
         title: "Erro ao cancelar",
-        description: e instanceof Error ? e.message : undefined,
+        description: userFacingApiError(e),
         variant: "destructive",
       });
     }
@@ -274,7 +283,7 @@ export default function SellerListings() {
     } catch (e) {
       toast({
         title: "Erro ao cancelar",
-        description: e instanceof Error ? e.message : undefined,
+        description: userFacingApiError(e),
         variant: "destructive",
       });
     } finally {
@@ -365,7 +374,7 @@ export default function SellerListings() {
                               : "bg-muted text-muted-foreground"
                         }`}
                       >
-                        {l.status}
+                        {listingStatusLabel(l.status)}
                       </span>
                     </TableCell>
                     <TableCell className="text-right">

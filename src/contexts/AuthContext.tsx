@@ -7,6 +7,10 @@ import {
   ReactNode,
 } from "react";
 import * as authApi from "@/api/auth";
+import {
+  logTechnicalError,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 import type { User } from "@/types/api";
 
 interface AuthContextType {
@@ -64,7 +68,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(data.user);
       return data.user;
     } catch (e) {
-      const message = e instanceof Error ? e.message : "Login failed";
+      const message = userFacingApiError(e);
+      logTechnicalError(e);
       setError(message);
       throw e;
     }
@@ -82,7 +87,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         return await authApi.register(params);
       } catch (e) {
-        const message = e instanceof Error ? e.message : "Registration failed";
+        const message = userFacingApiError(e);
+        logTechnicalError(e);
         setError(message);
         throw e;
       }
@@ -97,8 +103,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const data = await authApi.verifyEmail({ email, code });
         setUser(data.user);
       } catch (e) {
-        const message =
-          e instanceof Error ? e.message : "Invalid or expired code";
+        const message = userFacingApiError(e);
+        logTechnicalError(e);
         setError(message);
         throw e;
       }

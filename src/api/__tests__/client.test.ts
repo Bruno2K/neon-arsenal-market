@@ -59,4 +59,17 @@ describe("api extra headers", () => {
       Authorization: "Bearer access-token",
     });
   });
+
+  it("keeps the API URL on the Error object and does not swallow the failure", async () => {
+    const fetchMock = vi.mocked(fetch);
+    fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(api.get("/listings")).rejects.toMatchObject({
+      name: "ApiClientError",
+      code: "NETWORK",
+      message: expect.stringMatching(
+        /Could not reach API at .+Failed to fetch/,
+      ),
+    });
+  });
 });

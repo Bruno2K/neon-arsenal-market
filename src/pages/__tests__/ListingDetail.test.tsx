@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ListingDetail from "../ListingDetail";
 import type { Listing, PriceHistory } from "@/types/api";
+import { USER_FACING_NOT_FOUND } from "@/lib/userFacingApiError";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
@@ -153,7 +154,7 @@ describe("ListingDetail", () => {
     expect(addButton).toHaveProperty("disabled", true);
     addButton.click();
     expect(addItem).not.toHaveBeenCalled();
-    expect(screen.getByText("Status: SOLD")).toBeTruthy();
+    expect(screen.getByText("Status: Vendido")).toBeTruthy();
   });
 
   it("disables purchase while a future trade lock is active", async () => {
@@ -175,7 +176,12 @@ describe("ListingDetail", () => {
     renderDetail("missing");
 
     expect(await screen.findByText("Listing não encontrado")).toBeTruthy();
-    expect(screen.getByText("Listing not found")).toBeTruthy();
+    expect(screen.getByText(USER_FACING_NOT_FOUND)).toBeTruthy();
+    expect(screen.queryByText("Listing not found")).toBeNull();
+    expect(screen.queryByText(/localhost/i)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Tentar novamente" }),
+    ).toBeNull();
     expect(screen.getByText("Voltar ao Market")).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Adicionar ao Carrinho" }),

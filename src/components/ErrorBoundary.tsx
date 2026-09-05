@@ -30,7 +30,7 @@ export class ErrorBoundary extends Component<Props, State> {
         <div className="container py-20">
           <ErrorState
             title="Algo deu errado"
-            description={this.state.error.message}
+            error={this.state.error}
             action={
               <Button
                 type="button"

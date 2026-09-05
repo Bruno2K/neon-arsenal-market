@@ -4,6 +4,7 @@ import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { orderStatusLabel, paymentStatusLabel } from "@/lib/userFacingApiError";
 import {
   Table,
   TableBody,
@@ -42,11 +43,7 @@ export default function AdminOrders() {
     return (
       <ErrorState
         title="Erro ao carregar os pedidos"
-        description={
-          error instanceof Error
-            ? error.message
-            : "Tente novamente em instantes."
-        }
+        error={error}
         action={
           <Button
             type="button"
@@ -94,10 +91,14 @@ export default function AdminOrders() {
                     {new Date(order.createdAt).toLocaleDateString("pt-BR")}
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline">{order.paymentStatus}</Badge>
+                    <Badge variant="outline">
+                      {paymentStatusLabel(order.paymentStatus)}
+                    </Badge>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{order.status}</Badge>
+                    <Badge variant="secondary">
+                      {orderStatusLabel(order.status)}
+                    </Badge>
                   </TableCell>
                 </TableRow>
               ))}
