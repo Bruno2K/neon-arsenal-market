@@ -1,11 +1,9 @@
 import { Link } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
-import { motion } from "framer-motion";
 import type { Listing } from "@/types/api";
 import { useCart } from "@/contexts/CartContext";
 import { Button } from "@/components/ui/button";
 
-// Export both names for compatibility
 export function ListingCard({ listing }: { listing: Listing }) {
   const { addItem } = useCart();
   const price =
@@ -16,49 +14,51 @@ export function ListingCard({ listing }: { listing: Listing }) {
   const isAvailable =
     listing.status === "ACTIVE" &&
     (!listing.tradeLockUntil || new Date(listing.tradeLockUntil) <= new Date());
+  const monogram = listing.product.weapon.slice(0, 3).toUpperCase();
 
   return (
-    <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.2 }}
-      className="group relative overflow-hidden rounded-lg border border-border bg-card"
-    >
-      <Link to={`/listing/${listing.id}`}>
-        <div className="aspect-square bg-muted flex items-center justify-center p-6 relative overflow-hidden border-b border-border">
-          <div className="scan-lines absolute inset-0" />
-          <div className="text-center">
-            <span className="text-2xl font-heading text-foreground/70 leading-tight block line-clamp-2">
-              {productName}
-            </span>
-            {listing.product.isStattrak && (
-              <span className="text-xs text-primary mt-1 block">StatTrak™</span>
-            )}
-          </div>
+    <article className="group flex flex-col overflow-hidden rounded-md border border-border bg-card">
+      <Link
+        to={`/listing/${listing.id}`}
+        className="relative block aspect-[4/3] bg-muted"
+      >
+        <div className="flex h-full items-center justify-center">
+          <span className="text-2xl font-semibold tracking-tight text-muted-foreground/70">
+            {monogram}
+          </span>
         </div>
+        {listing.product.isStattrak && (
+          <span className="absolute left-2 top-2 rounded-sm bg-background/90 px-1.5 py-0.5 text-[10px] font-medium text-foreground">
+            StatTrak™
+          </span>
+        )}
       </Link>
 
-      <div className="p-3 space-y-2">
+      <div className="flex flex-1 flex-col gap-2 p-3">
         <Link to={`/listing/${listing.id}`}>
-          <h3 className="font-heading text-sm text-foreground truncate hover:text-primary transition-colors normal-case">
+          <h3 className="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors hover:text-primary">
             {productName}
           </h3>
         </Link>
-        <div className="flex items-center justify-between text-[11px] text-muted-foreground">
-          <span>{sellerName}</span>
-          <span>Float: {Number(listing.floatValue).toFixed(8)}</span>
+        <div className="flex items-center justify-between gap-2 text-[11px] text-muted-foreground">
+          <span className="truncate">{sellerName}</span>
+          <span className="tabular-nums">
+            Float: {Number(listing.floatValue).toFixed(8)}
+          </span>
         </div>
-        {listing.pattern && (
-          <span className="text-[10px] text-muted-foreground block">
+        {listing.pattern != null && (
+          <span className="text-[10px] text-muted-foreground">
             Pattern: {listing.pattern}
           </span>
         )}
-        <div className="flex items-center justify-between pt-1 border-t border-border">
-          <span className="font-heading text-primary text-lg">
+        <div className="mt-auto flex items-center justify-between border-t border-border pt-2">
+          <span className="tabular-nums text-base font-semibold text-foreground">
             ${price.toFixed(2)}
           </span>
           <Button
             size="icon"
-            className="h-8 w-8"
+            variant="outline"
+            className="h-9 w-9"
             onClick={(e) => {
               e.preventDefault();
               addItem(listing);
@@ -72,9 +72,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
           </Button>
         </div>
       </div>
-    </motion.div>
+    </article>
   );
 }
 
-// Keep ProductCard export for backward compatibility (will be removed later)
 export const ProductCard = ListingCard;

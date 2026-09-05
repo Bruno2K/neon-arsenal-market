@@ -2,9 +2,11 @@ import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { ListingCard } from "@/components/ProductCard";
+import { EmptyState, ErrorState } from "@/components/page-state";
 import { listListings } from "@/api/listings";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const EXTERIORS = [
   "",
@@ -14,6 +16,38 @@ const EXTERIORS = [
   "Well-Worn",
   "Battle-Scarred",
 ] as const;
+
+const SORTS = [
+  { value: "", label: "Padrão" },
+  { value: "price-asc", label: "Menor Preço" },
+  { value: "price-desc", label: "Maior Preço" },
+  { value: "float-asc", label: "Menor Float" },
+  { value: "float-desc", label: "Maior Float" },
+] as const;
+
+const PAGE_SIZE = 20;
+
+function Chip({
+  active,
+  children,
+  onClick,
+}: {
+  active: boolean;
+  children: string;
+  onClick: () => void;
+}) {
+  return (
+    <Button
+      type="button"
+      variant={active ? "default" : "outline"}
+      size="sm"
+      className="h-8"
+      onClick={onClick}
+    >
+      {children}
+    </Button>
+  );
+}
 
 export default function Products() {
   const [exterior, setExterior] = useState("");
@@ -31,7 +65,7 @@ export default function Products() {
     queryFn: () =>
       listListings({
         page,
-        limit: 20,
+        limit: PAGE_SIZE,
         status: "ACTIVE",
         ...(exterior ? { exterior } : {}),
         ...(isStattrak !== undefined ? { isStattrak } : {}),
@@ -60,140 +94,152 @@ export default function Products() {
 
   return (
     <div className="container py-8">
-      <h1 className="text-3xl font-heading text-foreground mb-6">Market</h1>
+      <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">Market</h1>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Listings ativos · item único
+          </p>
+        </div>
+        {!isLoading && !isError ? (
+          <p className="text-sm tabular-nums text-muted-foreground">
+            {total} resultado{total !== 1 ? "s" : ""}
+          </p>
+        ) : null}
+      </div>
 
-      <div className="flex flex-col gap-4 mb-8">
-        {/* Exterior filter */}
-        <div className="flex flex-col gap-1">
-          <label className="text-xs font-heading text-muted-foreground">
-            Exterior
-          </label>
-          <div className="flex flex-wrap gap-2">
+      <div className="mb-8 space-y-4 border-b border-border pb-6">
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Exterior</p>
+          <div className="flex flex-wrap gap-1.5">
             {EXTERIORS.map((ext) => (
-              <Button
+              <Chip
                 key={ext || "all"}
-                variant={exterior === ext ? "default" : "outline"}
-                size="sm"
+                active={exterior === ext}
                 onClick={() => {
                   setExterior(ext);
                   setPage(1);
                 }}
               >
                 {ext || "Todos"}
-              </Button>
+              </Chip>
             ))}
           </div>
         </div>
 
-        {/* StatTrak + Price row */}
-        <div className="flex flex-col sm:flex-row gap-4 flex-wrap">
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-heading text-muted-foreground">
-              StatTrak™
-            </label>
-            <div className="flex gap-2">
-              {[
-                { value: undefined, label: "Todos" },
-                { value: true, label: "StatTrak™" },
-                { value: false, label: "Normal" },
-              ].map(({ value, label }) => (
-                <Button
+        <div className="flex flex-col gap-4 sm:flex-row sm:flex-wrap">
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">StatTrak™</p>
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  { value: undefined, label: "Todos" },
+                  { value: true, label: "StatTrak™" },
+                  { value: false, label: "Normal" },
+                ] as const
+              ).map(({ value, label }) => (
+                <Chip
                   key={String(value)}
-                  variant={isStattrak === value ? "default" : "outline"}
-                  size="sm"
+                  active={isStattrak === value}
                   onClick={() => {
                     setIsStattrak(value);
                     setPage(1);
                   }}
                 >
                   {label}
-                </Button>
+                </Chip>
               ))}
             </div>
           </div>
 
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-heading text-muted-foreground">
+          <div className="space-y-1.5">
+            <p className="text-xs text-muted-foreground">
               Faixa de Preço (USD)
-            </label>
-            <div className="flex gap-2 items-center">
+            </p>
+            <div className="flex items-center gap-2">
               <Input
                 type="number"
                 placeholder="Mín"
                 value={minPrice}
                 onChange={(e) => setMinPrice(e.target.value)}
-                className="w-24"
+                className="h-8 w-24"
               />
-              <span className="text-muted-foreground text-sm">–</span>
+              <span className="text-sm text-muted-foreground">–</span>
               <Input
                 type="number"
                 placeholder="Máx"
                 value={maxPrice}
                 onChange={(e) => setMaxPrice(e.target.value)}
-                className="w-24"
+                className="h-8 w-24"
               />
-              <Button size="sm" variant="outline" onClick={() => setPage(1)}>
-                <Filter className="h-3 w-3 mr-1" />
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-8"
+                onClick={() => setPage(1)}
+              >
+                <Filter className="mr-1 h-3 w-3" />
                 Filtrar
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Sort row */}
-        <div>
-          <label className="text-xs font-heading text-muted-foreground mb-2 block">
-            Ordenar
-          </label>
-          <div className="flex flex-wrap gap-2">
-            {[
-              { value: "", label: "Padrão" },
-              { value: "price-asc", label: "Menor Preço" },
-              { value: "price-desc", label: "Maior Preço" },
-              { value: "float-asc", label: "Menor Float" },
-              { value: "float-desc", label: "Maior Float" },
-            ].map(({ value, label }) => (
-              <Button
-                key={value}
-                variant={sort === value ? "default" : "outline"}
-                size="sm"
+        <div className="space-y-1.5">
+          <p className="text-xs text-muted-foreground">Ordenar</p>
+          <div className="flex flex-wrap gap-1.5">
+            {SORTS.map(({ value, label }) => (
+              <Chip
+                key={value || "default"}
+                active={sort === value}
                 onClick={() => setSort(value)}
               >
                 {label}
-              </Button>
+              </Chip>
             ))}
           </div>
         </div>
       </div>
 
-      {isLoading && <p className="text-muted-foreground py-8">Carregando...</p>}
-      {isError && (
-        <div className="py-8 text-center">
-          <p className="text-destructive font-heading">
-            {error instanceof Error
-              ? error.message
-              : "Erro ao carregar listings"}
-          </p>
+      {isLoading && (
+        <div
+          className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
+          role="status"
+          aria-label="Carregando"
+        >
+          {Array.from({ length: 8 }).map((_, i) => (
+            <Skeleton key={i} className="h-64 w-full" />
+          ))}
         </div>
       )}
-      {!isLoading && !isError && (
+
+      {isError && (
+        <ErrorState
+          title="Erro ao carregar listings"
+          description={
+            error instanceof Error
+              ? error.message
+              : "Tente novamente em instantes."
+          }
+        />
+      )}
+
+      {!isLoading && !isError && sortedItems.length === 0 && (
+        <EmptyState
+          title="Nenhum item encontrado"
+          description="Tente ajustar os filtros"
+        />
+      )}
+
+      {!isLoading && !isError && sortedItems.length > 0 && (
         <>
-          <p className="text-sm text-muted-foreground mb-4">
-            {total} resultado{total !== 1 ? "s" : ""}
-          </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {sortedItems.map((listing) => (
               <ListingCard key={listing.id} listing={listing} />
             ))}
           </div>
-          {sortedItems.length === 0 && (
-            <div className="text-center py-20 text-muted-foreground">
-              <p className="font-heading text-lg">Nenhum item encontrado</p>
-              <p className="text-sm mt-2">Tente ajustar os filtros</p>
-            </div>
-          )}
-          {total > 20 && (
-            <div className="flex justify-center gap-2 mt-8">
+          {total > PAGE_SIZE && (
+            <div className="mt-8 flex justify-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
@@ -202,13 +248,13 @@ export default function Products() {
               >
                 Anterior
               </Button>
-              <span className="text-sm text-muted-foreground self-center">
+              <span className="self-center text-sm tabular-nums text-muted-foreground">
                 Página {page}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page * 20 >= total}
+                disabled={page * PAGE_SIZE >= total}
                 onClick={() => setPage((p) => p + 1)}
               >
                 Próxima
