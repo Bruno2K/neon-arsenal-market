@@ -82,13 +82,14 @@ See `docs/adr/0005-external-retry-and-graceful-shutdown.md` and `docs/architectu
 
 ### P1.4 Performance evidence
 
-Produce:
+Implemented:
 
-- benchmark for important endpoints/workflows;
-- `EXPLAIN ANALYZE` evidence for important queries;
-- index review;
-- hot-path and capacity notes;
-- identified bottleneck and chosen mitigation.
+- Repeatable `EXPLAIN ANALYZE` + workflow timings (`npm run perf:evidence`, CI in `performance.evidence.integration.test.ts`);
+- Market page uses `Listing(status, createdAt)`; reconciliation uses `Order(paymentStatus, status, updatedAt)`;
+- `COUNT(*)` identified as the listing-list cost, not a reason to add Redis;
+- Capacity assumptions and scaling triggers documented.
+
+See `docs/performance.md`, `docs/architecture/scaling-path.md` and `docs/adr/0006-hot-path-indexes.md`.
 
 ## P2 — Cloud and operational maturity
 
