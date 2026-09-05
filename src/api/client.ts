@@ -43,6 +43,27 @@ async function refreshAccessToken(): Promise<string> {
   return data.accessToken;
 }
 
+function mergeHeaders(
+  ...sources: Array<HeadersInit | undefined>
+): Record<string, string> {
+  const merged: Record<string, string> = {};
+  for (const source of sources) {
+    if (!source) continue;
+    if (source instanceof Headers) {
+      source.forEach((value, key) => {
+        merged[key] = value;
+      });
+    } else if (Array.isArray(source)) {
+      for (const [key, value] of source) {
+        merged[key] = value;
+      }
+    } else {
+      Object.assign(merged, source);
+    }
+  }
+  return merged;
+}
+
 async function request<T>(
   path: string,
   options: RequestInit & { skipAuth?: boolean } = {},
@@ -54,12 +75,11 @@ async function request<T>(
   let access = !skipAuth ? tokenStorage.getAccessToken() : null;
 
   const doFetch = (token: string | null) => {
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-      ...(init.headers as Record<string, string>),
-    };
-    if (token)
-      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    const headers = mergeHeaders(
+      { "Content-Type": "application/json" },
+      init.headers,
+    );
+    if (token) headers.Authorization = `Bearer ${token}`;
     return fetch(url, { ...init, headers });
   };
 
