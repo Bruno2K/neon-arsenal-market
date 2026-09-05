@@ -83,14 +83,14 @@ class SelectNextTests(unittest.TestCase):
         )
 
     def test_skips_busy_and_waits_for_deps(self) -> None:
-        done = {"B0.1", "P0.3"}
+        done = {
+            item["id"]
+            for item in self.catalog["activities"]
+            if item.get("legacyDone") or item["id"] == "B0.1"
+        }
         busy = {"R1": "https://example.test/r1"}
         ready = p_back_next.select_next(self.catalog, done, busy)
-        ids = [item["id"] for item in ready]
-        self.assertNotIn("R1", ids)
-        self.assertNotIn("C1", ids)
-        self.assertIn("R2", ids)
-        self.assertIn("D1", ids)
+        self.assertEqual([item["id"] for item in ready], ["R2", "O1", "D1", "D2"])
 
     def test_c1_waits_for_o1_and_d1(self) -> None:
         done = {"B0.1", "P1.3", "O1"}
@@ -156,6 +156,13 @@ class CatalogContractTests(unittest.TestCase):
         self.assertEqual(activities["C1"]["dependsOn"], ["O1", "D1"])
         self.assertEqual(activities["C2"]["dependsOn"], ["C1"])
         self.assertIn("AWS", catalog()["lockedDecisions"]["cloud"])
+
+    def test_prompt_names_activity_and_forbids_src(self) -> None:
+        activities = {item["id"]: item for item in catalog()["activities"]}
+        prompt = p_back_next.agent_prompt(activities["R1"], catalog())
+        self.assertIn("R1", prompt)
+        self.assertIn("editar src/", prompt)
+        self.assertIn("cursor/p-back-r1-9103", prompt)
 
 
 if __name__ == "__main__":
