@@ -1,13 +1,16 @@
 import { PrismaClient } from "@prisma/client";
+import { withPrismaObservability } from "../observability/prisma.js";
 
-const globalForPrisma = globalThis as unknown as { prisma: PrismaClient };
+const globalForPrisma = globalThis as unknown as { prismaBase?: PrismaClient };
 
-export const prisma =
-  globalForPrisma.prisma ??
+const baseClient =
+  globalForPrisma.prismaBase ??
   new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
 
 if (process.env.NODE_ENV !== "production") {
-  globalForPrisma.prisma = prisma;
+  globalForPrisma.prismaBase = baseClient;
 }
+
+export const prisma = withPrismaObservability(baseClient);

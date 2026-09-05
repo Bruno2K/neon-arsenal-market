@@ -19,6 +19,7 @@ The project focuses primarily on the backend and its business rules, including:
 - API documentation
 - Dockerized local infrastructure
 - Automated testing and CI
+- Optional OpenTelemetry traces and metrics
 
 ## Architecture
 
@@ -277,6 +278,16 @@ GET /ready
 
 `/health` checks process liveness, while `/ready` verifies database connectivity.
 
+## Observability
+
+The API keeps Pino and `X-Request-Id`. OpenTelemetry is **disabled by default**.
+
+```bash
+OTEL_ENABLED=true npm run dev --prefix server
+```
+
+Exporters: `none` (default), `console`, or `otlp`. A missing collector does not prevent the process from starting. See `docs/observability.md`.
+
 ## Engineering Notes
 
 This project is intentionally more than a CRUD application.
@@ -304,8 +315,8 @@ Potential next iterations include:
 - Improved monetary precision using database-native decimal operations
 - Asynchronous processing for non-critical workflows
 - Distributed rate limiting
-- Centralized observability and metrics
-- Background jobs for reservation expiration and payment reconciliation
+- Stronger production export of traces/metrics (collector, dashboards)
+- Benchmarks and query plans for the hottest checkout paths
 
 ## Project Status
 

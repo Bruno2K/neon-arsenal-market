@@ -5,20 +5,29 @@ import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { CreateOrderInput, UpdateOrderTrackingInput } from "./orders.dto.js";
 import { Prisma } from "@prisma/client";
+import { appMetrics } from "../../shared/observability/metrics.js";
+import { markSpanOutcome } from "../../shared/observability/outcomes.js";
+import { withSpan } from "../../shared/observability/tracing.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
 export const ordersService = {
   async create(customerId: string, input: CreateOrderInput, idempotencyKey: string) {
+    return withSpan(
+      "orders.create",
+      { attributes: { "app.listing_count": input.items.length } },
+      async (span) => {
     const normalizedIdempotencyKey = normalizeIdempotencyKey(idempotencyKey);
     const listingIds = input.items.map((i) => i.listingId);
     if (new Set(listingIds).size !== listingIds.length) {
+      appMetrics.ordersCreationFailed();
       throw new AppError(400, "A listing can only appear once in an order");
     }
     const requestHash = createOrderRequestHash(input);
 
     try {
-      const result = await prisma.$transaction(async (tx) => {
+      const result = await withSpan("orders.create.transaction", {}, async () =>
+        prisma.$transaction(async (tx) => {
         await tx.orderIdempotencyKey.create({
           data: {
             customerId,
@@ -45,6 +54,10 @@ export const ordersService = {
           },
         });
 
+        await withSpan(
+          "listings.reserve",
+          { attributes: { "app.listing_count": listingIds.length } },
+          async () => {
         for (const listingId of listingIds) {
           // The status transition is conditional, so two concurrent orders cannot
           // both reserve the same listing. PostgreSQL performs this atomically.
@@ -94,6 +107,8 @@ export const ordersService = {
             priceSnapshot: listing.price,
           });
         }
+          }
+        );
 
         await tx.order.update({
           where: { id: order.id },
@@ -123,12 +138,22 @@ export const ordersService = {
         });
 
         return { ...order, totalAmount };
-      });
+      })
+      );
 
       const order = await ordersRepository.findById(result.id);
+      markSpanOutcome(span, "created");
+      appMetrics.ordersCreated();
+      appMetrics.reservationsCreated(listingIds.length);
       return { ...order!, totalAmount: result.totalAmount };
     } catch (err) {
-      if (!isIdempotencyKeyUniqueConstraintError(err)) throw err;
+      if (!isIdempotencyKeyUniqueConstraintError(err)) {
+        if (err instanceof AppError && /not available|not ACTIVE|trade locked/i.test(err.message)) {
+          appMetrics.reservationsConflict();
+        }
+        appMetrics.ordersCreationFailed();
+        throw err;
+      }
 
       const existing = await prisma.orderIdempotencyKey.findUnique({
         where: {
@@ -139,20 +164,33 @@ export const ordersService = {
         },
       });
 
-      if (!existing) throw err;
+      if (!existing) {
+        appMetrics.ordersCreationFailed();
+        throw err;
+      }
       if (existing.requestHash !== requestHash) {
+        markSpanOutcome(span, "idempotency_conflict");
+        appMetrics.ordersIdempotencyConflict();
         throw new AppError(409, "Idempotency key was already used with a different order request");
       }
       if (existing.status !== "COMPLETED" || !existing.orderId) {
+        markSpanOutcome(span, "idempotency_conflict");
+        appMetrics.ordersIdempotencyConflict();
         throw new AppError(409, "Order creation is still in progress for this idempotency key");
       }
 
       const order = await ordersRepository.findById(existing.orderId);
       if (!order) {
+        markSpanOutcome(span, "idempotency_conflict");
+        appMetrics.ordersIdempotencyConflict();
         throw new AppError(409, "Idempotency key references an order that no longer exists");
       }
+      markSpanOutcome(span, "idempotency_replay");
+      appMetrics.ordersIdempotencyReplay();
       return order;
     }
+      }
+    );
   },
 
   async getById(orderId: string, userId: string, role: string) {

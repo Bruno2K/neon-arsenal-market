@@ -10,6 +10,9 @@ import type {
   UpdateListingPriceInput,
   ListListingsQuery,
 } from "./listings.dto.js";
+import { appMetrics } from "../../shared/observability/metrics.js";
+import { markSpanOutcome } from "../../shared/observability/outcomes.js";
+import { withSpan } from "../../shared/observability/tracing.js";
 
 const VALID_STATUS_TRANSITIONS: Record<string, string[]> = {
   ACTIVE: ["RESERVED", "CANCELED"],
@@ -166,6 +169,7 @@ export const listingsService = {
   },
 
   async reserve(listingId: string) {
+    return withSpan("listings.reserve", {}, async (span) => {
     const now = new Date();
     const reservation = buildReservationWindow(now);
     const reserved = await prisma.listing.updateMany({
@@ -182,6 +186,7 @@ export const listingsService = {
     });
 
     if (reserved.count !== 1) {
+      appMetrics.reservationsConflict();
       const listing = await listingsRepository.findById(listingId);
       if (!listing) throw new AppError(404, "Listing not found");
       if (listing.tradeLockUntil && new Date(listing.tradeLockUntil) > now) {
@@ -192,7 +197,10 @@ export const listingsService = {
 
     const listing = await listingsRepository.findById(listingId);
     if (!listing) throw new AppError(404, "Listing not found");
+    markSpanOutcome(span, "created");
+    appMetrics.reservationsCreated();
     return listing;
+    });
   },
 
   async markAsSold(listingId: string) {
@@ -230,6 +238,7 @@ export const listingsService = {
    * orders) cannot deadlock against payment confirmation.
    */
   async expireReservations(now = new Date()) {
+    return withSpan("listings.expire", {}, async (span) => {
     const expiredListings = await prisma.listing.updateMany({
       where: {
         status: "RESERVED",
@@ -259,10 +268,15 @@ export const listingsService = {
         )
     `;
 
+    if (expiredListings.count > 0) {
+      appMetrics.reservationsExpired(expiredListings.count);
+    }
+    span.setAttribute("app.expired_listing_count", expiredListings.count);
     return {
       expiredListingCount: expiredListings.count,
       cancelledOrderCount: Number(cancelledOrders),
     };
+    });
   },
 
   async cancel(listingId: string, userId: string, role: string) {

@@ -2,6 +2,9 @@ import { Request, Response, NextFunction } from "express";
 import { paymentsService } from "./payments.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 import { logger } from "../../shared/logger.js";
+import { appMetrics } from "../../shared/observability/metrics.js";
+import { markSpanOutcome } from "../../shared/observability/outcomes.js";
+import { withSpan } from "../../shared/observability/tracing.js";
 import { verifyPayPalWebhookSignature } from "../../shared/utils/paypalWebhook.js";
 
 export const paymentsController = {
@@ -17,26 +20,40 @@ export const paymentsController = {
 
   async webhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const rawBody = req.rawBody;
-      if (!rawBody) {
-        logger.warn({ requestId: req.requestId }, "paypal webhook missing raw body");
-        res.status(401).json({ error: "Invalid webhook signature" });
-        return;
-      }
+      const accepted = await withSpan("paypal.webhook.verify", {}, async (span) => {
+        const rawBody = req.rawBody;
+        if (!rawBody) {
+          logger.warn({ requestId: req.requestId }, "paypal webhook missing raw body");
+          markSpanOutcome(span, "webhook_failed");
+          appMetrics.webhooksReceived();
+          appMetrics.webhooksFailed();
+          return false;
+        }
 
-      const verified = await verifyPayPalWebhookSignature({
-        rawBody,
-        headers: {
-          "paypal-transmission-id": headerValue(req.headers["paypal-transmission-id"]),
-          "paypal-transmission-time": headerValue(req.headers["paypal-transmission-time"]),
-          "paypal-transmission-sig": headerValue(req.headers["paypal-transmission-sig"]),
-          "paypal-cert-url": headerValue(req.headers["paypal-cert-url"]),
-          "paypal-auth-algo": headerValue(req.headers["paypal-auth-algo"]),
-        },
+        const verified = await verifyPayPalWebhookSignature({
+          rawBody,
+          headers: {
+            "paypal-transmission-id": headerValue(req.headers["paypal-transmission-id"]),
+            "paypal-transmission-time": headerValue(req.headers["paypal-transmission-time"]),
+            "paypal-transmission-sig": headerValue(req.headers["paypal-transmission-sig"]),
+            "paypal-cert-url": headerValue(req.headers["paypal-cert-url"]),
+            "paypal-auth-algo": headerValue(req.headers["paypal-auth-algo"]),
+          },
+        });
+
+        if (!verified) {
+          logger.warn({ requestId: req.requestId }, "paypal webhook signature rejected");
+          markSpanOutcome(span, "webhook_failed");
+          appMetrics.webhooksReceived();
+          appMetrics.webhooksFailed();
+          return false;
+        }
+
+        markSpanOutcome(span, "confirmed");
+        return true;
       });
 
-      if (!verified) {
-        logger.warn({ requestId: req.requestId }, "paypal webhook signature rejected");
+      if (!accepted) {
         res.status(401).json({ error: "Invalid webhook signature" });
         return;
       }

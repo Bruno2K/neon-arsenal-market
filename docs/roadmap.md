@@ -57,13 +57,15 @@ See `docs/testing.md`.
 
 ### P1.2 Observability
 
-Add:
+Implemented:
 
-- structured logs;
-- request/correlation IDs;
-- OpenTelemetry traces;
-- order/payment/webhook/reservation metrics;
-- database and external-provider latency/error metrics.
+- existing Pino logs plus `X-Request-Id`, with `trace_id` / `span_id` when a span is active;
+- optional OpenTelemetry SDK (`OTEL_ENABLED`, exporters `none` / `console` / `otlp`);
+- HTTP, Prisma, PayPal and critical workflow spans;
+- engineering and business counters with low-cardinality attributes;
+- expected business results distinguished from operational errors.
+
+See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
 
 ### P1.3 Resilience
 

@@ -56,6 +56,16 @@ npm run test:integration
 
 A suíte de integração **não é skipped** se o banco estiver ausente — ela falha.
 
+## Observabilidade
+
+OpenTelemetry fica desligado por padrão. `npm run dev` não precisa de collector.
+
+```bash
+OTEL_ENABLED=true OTEL_EXPORTER=console npm run dev
+```
+
+Variáveis: `OTEL_ENABLED`, `OTEL_EXPORTER` (`none` | `console` | `otlp`), `OTEL_SERVICE_NAME`, `OTEL_EXPORTER_OTLP_*`. Ver `docs/observability.md`.
+
 ## Estrutura
 
 - `src/modules/` — Módulos por domínio (auth, users, sellers, products, orders, payments, commissions, reviews, admin).

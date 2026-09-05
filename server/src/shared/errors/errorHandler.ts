@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Prisma } from "@prisma/client";
 import { AppError } from "./AppError.js";
 import { logger } from "../logger.js";
+import { getLogBindings } from "../observability/context.js";
 
 export function errorHandler(
   err: unknown,
@@ -9,11 +10,12 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  const requestId = req.requestId;
+  const bindings = getLogBindings();
+  const requestId = req.requestId ?? bindings.requestId;
 
   if (err instanceof AppError) {
     if (err.statusCode >= 500) {
-      logger.error({ err, requestId }, err.message);
+      logger.error({ err, ...bindings, requestId }, err.message);
     }
     res.status(err.statusCode).json({ error: err.message });
     return;
@@ -30,6 +32,6 @@ export function errorHandler(
     }
   }
 
-  logger.error({ err, requestId }, "Unhandled error");
+  logger.error({ err, ...bindings, requestId }, "Unhandled error");
   res.status(500).json({ error: "Internal server error." });
 }
