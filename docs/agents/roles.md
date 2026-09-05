@@ -29,6 +29,17 @@ Rules:
 - add/update tests in the same change;
 - avoid unrelated refactors.
 
+## Frontend / Implementation
+
+**Goal:** implement scoped UI work in `src/`.
+
+Rules:
+
+- use existing API contracts and OpenAPI; do not invent endpoints;
+- do not change server payment, reservation, or auth semantics;
+- preserve brand/visual locks in `docs/frontend-sprint.md` unless the GitHub issue supersedes them;
+- add/update UI tests in the same change.
+
 ## Database & Concurrency Reviewer
 
 Use for changes involving PostgreSQL, Prisma, transactions, reservations, orders, payments or balances.
@@ -118,6 +129,7 @@ Must report exact commands and results. It must never claim a check passed if it
 | DB/schema change | Backend + DB/Concurrency + Test + Verification |
 | Order/listing/reservation | Backend + DB/Concurrency + Test + Verification |
 | PayPal/webhook | Backend + Reliability + Security + Test + Verification |
+| Frontend/UI | Implementation + Verification (+ Test/Security for checkout, auth, or API contracts) |
 | New background job | Backend + Reliability + Test + Verification |
 | Architecture change | Planner + Backend + Architecture + Test + Verification |
 | AWS/Terraform/CI | Planner + Backend/Infra + Security + Reliability + Verification |

@@ -62,6 +62,10 @@ Review authentication, authorization, input validation, secrets, webhook authent
 
 Check module boundaries, dependency direction, source of truth, scalability implications, and whether a proposed technology is justified.
 
+### Frontend
+
+Implement UI in `src/` against existing API contracts. Do not invent endpoints, env vars, or payment/reservation semantics.
+
 ### Verification
 
 Independently challenge the implementation against acceptance criteria, invariants, tests, and operational consequences. Look specifically for missing failure modes and accidental scope expansion.

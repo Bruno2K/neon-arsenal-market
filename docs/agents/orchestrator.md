@@ -23,6 +23,20 @@ The orchestrator must load and respect, in order:
 
 Code and executable behavior remain authoritative when documentation is stale.
 
+## How to run
+
+There is **one** orchestrator. Intake is **open GitHub issues**.
+
+```bash
+python3 scripts/orchestrator/next.py          # human-readable spawn plan
+python3 scripts/orchestrator/next.py --json   # machine-readable plan
+python3 scripts/orchestrator/next.py --prompt # Task prompts for each subagent
+```
+
+The parent Cursor agent must Task-launch one subagent per `spawn` entry with the printed role and prompt. It must not implement those issues itself.
+
+`python3 scripts/p-back/next.py` and `python3 scripts/p-front/next.py` are shims (`--track backend` / `--track frontend`). Activity JSON files are historical archives, not intake.
+
 ## Core flow
 
 ```text
@@ -51,8 +65,10 @@ BLOCKED → human decision
 
 ### 1. Intake
 
-- Read the issue and classify risk.
+- List open GitHub issues (`gh issue list --state open`).
+- Classify track (backend `server/` vs frontend `src/`), priority, and risk from labels and title.
 - Identify required roles from the review matrix.
+- Skip probe issues, human-gated infra (Redis/Kafka/SQS/AWS while ADR 0007 keeps Render), and work already evidenced on `origin/main`.
 - Reject work that is underspecified or conflicts with project rules.
 
 ### 2. Context control
@@ -90,6 +106,7 @@ A completed task must leave durable evidence:
 | DB/concurrency | Backend + DB/Concurrency + Test + Verification |
 | Reservation/order lifecycle | Backend + DB/Concurrency + Test + Verification |
 | Payment/webhook | Backend + Reliability + Security + Test + Verification |
+| Frontend/UI | Implementation + Verification (+ Test/Security for checkout, auth, contracts) |
 | Background job | Backend + Reliability + Test + Verification |
 | Architecture | Planner + Backend + Architecture + Test + Verification |
 | Cloud/infra | Planner + Infra/Backend + Security + Reliability + Verification |
@@ -110,9 +127,11 @@ A task that fails verification twice for the same root cause should escalate to 
 
 ## Parallelism
 
-P-back and P-front are specialized **sprint control planes** on top of this contract (`docs/agents/p-back-orchestrator.md`, `docs/agents/p-front-orchestrator.md`). They pick work from `scripts/p-back/activities.json` / `scripts/p-front/activities.json`. They must not add Kafka, Redis, or a workflow engine to the application.
+The orchestrator may spawn at most one backend issue and one frontend issue at a time, because those trees are file-disjoint (`server/` vs `src/`). It must not add Kafka, Redis, or a workflow engine to the application.
 
-Parallel execution is allowed only when scopes and invariants are independent. Examples include independent documentation sections or separate read-only reviews.
+Each spawned subagent owns one GitHub issue, one branch, and one PR. Required reviewer roles run sequentially inside that subagent.
+
+Parallel execution beyond that is allowed only when scopes and invariants are independent. Examples include independent documentation sections or separate read-only reviews.
 
 Do not parallelize:
 
@@ -120,6 +139,7 @@ Do not parallelize:
 - competing schema changes
 - conflicting lifecycle semantics
 - implementation and verification of the same uncommitted state
+- two backend issues, or two frontend issues, in the same wave
 
 ## Human escalation
 

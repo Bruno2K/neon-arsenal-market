@@ -112,7 +112,7 @@ The ECS/Fargate sketch below is a **future option**, not a committed migration. 
 Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → CloudWatch
 ```
 
-Remaining P-back work after this ADR: **C2 skip commit** (no AWS). Catalog: `docs/backend-sprint.md`. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`.
+Remaining P-back catalog work after this ADR landed as the **C2 skip commit**. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`. Further work is selected from GitHub issues (`python3 scripts/orchestrator/next.py`).
 
 ## Documentation deliverables
 
@@ -130,15 +130,17 @@ Maintain:
 
 Documentation is part of the implementation whenever a design or operational decision changes.
 
-## P-back — Backend sprint (control plane)
+## Orchestrator
 
-Post-P1 remaining work is **not** AWS next. Catalog and agent loop: `docs/backend-sprint.md`, `docs/agents/p-back-orchestrator.md`. Next activity: `python3 scripts/p-back/next.py`.
+There is one control plane. Intake is GitHub issues:
 
-## P-front — Frontend rebuild (parallel, `src/` only)
+```bash
+python3 scripts/orchestrator/next.py
+```
 
-Rebuild the existing Vite/React client. No new product features. Locked decisions and activity graph: `docs/frontend-sprint.md`. Agent loop: `docs/agents/p-front-orchestrator.md`. Next activity: `python3 scripts/p-front/next.py`.
+The parent agent spawns one subagent per selected issue with the role set from `docs/agents/roles.md`. File-disjoint parallelism: at most one backend issue (`server/`) and one frontend issue (`src/`) per wave.
 
-May run beside P-back only while PRs stay disjoint (`src/` vs `server/`).
+Historical sprint archives: `docs/backend-sprint.md`, `docs/frontend-sprint.md`. Shims still accept `python3 scripts/p-back/next.py` and `python3 scripts/p-front/next.py`.
 
 ## Agent execution rule
 
@@ -146,4 +148,4 @@ Only one roadmap item should normally be in active implementation at a time. Spl
 
 A lower-priority item must not distract the team from a known unresolved correctness problem.
 
-P-front / P-back are an explicit exception for **file-disjoint** parallelism: frontend agents own `src/` and `docs/frontend-sprint.md`; backend agents own `server/` and `docs/backend-sprint.md`.
+File-disjoint exception: one backend subagent (`server/`) and one frontend subagent (`src/`) may run in the same orchestrator wave.

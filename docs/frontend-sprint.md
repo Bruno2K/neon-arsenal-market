@@ -1,6 +1,6 @@
-# P-front — Frontend rebuild (no new features)
+# Frontend — brand locks (P-front archive)
 
-Parallel sprint to backend P1. Rebuild the existing React/Vite client with modern UX. Do not add product functionality.
+The F0 visual rebuild is complete. Brand, visual, and seller IA locks below still apply. **New product work is allowed when an open GitHub issue asks for it** and the API already exists.
 
 ## Locked decisions
 
@@ -10,30 +10,24 @@ Parallel sprint to backend P1. Rebuild the existing React/Vite client with moder
 | Visual | **Dark editorial**. No neon glow, scan-lines, grid-pattern, or global uppercase headings. |
 | Seller IA | Keep both routes. `/seller/listings` = unique-item CRUD. `/seller/products` = **read-only** Product catalog (`listProducts`). Seller cannot create/update/delete Product (API is ADMIN-only). |
 
-## Out of scope
+## Out of scope (unless a GitHub issue explicitly requires it)
 
-- New routes, search, reviews, buyer order history, real skin images, i18n, PWA
+- Inventing routes or fields that have no existing API
 - Any change under `server/`, Prisma, auth/payment/reservation semantics
 - Weakening CORS, rate limits, auth, or tests
-- Inventing APIs or environment variables
+- Inventing environment variables
+
+The original F0 rebuild freeze (no search/reviews/history) does **not** block later GitHub issues that use existing endpoints.
 
 ## How this sprint is executed
 
-Do **not** open or paste fifteen GitHub issues by hand.
+Brand/visual/seller locks in this file still apply. The **executable queue is GitHub issues**, not `activities.json`.
 
-1. Source of truth is this file plus `scripts/p-front/activities.json`.
-2. A Cloud Agent runs `python3 scripts/p-front/next.py` and implements **only** the printed activity.
-3. PR title must be `[P-front] <ID> — <title>`.
-4. Human reviews and merges.
-5. Human (or the same conversation after merge) says `next`. The agent repeats from step 2.
+1. Run `python3 scripts/orchestrator/next.py --track frontend --prompt`.
+2. The parent agent spawns the printed subagent(s).
+3. Human reviews the draft PR.
 
-Optional GitHub issues, one command on a machine with `gh` write access:
-
-```bash
-python3 scripts/p-front/create-issues.py
-```
-
-This Cloud Agent cannot create issues (`gh` is read-only here). Issues are optional metadata. Agents must follow the files above even if no issue exists.
+`python3 scripts/p-front/next.py` is a shim. Optional bulk issue creation (`python3 scripts/p-front/create-issues.py`) remains write-only metadata; agents must not treat JSON as intake.
 
 ## Inventory (current app)
 
@@ -67,15 +61,17 @@ S2 owns `ListingCard` / `ProductCard`. S1 and S3 wait for S2 to merge. D1/D2 mus
 
 ## Activities
 
-See `scripts/p-front/activities.json` for acceptance criteria, owner files, and verify commands. Status is **not** edited in this file (avoids merge conflicts). Compute it with:
+See `scripts/p-front/activities.json` for the **completed rebuild** acceptance archive. Status is not edited in this file.
+
+Compute the next GitHub issue with:
 
 ```bash
-python3 scripts/p-front/next.py
+python3 scripts/orchestrator/next.py --track frontend
 ```
 
-Done = a commit on `origin/main` whose subject contains `[P-front] <ID>`.
-In progress = an open PR whose title contains `[P-front] <ID>`.
+Done = GitHub issue closed, or equivalent work already on `origin/main`.
+In progress = an open PR that references the issue.
 
 ## Parallelism with backend
 
-Backend uses its own control plane: `docs/backend-sprint.md` and `python3 scripts/p-back/next.py`. A P-back agent/PR may run at the same time. Do not mix `src/` and `server/` in one PR. Do not edit `docs/backend-sprint.md` or `scripts/p-back/` from P-front.
+Backend work uses the same orchestrator (`--track backend`). A backend subagent and a frontend subagent may run at the same time only while PRs stay disjoint (`src/` vs `server/`).

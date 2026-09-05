@@ -58,7 +58,7 @@ def issue_body(activity: dict, catalog: dict) -> str:
 
 ## Sprint
 P-back. Source of truth: `docs/backend-sprint.md` and `scripts/p-back/activities.json`.
-Prefer the orchestrator (`python3 scripts/p-back/next.py`) over hand-picking issues.
+Prefer the orchestrator (`python3 scripts/orchestrator/next.py --track backend`) over hand-picking issues.
 
 ## Locked decisions
 - {locked.get("architecture", "")}
@@ -110,7 +110,7 @@ Execute remaining backend production-maturity work with a deterministic next-act
 Do not paste activities by hand. After this issue exists, agents run:
 
 ```text
-python3 scripts/p-back/next.py --prompt
+python3 scripts/orchestrator/next.py --track backend --prompt
 ```
 
 and implement only the printed activity.
@@ -122,8 +122,8 @@ and implement only the printed activity.
 
 ## Source of truth
 - `docs/backend-sprint.md`
-- `docs/agents/p-back-orchestrator.md`
-- `scripts/p-back/activities.json`
+- `docs/agents/orchestrator.md`
+- GitHub issues (intake)
 """
         result = run(
             [

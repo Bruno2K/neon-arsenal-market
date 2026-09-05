@@ -1,0 +1,36 @@
+---
+description: Unified GitHub-issue orchestrator that spawns role-assigned subagents
+alwaysApply: true
+---
+
+# Orchestrator
+
+There is **one** engineering orchestrator. It reads **GitHub issues**, not `scripts/p-front/activities.json` or `scripts/p-back/activities.json`.
+
+## When the user says `next`, `orquestrador`, or `orchestrator`
+
+The parent agent must:
+
+1. Run `python3 scripts/orchestrator/next.py --json` (add `--prompt` when spawning).
+2. Treat `spawn[]` as the work set. Each entry already has `role`, `requiredRoles`, `subagentType`, `branch`, and `prompt`.
+3. Launch **one Task subagent per `spawn` entry** (`subagentType`, usually `generalPurpose`) with that prompt. Do not implement those issues in the parent.
+4. Parallelize only when tracks are disjoint (`src/` vs `server/`). Default is one backend issue and one frontend issue.
+5. After a subagent returns, do not mark the GitHub issue closed (`gh` is read-only). Do not merge.
+
+`--track backend` or `--track frontend` narrows the set. `--issue N` forces a single issue.
+
+## Roles
+
+Assign the `role` from the plan. Execute `requiredRoles` sequentially inside that subagent (Planner → implementation → tests → risk reviewers → Verification). Do not invent extra agents for every cell in the matrix.
+
+Follow `docs/agents/roles.md` and `.cursor/rules/00`–`05`. Verification must challenge acceptance criteria; compilation is not done.
+
+## Intake
+
+Source of truth: open GitHub issues.
+
+- Done: closed issue, or high-confidence match against `origin/main` commit subjects (listed as `likelyDone`).
+- Busy: open PR that references the issue.
+- Gated: Redis/Kafka/SQS/AWS/Terraform unless an ADR supersedes 0007 and selects AWS.
+
+Historical sprint JSON under `scripts/p-front/` and `scripts/p-back/` is archive only. Shims `python3 scripts/p-front/next.py` and `python3 scripts/p-back/next.py` delegate to this orchestrator.
