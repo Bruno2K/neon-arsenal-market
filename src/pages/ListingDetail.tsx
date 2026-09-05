@@ -19,6 +19,7 @@ export default function ListingDetail() {
     isLoading,
     isError,
     error,
+    refetch,
   } = useQuery({
     queryKey: ["listing", id],
     queryFn: () => getListing(id!),
@@ -83,9 +84,14 @@ export default function ListingDetail() {
               : "Este item não está disponível."
           }
           action={
-            <Button asChild>
-              <Link to="/products">Voltar ao Market</Link>
-            </Button>
+            <div className="flex justify-center gap-2">
+              <Button type="button" variant="outline" onClick={() => refetch()}>
+                Tentar novamente
+              </Button>
+              <Button asChild>
+                <Link to="/products">Voltar ao Market</Link>
+              </Button>
+            </div>
           }
         />
       </div>

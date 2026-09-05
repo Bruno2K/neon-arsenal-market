@@ -36,7 +36,11 @@ export default function Login() {
     <div className="flex min-h-screen flex-col bg-background">
       <div className="flex flex-1 items-center justify-center px-4 py-12">
         <div className="w-full max-w-sm">
-          <Link to="/" className="mb-8 flex items-center gap-2.5">
+          <Link
+            to="/"
+            className="mb-8 flex min-h-11 items-center gap-2.5 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            aria-label="Neon Arsenal, página inicial"
+          >
             <span className="h-4 w-4 rounded-sm bg-primary" aria-hidden />
             <span className="text-[15px] font-semibold tracking-tight text-foreground">
               Neon Arsenal
@@ -61,6 +65,7 @@ export default function Login() {
                 required
                 autoComplete="email"
                 aria-invalid={error ? true : undefined}
+                aria-describedby={error ? "login-error" : undefined}
               />
             </div>
             <div>
@@ -76,10 +81,11 @@ export default function Login() {
                   required
                   autoComplete="current-password"
                   aria-invalid={error ? true : undefined}
+                  aria-describedby={error ? "login-error" : undefined}
                 />
                 <button
                   type="button"
-                  className="absolute right-0 top-0 flex h-10 w-10 items-center justify-center text-muted-foreground hover:text-foreground"
+                  className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                   onClick={() => setShowPassword((open) => !open)}
                   aria-label={showPassword ? "Ocultar senha" : "Mostrar senha"}
                 >
@@ -92,7 +98,11 @@ export default function Login() {
               </div>
             </div>
             {error ? (
-              <p className="text-sm text-destructive" role="alert">
+              <p
+                id="login-error"
+                className="text-sm text-destructive"
+                role="alert"
+              >
                 {error}
               </p>
             ) : null}

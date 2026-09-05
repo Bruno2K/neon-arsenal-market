@@ -1,6 +1,6 @@
 import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
-import { PageSkeleton } from "@/components/page-state";
+import { ErrorState, PageSkeleton } from "@/components/page-state";
 import type { Role } from "@/types/api";
 
 interface ProtectedRouteProps {
@@ -29,10 +29,11 @@ export function ProtectedRoute({
     !allowedRoles.includes(user.role)
   ) {
     return (
-      <div className="container py-20 text-center">
-        <p className="text-muted-foreground font-heading text-xl">
-          Acesso negado.
-        </p>
+      <div className="container py-20">
+        <ErrorState
+          title="Acesso negado"
+          description="Esta área exige outra conta ou permissão."
+        />
       </div>
     );
   }

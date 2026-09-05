@@ -29,9 +29,10 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   AlertDialog,
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { EmptyState, ErrorState } from "@/components/page-state";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -114,21 +116,21 @@ export default function SellerListings() {
     }
   };
 
+  const reload = async () => {
+    setLoading(true);
+    setError(null);
+    const sellerId = await loadSeller();
+    if (!sellerId) {
+      setLoading(false);
+      return;
+    }
+    await Promise.all([loadListings(), loadProducts()]);
+  };
+
   useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setLoading(true);
-      setError(null);
-      const sellerId = await loadSeller();
-      if (cancelled || !sellerId) {
-        if (!sellerId) setLoading(false);
-        return;
-      }
-      await Promise.all([loadListings(), loadProducts()]);
-    })();
-    return () => {
-      cancelled = true;
-    };
+    void reload();
+    // Mount + explicit retry via reload(); load helpers close over setters only.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const openCreate = () => {
@@ -271,12 +273,17 @@ export default function SellerListings() {
     }
   };
 
-  if (error && !seller) {
+  if (error) {
     return (
-      <div className="space-y-4">
-        <h1 className="text-2xl font-semibold tracking-tight">Meus listings</h1>
-        <p className="text-sm text-destructive">{error}</p>
-      </div>
+      <ErrorState
+        title="Erro ao carregar listings"
+        description={error}
+        action={
+          <Button type="button" variant="outline" onClick={() => void reload()}>
+            Tentar novamente
+          </Button>
+        }
+      />
     );
   }
 
@@ -305,8 +312,18 @@ export default function SellerListings() {
         >
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
+      ) : listings.length === 0 ? (
+        <EmptyState
+          title="Nenhum listing"
+          description="Crie um item único a partir do catálogo de produtos."
+          action={
+            <Button onClick={openCreate} disabled={!seller}>
+              Novo Listing
+            </Button>
+          }
+        />
       ) : (
-        <div className="rounded-lg border border-border overflow-hidden">
+        <div className="overflow-hidden rounded-lg border border-border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -318,89 +335,80 @@ export default function SellerListings() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {listings.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={5}
-                    className="text-center text-muted-foreground py-8"
-                  >
-                    Nenhum listing. Clique em Novo Listing para criar.
-                  </TableCell>
-                </TableRow>
-              ) : (
-                listings.map((l) => {
-                  const productName = `${l.product.weapon} | ${l.product.skinName} (${l.product.exterior})`;
-                  return (
-                    <TableRow key={l.id}>
-                      <TableCell className="font-medium">
-                        {productName}
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell text-muted-foreground">
-                        {Number(l.floatValue).toFixed(8)}
-                      </TableCell>
-                      <TableCell className="tabular-nums font-medium">
-                        ${Number(l.price).toFixed(2)}
-                      </TableCell>
-                      <TableCell>
-                        <span
-                          className={`text-xs font-medium px-2 py-1 rounded ${
-                            l.status === "ACTIVE"
-                              ? "bg-primary/10 text-primary"
-                              : l.status === "SOLD"
-                                ? "bg-green-500/10 text-green-500"
-                                : "bg-muted text-muted-foreground"
-                          }`}
-                        >
-                          {l.status}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          {l.status === "ACTIVE" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openPriceEdit(l)}
-                                title="Atualizar preço"
-                              >
-                                <DollarSign className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEdit(l)}
-                                title="Editar"
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                            </>
-                          )}
-                          {l.status === "ACTIVE" && (
+              {listings.map((l) => {
+                const productName = `${l.product.weapon} | ${l.product.skinName} (${l.product.exterior})`;
+                return (
+                  <TableRow key={l.id}>
+                    <TableCell className="font-medium">{productName}</TableCell>
+                    <TableCell className="hidden md:table-cell text-muted-foreground">
+                      {Number(l.floatValue).toFixed(8)}
+                    </TableCell>
+                    <TableCell className="tabular-nums font-medium">
+                      ${Number(l.price).toFixed(2)}
+                    </TableCell>
+                    <TableCell>
+                      <span
+                        className={`text-xs font-medium px-2 py-1 rounded ${
+                          l.status === "ACTIVE"
+                            ? "bg-primary/10 text-primary"
+                            : l.status === "SOLD"
+                              ? "bg-green-500/10 text-green-500"
+                              : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        {l.status}
+                      </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {l.status === "ACTIVE" && (
+                          <>
                             <Button
                               variant="ghost"
                               size="icon"
-                              onClick={() => handleCancel(l)}
-                              title="Cancelar listing"
+                              onClick={() => openPriceEdit(l)}
+                              title="Atualizar preço"
+                              aria-label="Atualizar preço"
                             >
-                              <EyeOff className="h-4 w-4" />
+                              <DollarSign className="h-4 w-4" />
                             </Button>
-                          )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEdit(l)}
+                              title="Editar"
+                              aria-label="Editar"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </>
+                        )}
+                        {l.status === "ACTIVE" && (
                           <Button
                             variant="ghost"
                             size="icon"
-                            onClick={() => setDeleteTarget(l)}
-                            title="Excluir"
-                            className="text-destructive hover:text-destructive"
+                            onClick={() => handleCancel(l)}
+                            title="Cancelar listing"
+                            aria-label="Cancelar listing"
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <EyeOff className="h-4 w-4" />
                           </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
+                        )}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteTarget(l)}
+                          title="Excluir"
+                          aria-label="Excluir"
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </div>
@@ -412,10 +420,17 @@ export default function SellerListings() {
             <DialogTitle>
               {editingListing ? "Editar listing" : "Novo listing"}
             </DialogTitle>
+            <DialogDescription>
+              {editingListing
+                ? "Atualize os dados deste item único."
+                : "Cadastre um item único a partir do catálogo."}
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="productId">Produto</Label>
+              <Label htmlFor="productId" id="productId-label">
+                Produto
+              </Label>
               <Select
                 value={form.productId}
                 onValueChange={(value) =>
@@ -423,7 +438,7 @@ export default function SellerListings() {
                 }
                 disabled={!!editingListing}
               >
-                <SelectTrigger>
+                <SelectTrigger id="productId" aria-labelledby="productId-label">
                   <SelectValue placeholder="Selecione um produto" />
                 </SelectTrigger>
                 <SelectContent>
@@ -483,14 +498,16 @@ export default function SellerListings() {
                 />
               </div>
               <div className="grid gap-2">
-                <Label htmlFor="currency">Moeda</Label>
+                <Label htmlFor="currency" id="currency-label">
+                  Moeda
+                </Label>
                 <Select
                   value={form.currency}
                   onValueChange={(value) =>
                     setForm((f) => ({ ...f, currency: value }))
                   }
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="currency" aria-labelledby="currency-label">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -549,6 +566,9 @@ export default function SellerListings() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Atualizar Preço</DialogTitle>
+            <DialogDescription>
+              Informe o novo preço deste listing.
+            </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">

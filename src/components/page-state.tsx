@@ -27,7 +27,7 @@ export function EmptyState({
   action?: Action;
 }) {
   return (
-    <div className="mx-auto max-w-md py-16 text-center">
+    <div className="mx-auto max-w-md py-16 text-center" role="status">
       <h2 className="text-lg font-semibold tracking-tight text-foreground">
         {title}
       </h2>
@@ -49,7 +49,7 @@ export function ErrorState({
   action?: Action;
 }) {
   return (
-    <div className="mx-auto max-w-md py-16 text-center">
+    <div className="mx-auto max-w-md py-16 text-center" role="alert">
       <h2 className="text-lg font-semibold tracking-tight text-foreground">
         {title}
       </h2>

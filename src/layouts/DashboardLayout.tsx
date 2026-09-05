@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet";
@@ -56,11 +57,12 @@ function NavItems({
             key={item.href}
             to={item.href}
             onClick={onNavigate}
-            className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors ${
+            className={`flex min-h-11 items-center gap-3 rounded-md px-3 py-2.5 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               active
                 ? "bg-secondary text-foreground"
                 : "text-muted-foreground hover:bg-muted hover:text-foreground"
             }`}
+            aria-current={active ? "page" : undefined}
           >
             <item.icon className="h-4 w-4 shrink-0" />
             {item.label}
@@ -99,6 +101,7 @@ export default function DashboardLayout() {
               <SheetContent side="left" className="w-72">
                 <SheetHeader>
                   <SheetTitle>{isAdmin ? "Admin" : "Dashboard"}</SheetTitle>
+                  <SheetDescription>Navegação do painel</SheetDescription>
                 </SheetHeader>
                 <div className="mt-4">
                   <NavItems

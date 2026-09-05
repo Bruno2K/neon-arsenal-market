@@ -93,5 +93,37 @@ describe("SellerListings", () => {
     expect(screen.getByTitle("Editar")).toBeTruthy();
     expect(screen.getByTitle("Atualizar preço")).toBeTruthy();
     expect(screen.getByTitle("Cancelar listing")).toBeTruthy();
+    expect(screen.getByLabelText("Editar")).toBeTruthy();
+  });
+
+  it("shows an empty state when the seller has no listings", async () => {
+    getSellerListings.mockResolvedValue({ items: [], total: 0 });
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText("Nenhum listing")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Novo Listing" }).length).toBe(
+      2,
+    );
+  });
+
+  it("shows an error state that can be retried", async () => {
+    getSellerMe.mockRejectedValue(new Error("sessão expirada"));
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByRole("alert")).toBeTruthy();
+    expect(screen.getByText("Erro ao carregar listings")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Tentar novamente" }),
+    ).toBeTruthy();
   });
 });
