@@ -1,4 +1,9 @@
-const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:3001";
+import { resolveApiBaseUrl } from "./apiBaseUrl";
+
+const API_BASE = resolveApiBaseUrl({
+  API_URL: import.meta.env.API_URL,
+  VITE_API_URL: import.meta.env.VITE_API_URL,
+});
 
 type TokenStorage = {
   getAccessToken: () => string | null;
@@ -40,10 +45,12 @@ async function refreshAccessToken(): Promise<string> {
 
 async function request<T>(
   path: string,
-  options: RequestInit & { skipAuth?: boolean } = {}
+  options: RequestInit & { skipAuth?: boolean } = {},
 ): Promise<T> {
   const { skipAuth, ...init } = options;
-  const url = path.startsWith("http") ? path : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
+  const url = path.startsWith("http")
+    ? path
+    : `${API_BASE}${path.startsWith("/") ? path : `/${path}`}`;
   let access = !skipAuth ? tokenStorage.getAccessToken() : null;
 
   const doFetch = (token: string | null) => {
@@ -51,7 +58,8 @@ async function request<T>(
       "Content-Type": "application/json",
       ...(init.headers as Record<string, string>),
     };
-    if (token) (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
+    if (token)
+      (headers as Record<string, string>)["Authorization"] = `Bearer ${token}`;
     return fetch(url, { ...init, headers });
   };
 
@@ -81,9 +89,17 @@ export const api = {
   get: <T>(path: string, options?: ApiOptions) =>
     request<T>(path, { ...options, method: "GET" }),
   post: <T>(path: string, body?: unknown, options?: ApiOptions) =>
-    request<T>(path, { ...options, method: "POST", body: body ? JSON.stringify(body) : undefined }),
+    request<T>(path, {
+      ...options,
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
   patch: <T>(path: string, body?: unknown, options?: ApiOptions) =>
-    request<T>(path, { ...options, method: "PATCH", body: body ? JSON.stringify(body) : undefined }),
+    request<T>(path, {
+      ...options,
+      method: "PATCH",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 

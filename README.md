@@ -137,12 +137,25 @@ When a payment is confirmed, seller transactions are generated from the order it
 - Docker
 - Docker Compose
 - GitHub Actions
-- Railway / Render
+- Vercel
+- Render
 
 ### Integrations
 
 - PayPal
 - Resend
+
+## Deployment
+
+For the common split deployment, use Vercel for the Vite frontend and Render for the Express API:
+
+- In Vercel, add `API_URL` as **Config** (not Sensitive) with the public Render API origin, for example `https://neon-arsenal-api.onrender.com`. Do not use the `VITE_` prefix.
+- In Render, set `FRONTEND_URL` to the public frontend origin. Use a comma-separated list when allowing both production and preview origins.
+- In Render, set `RESEND_API_KEY` and `EMAIL_FROM` so production registration can send verification codes.
+- Keep `SEED_DEMO_DATA=true` only for demo/test deployments that should expose the seeded accounts shown on the login page.
+- `vercel.json` rewrites React Router paths to `index.html` so direct page refreshes do not return 404.
+
+The Render Blueprint also defines an optional `neon-arsenal-web` static site. If you deploy the frontend on Render instead of Vercel, set its `API_URL`; the Blueprint includes the same SPA rewrite to `index.html`.
 
 ### Testing & Documentation
 

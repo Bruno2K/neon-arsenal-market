@@ -6,10 +6,11 @@ const { app } = await import("./app.js");
 const { startReservationExpiryJob } = await import("./shared/jobs/reservationExpiryJob.js");
 const { startPaypalReconciliationJob } = await import("./shared/jobs/paypalReconciliationJob.js");
 
-const PORT = process.env.PORT ?? 3001;
+const PORT = Number(process.env.PORT ?? 3001);
+const HOST = "0.0.0.0";
 
-app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+app.listen(PORT, HOST, () => {
+  console.log(`Server running on http://${HOST}:${PORT}`);
   startReservationExpiryJob();
   startPaypalReconciliationJob();
 });

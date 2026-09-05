@@ -106,7 +106,7 @@ services:
     ports:
       - "5173:5173"
     environment:
-      VITE_API_URL: http://localhost:3001
+      API_URL: http://localhost:3001
     volumes:
       - .:/app
       - /app/node_modules
