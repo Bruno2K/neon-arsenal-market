@@ -40,7 +40,7 @@ Rules:
 
 1. A payment confirmation is idempotent.
 2. Duplicate webhook delivery must not create duplicate seller transactions or duplicate balance increments.
-3. Webhook authenticity must be verified before trusting an event. Required PayPal headers: `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url`, `paypal-auth-algo`.
+3. Webhook authenticity must be verified before trusting an event. Required PayPal headers: `paypal-transmission-id`, `paypal-transmission-time`, `paypal-transmission-sig`, `paypal-cert-url`, `paypal-auth-algo`. `paypal-transmission-time` must be a valid RFC 3339 timestamp within 5 minutes of the server clock (absolute skew).
 4. Payment state comes from the trusted payment integration, not from a client assertion.
 5. Local payment processing must tolerate duplicate, delayed, out-of-order and retried provider events.
 6. A crash must not permanently leave the system unable to reconcile external payment state with local state.

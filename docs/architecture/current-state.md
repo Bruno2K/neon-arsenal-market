@@ -76,7 +76,7 @@ Payment creation calls PayPal outside the database transaction, with an explicit
 
 Webhook handling:
 
-1. Capture the raw body and verify RSA-SHA256 using `PAYPAL_WEBHOOK_ID` and the certificate at `paypal-cert-url`.
+1. Capture the raw body and verify RSA-SHA256 using `PAYPAL_WEBHOOK_ID` and the certificate at `paypal-cert-url`. `paypal-transmission-time` must be within 5 minutes of the server clock.
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
 4. `confirmPayment` claims the pending order, sells held listings, and writes seller transactions in one PostgreSQL transaction.

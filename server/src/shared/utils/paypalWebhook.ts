@@ -1,7 +1,7 @@
 import { createVerify } from "node:crypto";
 import { crc32 as zlibCrc32 } from "node:zlib";
 import { logger } from "../logger.js";
-import { getPayPalApiTimeoutMs } from "../config/paypal.js";
+import { getPayPalApiTimeoutMs, PAYPAL_WEBHOOK_MAX_SKEW_MS } from "../config/paypal.js";
 
 const PAYPAL_CERT_HOSTS = new Set([
   "api.paypal.com",
@@ -35,13 +35,17 @@ export type VerifyPayPalWebhookInput = {
   webhookId?: string;
   nodeEnv?: string;
   fetchCertificate?: (url: string) => Promise<string>;
+  /** Injected for tests. Production uses the current clock. */
+  now?: Date;
 };
 
 /**
  * Official PayPal self-verification (preferred over postback).
  * Message: transmissionId|timeStamp|webhookId|crc32(rawBody)
  * Signature: RSA-SHA256 over that string using the cert at paypal-cert-url.
+ * Freshness: |now − paypal-transmission-time| must be ≤ 5 minutes (PayPal replay guidance).
  * @see https://developer.paypal.com/api/rest/webhooks/rest/#link-messageverification
+ * @see https://developer.paypal.com/api/invoicing/webhooks/#link-validationprocess
  */
 export async function verifyPayPalWebhookSignature(input: VerifyPayPalWebhookInput): Promise<boolean> {
   const nodeEnv = input.nodeEnv ?? process.env.NODE_ENV ?? "development";
@@ -71,6 +75,11 @@ export async function verifyPayPalWebhookSignature(input: VerifyPayPalWebhookInp
     return false;
   }
 
+  if (!isPayPalTransmissionTimeFresh(transmissionTime, input.now ?? new Date())) {
+    logger.warn("paypal webhook rejected: transmission time outside freshness window");
+    return false;
+  }
+
   const crc = computePaypalCrc32(input.rawBody);
   const message = `${transmissionId}|${transmissionTime}|${webhookId}|${crc}`;
 
@@ -83,6 +92,75 @@ export async function verifyPayPalWebhookSignature(input: VerifyPayPalWebhookInp
     logger.warn({ err }, "paypal webhook signature verification failed");
     return false;
   }
+}
+
+/**
+ * PayPal documents transmission_time as RFC 3339 and requires it to be within
+ * 5 minutes of the local clock (absolute skew) to prevent replay of a captured
+ * signed request. Legitimate PayPal retries are new HTTP transmissions with a
+ * new transmission-time and signature, so they are not blocked by this window.
+ */
+export function isPayPalTransmissionTimeFresh(
+  transmissionTime: string,
+  now: Date = new Date(),
+  maxSkewMs: number = PAYPAL_WEBHOOK_MAX_SKEW_MS
+): boolean {
+  const transmittedAt = parsePaypalTransmissionTime(transmissionTime);
+  if (!transmittedAt) return false;
+  const nowMs = now.getTime();
+  if (!Number.isFinite(nowMs)) return false;
+  return Math.abs(nowMs - transmittedAt.getTime()) <= maxSkewMs;
+}
+
+const RFC3339_DATE_TIME =
+  /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$/;
+
+export function parsePaypalTransmissionTime(value: string): Date | null {
+  const match = RFC3339_DATE_TIME.exec(value);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const hour = Number(match[4]);
+  const minute = Number(match[5]);
+  const second = Number(match[6]);
+  const fraction = match[7] ? Number(`0${match[7]}`) : 0;
+  const offset = match[8];
+
+  if (month < 1 || month > 12 || hour > 23 || minute > 59 || second > 59) {
+    return null;
+  }
+
+  let offsetMinutes = 0;
+  if (offset !== "Z") {
+    const sign = offset.startsWith("-") ? -1 : 1;
+    const offsetHour = Number(offset.slice(1, 3));
+    const offsetMinute = Number(offset.slice(4, 6));
+    if (offsetHour > 23 || offsetMinute > 59) return null;
+    offsetMinutes = sign * (offsetHour * 60 + offsetMinute);
+  }
+
+  const utcMs =
+    Date.UTC(year, month - 1, day, hour, minute, second, Math.round(fraction * 1000)) -
+    offsetMinutes * 60_000;
+  const parsed = new Date(utcMs);
+  if (!Number.isFinite(parsed.getTime())) return null;
+
+  // Reject calendar overflow such as 2026-02-31 by round-tripping wall time.
+  const wall = new Date(parsed.getTime() + offsetMinutes * 60_000);
+  if (
+    wall.getUTCFullYear() !== year ||
+    wall.getUTCMonth() + 1 !== month ||
+    wall.getUTCDate() !== day ||
+    wall.getUTCHours() !== hour ||
+    wall.getUTCMinutes() !== minute ||
+    wall.getUTCSeconds() !== second
+  ) {
+    return null;
+  }
+
+  return parsed;
 }
 
 export function computePaypalCrc32(rawBody: Buffer): number {

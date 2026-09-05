@@ -23,34 +23,103 @@ describe("verifyPayPalWebhookSignature", () => {
   const publicPem = publicKey.export({ type: "spki", format: "pem" }).toString();
   const privatePem = privateKey.export({ type: "pkcs8", format: "pem" }).toString();
   const webhookId = "WH-TEST-ID";
+  const now = new Date("2026-09-05T12:00:00.000Z");
+  const recentTime = "2026-09-05T11:59:30Z";
   const rawBody = Buffer.from(
     JSON.stringify({
       id: "WH-EVENT-1",
       event_type: "PAYMENT.CAPTURE.COMPLETED",
     })
   );
-  const headers = {
-    "paypal-transmission-id": "tx-1",
-    "paypal-transmission-time": "2026-09-04T12:00:00Z",
-    "paypal-transmission-sig": "",
-    "paypal-cert-url": "https://api.sandbox.paypal.com/v1/notifications/certs/CERT-1",
-    "paypal-auth-algo": "SHA256withRSA",
-  };
 
-  it("accepts a valid RSA-SHA256 webhook signature", async () => {
-    const sig = signWebhook({
-      rawBody,
-      webhookId,
-      transmissionId: headers["paypal-transmission-id"],
-      transmissionTime: headers["paypal-transmission-time"],
-      privateKeyPem: privatePem,
-    });
+  function headersFor(transmissionTime: string) {
+    return {
+      "paypal-transmission-id": "tx-1",
+      "paypal-transmission-time": transmissionTime,
+      "paypal-transmission-sig": signWebhook({
+        rawBody,
+        webhookId,
+        transmissionId: "tx-1",
+        transmissionTime,
+        privateKeyPem: privatePem,
+      }),
+      "paypal-cert-url": "https://api.sandbox.paypal.com/v1/notifications/certs/CERT-1",
+      "paypal-auth-algo": "SHA256withRSA" as const,
+    };
+  }
 
+  it("accepts a valid RSA-SHA256 signature with a recent transmission time", async () => {
     const verified = await verifyPayPalWebhookSignature({
       rawBody,
-      headers: { ...headers, "paypal-transmission-sig": sig },
+      headers: headersFor(recentTime),
       webhookId,
       nodeEnv: "production",
+      now,
+      fetchCertificate: async () => publicPem,
+    });
+
+    expect(verified).toBe(true);
+  });
+
+  it("rejects an old transmission time even when the signature is valid", async () => {
+    const verified = await verifyPayPalWebhookSignature({
+      rawBody,
+      headers: headersFor("2026-09-05T11:54:59Z"),
+      webhookId,
+      nodeEnv: "production",
+      now,
+      fetchCertificate: async () => publicPem,
+    });
+
+    expect(verified).toBe(false);
+  });
+
+  it("rejects a malformed transmission time even when the signature is valid", async () => {
+    const verified = await verifyPayPalWebhookSignature({
+      rawBody,
+      headers: headersFor("not-a-timestamp"),
+      webhookId,
+      nodeEnv: "production",
+      now,
+      fetchCertificate: async () => publicPem,
+    });
+
+    expect(verified).toBe(false);
+  });
+
+  it("rejects a calendar-overflow transmission time", async () => {
+    const verified = await verifyPayPalWebhookSignature({
+      rawBody,
+      headers: headersFor("2026-02-31T12:00:00Z"),
+      webhookId,
+      nodeEnv: "production",
+      now,
+      fetchCertificate: async () => publicPem,
+    });
+
+    expect(verified).toBe(false);
+  });
+
+  it("rejects a transmission time more than 5 minutes in the future", async () => {
+    const verified = await verifyPayPalWebhookSignature({
+      rawBody,
+      headers: headersFor("2026-09-05T12:05:01Z"),
+      webhookId,
+      nodeEnv: "production",
+      now,
+      fetchCertificate: async () => publicPem,
+    });
+
+    expect(verified).toBe(false);
+  });
+
+  it("accepts a transmission time slightly in the future within the 5-minute clock-skew window", async () => {
+    const verified = await verifyPayPalWebhookSignature({
+      rawBody,
+      headers: headersFor("2026-09-05T12:02:00Z"),
+      webhookId,
+      nodeEnv: "production",
+      now,
       fetchCertificate: async () => publicPem,
     });
 
@@ -60,9 +129,10 @@ describe("verifyPayPalWebhookSignature", () => {
   it("rejects an invalid signature", async () => {
     const verified = await verifyPayPalWebhookSignature({
       rawBody,
-      headers: { ...headers, "paypal-transmission-sig": "not-a-valid-signature" },
+      headers: { ...headersFor(recentTime), "paypal-transmission-sig": "not-a-valid-signature" },
       webhookId,
       nodeEnv: "production",
+      now,
       fetchCertificate: async () => publicPem,
     });
 
@@ -75,6 +145,7 @@ describe("verifyPayPalWebhookSignature", () => {
       headers: { "paypal-auth-algo": "SHA256withRSA" },
       webhookId,
       nodeEnv: "production",
+      now,
       fetchCertificate: async () => publicPem,
     });
 
@@ -84,9 +155,10 @@ describe("verifyPayPalWebhookSignature", () => {
   it("never skips verification in production when PAYPAL_WEBHOOK_ID is missing", async () => {
     const verified = await verifyPayPalWebhookSignature({
       rawBody,
-      headers,
+      headers: headersFor(recentTime),
       webhookId: "",
       nodeEnv: "production",
+      now,
       fetchCertificate: async () => publicPem,
     });
 
@@ -94,23 +166,15 @@ describe("verifyPayPalWebhookSignature", () => {
   });
 
   it("rejects a certificate URL that is not on the PayPal allowlist", async () => {
-    const sig = signWebhook({
-      rawBody,
-      webhookId,
-      transmissionId: headers["paypal-transmission-id"],
-      transmissionTime: headers["paypal-transmission-time"],
-      privateKeyPem: privatePem,
-    });
-
     const verified = await verifyPayPalWebhookSignature({
       rawBody,
       headers: {
-        ...headers,
-        "paypal-transmission-sig": sig,
+        ...headersFor(recentTime),
         "paypal-cert-url": "https://evil.example/cert.pem",
       },
       webhookId,
       nodeEnv: "production",
+      now,
     });
 
     expect(verified).toBe(false);

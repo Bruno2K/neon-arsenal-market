@@ -9,6 +9,13 @@ export const PAYPAL_RECONCILE_MIN_AGE_MS = 2 * 60 * 1000;
 
 export const PAYPAL_RECONCILE_BATCH_SIZE = 20;
 
+/**
+ * Maximum |now − paypal-transmission-time| accepted during signature verification.
+ * PayPal documents a 5-minute replay window for webhook timestamps.
+ * @see https://developer.paypal.com/api/invoicing/webhooks/#link-validationprocess
+ */
+export const PAYPAL_WEBHOOK_MAX_SKEW_MS = 5 * 60 * 1000;
+
 export function getPayPalApiTimeoutMs(): number {
   const raw = process.env.PAYPAL_API_TIMEOUT_MS;
   if (raw === undefined || raw === "") return DEFAULT_PAYPAL_API_TIMEOUT_MS;
