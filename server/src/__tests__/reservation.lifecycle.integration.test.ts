@@ -245,47 +245,66 @@ describe.skipIf(!databaseAvailable)("reservation lifecycle (postgres)", () => {
     }
   });
 
-  it("makes expiration vs payment confirmation deterministic under concurrency", async () => {
+  it("lets payment confirmation win when the reservation is still valid", async () => {
+    const fixture = await createFixture();
+    try {
+      const created = await ordersService.create(fixture.customerId, {
+        items: [{ listingId: fixture.listingId }],
+      });
+      // Far-future TTL: expire's WHERE reservationExpiresAt <= now cannot match.
+      await prisma.listing.update({
+        where: { id: fixture.listingId },
+        data: { reservationExpiresAt: new Date(Date.now() + 60 * 60 * 1000) },
+      });
 
-    const outcomes = { soldPaid: 0, releasedUnpaid: 0 };
+      const results = await Promise.allSettled([
+        paymentsService.confirmPayment(created.id),
+        listingsService.expireReservations(),
+      ]);
+      await listingsService.expireReservations();
 
-    for (let i = 0; i < 8; i += 1) {
-      const fixture = await createFixture();
-      try {
-        const created = await ordersService.create(fixture.customerId, {
-          items: [{ listingId: fixture.listingId }],
-        });
-        await prisma.listing.update({
-          where: { id: fixture.listingId },
-          data: { reservationExpiresAt: new Date(Date.now() + 25) },
-        });
+      const listing = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
+      const order = await prisma.order.findUnique({ where: { id: created.id } });
 
-        const results = await Promise.allSettled([
-          paymentsService.confirmPayment(created.id),
-          listingsService.expireReservations(),
-        ]);
-
-        const listing = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
-        const order = await prisma.order.findUnique({ where: { id: created.id } });
-
-        const soldAndPaid = listing?.status === "SOLD" && order?.paymentStatus === "PAID";
-        const activeAndUnpaid =
-          listing?.status === "ACTIVE" && order?.paymentStatus === "PENDING";
-        const reservedAndUnpaid =
-          listing?.status === "RESERVED" && order?.paymentStatus === "PENDING";
-
-        expect(soldAndPaid || activeAndUnpaid || reservedAndUnpaid).toBe(true);
-        expect(listing?.status === "SOLD" && order?.paymentStatus !== "PAID").toBe(false);
-        expect(listing?.status === "ACTIVE" && order?.paymentStatus === "PAID").toBe(false);
-        expect(results.length).toBe(2);
-
-        if (soldAndPaid) outcomes.soldPaid += 1;
-        if (activeAndUnpaid || reservedAndUnpaid) outcomes.releasedUnpaid += 1;
-      } finally {
-        await destroyFixture(fixture);
-      }
+      expect(results).toHaveLength(2);
+      expect(results[0].status).toBe("fulfilled");
+      expect(listing?.status).toBe("SOLD");
+      expect(order?.paymentStatus).toBe("PAID");
+      expect(order?.status).toBe("CONFIRMED");
+    } finally {
+      await destroyFixture(fixture);
     }
+  });
 
-    expect(outcomes.soldPaid + outcomes.releasedUnpaid).toBe(8);
+  it("lets expiration win when the reservation has already elapsed", async () => {
+    const fixture = await createFixture();
+    try {
+      const created = await ordersService.create(fixture.customerId, {
+        items: [{ listingId: fixture.listingId }],
+      });
+      // Past TTL: payment's WHERE reservationExpiresAt > now cannot match.
+      await prisma.listing.update({
+        where: { id: fixture.listingId },
+        data: { reservationExpiresAt: new Date(Date.now() - 1000) },
+      });
+
+      const results = await Promise.allSettled([
+        paymentsService.confirmPayment(created.id),
+        listingsService.expireReservations(),
+      ]);
+      await listingsService.expireReservations();
+
+      const listing = await prisma.listing.findUnique({ where: { id: fixture.listingId } });
+      const order = await prisma.order.findUnique({ where: { id: created.id } });
+
+      expect(results).toHaveLength(2);
+      expect(listing?.status).toBe("ACTIVE");
+      expect(listing?.reservedAt).toBeNull();
+      expect(listing?.reservationExpiresAt).toBeNull();
+      expect(order?.paymentStatus).toBe("PENDING");
+      expect(order?.status).toBe("CANCELLED");
+    } finally {
+      await destroyFixture(fixture);
+    }
   });
 });
