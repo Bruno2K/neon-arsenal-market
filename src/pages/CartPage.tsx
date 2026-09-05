@@ -1,9 +1,12 @@
 import { Link } from "react-router-dom";
 import { Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
+import { useCartListingsRevalidation } from "@/hooks/useCartListingsRevalidation";
+import { CartListingAlerts } from "@/components/CartListingAlerts";
 import { EmptyState } from "@/components/page-state";
 import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function listingLabel(listing: {
   product: { weapon: string; skinName: string; exterior: string };
@@ -12,7 +15,12 @@ function listingLabel(listing: {
 }
 
 export default function CartPage() {
-  const { items, removeItem, totalPrice, totalItems } = useCart();
+  const { items, removeItem, updateListing, totalPrice, totalItems } =
+    useCart();
+  const { lines, blockage, canCheckout } = useCartListingsRevalidation(
+    items,
+    updateListing,
+  );
   const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
 
@@ -44,7 +52,20 @@ export default function CartPage() {
 
       <div className="grid gap-8 lg:grid-cols-3">
         <ul className="space-y-3 lg:col-span-2">
-          {items.map(({ listing }) => {
+          {lines.map((line) => {
+            if (line.kind === "loading") {
+              return (
+                <li key={line.listingId}>
+                  <Skeleton
+                    className="h-24 w-full"
+                    role="status"
+                    aria-label="Carregando"
+                  />
+                </li>
+              );
+            }
+
+            const listing = line.display;
             const name = listingLabel(listing);
             return (
               <li
@@ -68,6 +89,7 @@ export default function CartPage() {
                   <p className="mt-1 text-sm tabular-price text-foreground">
                     ${Number(listing.price).toFixed(2)}
                   </p>
+                  <CartListingAlerts line={line} />
                 </div>
                 <Button
                   variant="ghost"
@@ -100,9 +122,20 @@ export default function CartPage() {
             </div>
           </dl>
           <ReservationHold phase="pre-order" />
-          <Button asChild className="w-full" size="lg">
-            <Link to="/checkout">Finalizar compra</Link>
-          </Button>
+          {canCheckout ? (
+            <Button asChild className="w-full" size="lg">
+              <Link to="/checkout">Finalizar compra</Link>
+            </Button>
+          ) : (
+            <Button className="w-full" size="lg" disabled>
+              Finalizar compra
+            </Button>
+          )}
+          {blockage ? (
+            <p className="text-sm text-destructive" role="status">
+              {blockage}
+            </p>
+          ) : null}
           <p className="text-xs text-muted-foreground">
             O pagamento é confirmado só depois do retorno do PayPal.
           </p>

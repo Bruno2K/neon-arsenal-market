@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import { Trash2 } from "lucide-react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { createOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
+import { CartListingAlerts } from "@/components/CartListingAlerts";
 import { EmptyState } from "@/components/page-state";
 import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import { useCartListingsRevalidation } from "@/hooks/useCartListingsRevalidation";
 import {
   resolveCheckoutIdempotencyKey,
   type CheckoutIdempotencyState,
@@ -20,7 +24,12 @@ import { redirectToExternal } from "@/lib/redirect";
 import type { Order } from "@/types/api";
 
 export default function Checkout() {
-  const { items, totalPrice, removeItems } = useCart();
+  const { items, totalPrice, removeItem, removeItems, updateListing } =
+    useCart();
+  const { lines, blockage, canCheckout } = useCartListingsRevalidation(
+    items,
+    updateListing,
+  );
   const { isAuthenticated, user } = useAuth();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
@@ -85,7 +94,7 @@ export default function Checkout() {
   }
 
   const handlePay = async () => {
-    if (inFlightRef.current) return;
+    if (inFlightRef.current || !canCheckout) return;
     inFlightRef.current = true;
     setError(null);
     setLoading(true);
@@ -151,19 +160,44 @@ export default function Checkout() {
             Itens ({items.length})
           </h2>
           <ul className="space-y-2">
-            {items.map(({ listing }) => {
+            {lines.map((line) => {
+              if (line.kind === "loading") {
+                return (
+                  <li key={line.listingId}>
+                    <Skeleton
+                      className="h-10 w-full"
+                      role="status"
+                      aria-label="Carregando"
+                    />
+                  </li>
+                );
+              }
+
+              const listing = line.display;
               const name = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
               return (
-                <li
-                  key={listing.id}
-                  className="flex justify-between gap-4 text-sm"
-                >
-                  <span className="min-w-0 truncate text-foreground">
-                    {name}
-                  </span>
-                  <span className="shrink-0 tabular-price text-muted-foreground">
-                    ${Number(listing.price).toFixed(2)}
-                  </span>
+                <li key={listing.id} className="space-y-1 text-sm">
+                  <div className="flex items-start justify-between gap-4">
+                    <span className="min-w-0 truncate text-foreground">
+                      {name}
+                    </span>
+                    <span className="flex shrink-0 items-center gap-2">
+                      <span className="tabular-price text-muted-foreground">
+                        ${Number(listing.price).toFixed(2)}
+                      </span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 min-h-8 min-w-8 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeItem(listing.id)}
+                        aria-label={`Remover ${name}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </span>
+                  </div>
+                  <CartListingAlerts line={line} />
                 </li>
               );
             })}
@@ -200,11 +234,13 @@ export default function Checkout() {
             className="w-full"
             size="lg"
             onClick={handlePay}
-            disabled={loading || reservationExpired}
+            disabled={loading || reservationExpired || !canCheckout}
             title={
               reservationExpired
                 ? "A reserva expirou. O item pode ter voltado ao Market."
-                : undefined
+                : blockage && !canCheckout
+                  ? blockage
+                  : undefined
             }
           >
             {loading
@@ -213,6 +249,11 @@ export default function Checkout() {
                 ? "Tentar novamente"
                 : `Pagar com PayPal — $${total.toFixed(2)}`}
           </Button>
+          {!canCheckout && blockage ? (
+            <p className="text-sm text-destructive" role="status">
+              {blockage}
+            </p>
+          ) : null}
           <p className="text-center text-xs text-muted-foreground">
             Sem confirmação local até o retorno do PayPal.
           </p>
