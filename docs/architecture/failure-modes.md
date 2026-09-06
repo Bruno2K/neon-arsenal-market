@@ -15,6 +15,8 @@ This is the operational map of how Neon Arsenal fails and recovers. PostgreSQL r
 
 Classification lives in `server/src/shared/resilience/retry.ts`. Circuit breakers are not used.
 
+Test evidence for timeout / 5xx / 429, fail-fast mutating calls, PostgreSQL vs `/health`/`/ready`, transactional rollback, and Redis N/A: [`docs/verification/failure-recovery-scenarios.md`](../verification/failure-recovery-scenarios.md) (#56).
+
 ## Payments and webhooks
 
 - Duplicate PayPal events: unique `(provider, externalEventId)` plus `confirmPayment` claim. See `docs/adr/0002-paypal-webhook-reliability.md`.

@@ -37,6 +37,24 @@ describe("retry classification", () => {
 });
 
 describe("withRetry", () => {
+  it("retries HTTP 429 with the same exponential backoff as 5xx", async () => {
+    const sleep = vi.fn().mockResolvedValue(undefined);
+    let attempts = 0;
+    const result = await withRetry(
+      async () => {
+        attempts += 1;
+        if (attempts < 3) {
+          throw Object.assign(new Error("rate limited"), classifyHttpStatus(429));
+        }
+        return "ok";
+      },
+      { maxAttempts: 3, baseDelayMs: 200, sleep }
+    );
+    expect(result).toBe("ok");
+    expect(attempts).toBe(3);
+    expect(sleep.mock.calls.map((call) => call[0])).toEqual([200, 400]);
+  });
+
   it("retries retryable failures with exponential backoff then succeeds", async () => {
     const sleep = vi.fn().mockResolvedValue(undefined);
     let attempts = 0;

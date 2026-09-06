@@ -117,6 +117,9 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `seller.ledger.reconcile.integration.test.ts` | Matching projection is a no-op; drifted projection is SET once + audited; concurrent confirmPayment cannot double-credit. |
 | `listings.cursor.integration.test.ts` | Keyset first/next/last page; concurrent insert does not duplicate/skip under cursor; offset `page`/`limit`/`total` still works; invalid cursor HTTP 400. |
 | `auth.security.integration.test.ts` | Refresh family rotation/reuse revocation; concurrent refresh; login throttle 429; password policy. |
+| `api.security.integration.test.ts` | HTTP IDOR on orders; CUSTOMER/anonymous blocked from `/admin`. |
+
+PayPal timeout / 5xx / 429, fail-fast `OrdersCreate`/`OrdersCapture`, PostgreSQL vs `/health`/`/ready`, rollback, and Redis N/A are recorded in `docs/verification/failure-recovery-scenarios.md` (#56). Unit evidence: `shared/resilience/__tests__/retry.test.ts`, `shared/utils/__tests__/paypal.failure-recovery.test.ts`, `shared/routes/__tests__/health.test.ts`.
 
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.
 
