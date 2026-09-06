@@ -1,0 +1,12 @@
+# Default owner. GitHub required reviews / branch protection are a residual
+# of #69 (this file is repo-local; enabling rules needs org/admin API write).
+* @Bruno2K
+
+# Backend / API
+/server/ @Bruno2K
+
+# CI, Dependabot, workflows
+/.github/ @Bruno2K
+
+# Architecture, invariants, operations
+/docs/ @Bruno2K
