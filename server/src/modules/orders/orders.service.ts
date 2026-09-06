@@ -314,7 +314,8 @@ function normalizeIdempotencyKey(idempotencyKey: string) {
   return trimmed;
 }
 
-function createOrderRequestHash(input: CreateOrderInput) {
+/** Canonical listing-set hash for INV-ORDER-IDEMPOTENCY. Exported for property tests. */
+export function createOrderRequestHash(input: CreateOrderInput) {
   const listingIds = input.items.map((item) => item.listingId).sort();
   return createHash("sha256")
     .update(JSON.stringify({ version: 1, listingIds }))

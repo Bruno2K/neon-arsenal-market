@@ -45,9 +45,8 @@ vi.mock("../orders.repository.js", () => ({
 
 import { prisma } from "../../../shared/database/index.js";
 import { ordersRepository } from "../orders.repository.js";
-import { ordersService } from "../orders.service.js";
+import { createOrderRequestHash as hashOrderInput, ordersService } from "../orders.service.js";
 import { Prisma } from "@prisma/client";
-import { createHash } from "node:crypto";
 
 const IDEMPOTENCY_KEY = "order-key-1";
 
@@ -633,7 +632,5 @@ describe("ordersService", () => {
 });
 
 function createOrderRequestHash(listingIds: string[]) {
-  return createHash("sha256")
-    .update(JSON.stringify({ version: 1, listingIds: [...listingIds].sort() }))
-    .digest("hex");
+  return hashOrderInput({ items: listingIds.map((listingId) => ({ listingId })) });
 }

@@ -121,6 +121,8 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 
 PayPal timeout / 5xx / 429, fail-fast `OrdersCreate`/`OrdersCapture`, PostgreSQL vs `/health`/`/ready`, rollback, and Redis N/A are recorded in `docs/verification/failure-recovery-scenarios.md` (#56). Unit evidence: `shared/resilience/__tests__/retry.test.ts`, `shared/utils/__tests__/paypal.failure-recovery.test.ts`, `shared/routes/__tests__/health.test.ts`.
 
+Property-based invariant tests (#64) use `fast-check` with a fixed seed `0x4e454f4e` (`NEON`): `shared/domain/__tests__/invariants.property.test.ts` and `modules/listings/__tests__/listings.sold.property.test.ts`. Money cases stay on Prisma `Decimal`.
+
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.
 
 `cd server && npm run perf:evidence` reprints EXPLAIN and `listingsService.list` timings against the current database. Use a disposable catalog (the integration database), not production.
