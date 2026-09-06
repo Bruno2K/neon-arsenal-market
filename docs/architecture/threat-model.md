@@ -33,7 +33,7 @@ This document describes **trust boundaries, assets, actors, and abuse cases agai
 
 The frontend (`src/`) is **not** a security boundary. It may hold a JWT in client storage; anyone who can call the API with that token is the user.
 
-There is **no** reverse proxy WAF, **no** Helmet middleware, **no** CSRF token (sessions are Bearer headers, not cookie auth), **no** mTLS, and **no** IP allowlist on the webhook path.
+There is **no** reverse proxy WAF, **no** CSRF token (sessions are Bearer headers, not cookie auth), **no** mTLS, and **no** IP allowlist on the webhook path. Browser-abuse headers are set by `securityHeaders` in `app.ts` (not the `helmet` package).
 
 ---
 
@@ -91,8 +91,9 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 - `apiLimiter` (`server/src/shared/middlewares/rateLimit.ts`): express-rate-limit, **15 minute** window. Default **100** requests / IP when `NODE_ENV=production`, else **10_000**, unless `RATE_LIMIT_API_MAX` is set. Mounted globally in `app.ts` (all routes, including health and webhook — there is no `/api` prefix).
 - `authLimiter`: default **10** / window in production, else **100**, unless `RATE_LIMIT_AUTH_MAX` is set. Extra limiter on `/auth` (stacked with the global limiter).
 - Store is **in-process memory**. Multiple Render instances do **not** share counters. Documented in `docs/operations/runbook.md`. This is not Redis; this project did not add a shared store.
-- CORS (`getAllowedCorsOrigins` in `server/src/shared/config/cors.ts`): `FRONTEND_URL` (comma-separated) plus **always** `http://localhost:5173` and `http://127.0.0.1:5173`. Requests **without** `Origin` (curl, health checks, many bots) are allowed (`isCorsOriginAllowed`).
-- JSON parser: `express.json()` with a `verify` hook that copies `rawBody` for webhook signatures (`app.ts`). No custom `limit` is set (Express default applies).
+- Security headers (`securityHeaders`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `X-Permitted-Cross-Domain-Policies: none`, `Permissions-Policy` (camera/microphone/geolocation/payment off), `Content-Security-Policy: frame-ancestors 'none'`, `X-DNS-Prefetch-Control: off`. Production also sends `Strict-Transport-Security: max-age=15552000; includeSubDomains`. `Cross-Origin-Resource-Policy` is omitted so CORS frontends can read JSON.
+- CORS (`getAllowedCorsOrigins` in `server/src/shared/config/cors.ts`): `FRONTEND_URL` (comma-separated). Outside production, `http://localhost:5173` and `http://127.0.0.1:5173` are also allowed. Production uses only configured origins. Requests **without** `Origin` (curl, health checks, many bots) are allowed (`isCorsOriginAllowed`). A rejected Origin is HTTP 403 `Origin not allowed.` and does not echo the Origin.
+- JSON parser: `express.json({ limit: "100kb" })` with a `verify` hook that copies `rawBody` for webhook signatures (`app.ts`). Overflow is HTTP 413 `Request payload too large.` Invalid JSON is HTTP 400 `Invalid JSON body.`
 - `AppError` returns `err.message` to the client; Prisma unique/not-found map to 409/404; unhandled errors return `"Internal server error."` without a stack (`errorHandler.ts`).
 - OpenTelemetry attribute redaction (`server/src/shared/observability/redact.ts`) drops keys/values that look like passwords, tokens, JWTs, or PayPal transmission signatures.
 
@@ -118,7 +119,7 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 
 - Secrets are **environment variables**, not files in git.
 - Render Blueprint: `JWT_SECRET` / `JWT_REFRESH_SECRET` `generateValue`; PayPal/DB/Resend/`FRONTEND_URL` `sync: false`.
-- `jwt.ts` falls back to `"default-secret-change-me"` / `"default-refresh-secret"` if those env vars are missing. Render production sets generated values; a misconfigured process without env is forgeable.
+- `jwt.ts` falls back to `"default-secret-change-me"` / `"default-refresh-secret"` if those env vars are missing **outside production**. `startApiProcess` calls `assertProductionJwtSecrets`: `NODE_ENV=production` refuses missing or fallback secrets and does not listen.
 - No AWS Secrets Manager in the running system.
 - Structured logs and OTel redaction are expected **not** to include credentials.
 
@@ -158,7 +159,7 @@ Format: attacker goal → relevant STRIDE-ish type → what the code does → re
 
 ### T4. IDOR on orders / listings
 
-**Information disclosure / tampering.** Domain rule: customers see only their orders; sellers only orders containing their items. Listing mutations go through seller ownership checks in the listings module. Residual: any new route that loads by id without those checks is a regression — tests should stay on authorization.
+**Information disclosure / tampering.** Domain rule: customers see only their orders; sellers only orders containing their items. Listing mutations go through seller ownership checks in the listings module. `POST /listings/:id/reserve` requires authentication. Residual: an authenticated customer can still call reserve without creating an order (hold without `reservedByOrderId`). Any new route that loads by id without ownership checks is a regression.
 
 ### T5. Client claims “PayPal said paid”
 
@@ -194,7 +195,7 @@ Format: attacker goal → relevant STRIDE-ish type → what the code does → re
 
 ### T13. CORS / browser cross-origin calls
 
-**Abuse from a malicious site.** Allowed origins are `FRONTEND_URL` plus hardcoded local Vite origins. Residual: **localhost origins are always allowed even when `FRONTEND_URL` is production** — relevant if a production API is reachable from a developer laptop’s browser. Bearer tokens are typically sent by JS, not cookies, so classic cookie CSRF is not the session model. CORS does not stop non-browser clients.
+**Abuse from a malicious site.** Allowed origins are `FRONTEND_URL`; local Vite origins are appended only when `NODE_ENV≠production`. Residual: if production `FRONTEND_URL` is unset, the configured default is still `http://localhost:5173`. Bearer tokens are typically sent by JS, not cookies, so classic cookie CSRF is not the session model. CORS does not stop non-browser clients.
 
 ### T14. Rate-limit bypass / DoS of the Node process
 
@@ -210,7 +211,7 @@ Format: attacker goal → relevant STRIDE-ish type → what the code does → re
 
 ### T17. Default JWT secret on a public process
 
-**Spoofing.** `jwt.ts` uses a compiled fallback if `JWT_SECRET` is unset. Residual: any deploy that forgets env is impersonable. Render Blueprint generates secrets; this is a misconfiguration risk, not the Blueprint happy path.
+**Spoofing.** `jwt.ts` uses a compiled fallback if `JWT_SECRET` is unset outside production. Residual: a non-production public URL without env is still impersonable. Production start fails closed. Render Blueprint generates secrets.
 
 ---
 
@@ -220,7 +221,7 @@ Do **not** interview as if these exist:
 
 | Control | Status |
 |---|---|
-| Helmet / security headers middleware | Not in `app.ts` |
+| Helmet npm package | Not used; equivalent headers are set in `securityHeaders` |
 | CSRF tokens | N/A to Bearer-header API; not implemented |
 | WAF / Render firewall rules in repo | Not defined here |
 | Shared rate-limit store (Redis, etc.) | Intentionally not added |
@@ -238,12 +239,12 @@ Do **not** interview as if these exist:
 
 | Setting | Effect |
 |---|---|
-| `NODE_ENV=production` | Stricter default rate limits; PayPal webhook id **required** (verify fails if missing); register response omits the email `code`. |
+| `NODE_ENV=production` | Stricter default rate limits; PayPal webhook id **required** (verify fails if missing); register response omits the email `code`; HSTS is sent; JWT secrets must be non-default or the process does not listen; CORS does not append local Vite origins. |
 | `PAYPAL_WEBHOOK_ID` unset + non-production | Webhook **signature verification skipped** — never use that combination on a public URL. |
 | `SEED_DEMO_DATA=true` | Known demo users (Blueprint currently `true`). Treat as public demo, not a private production. |
 | `RATE_LIMIT_API_MAX` / `RATE_LIMIT_AUTH_MAX` | Raises/lowers stuffing and scan cost. |
-| `FRONTEND_URL` | CORS allowlist (plus hardcoded localhost Vite). |
-| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Must be set; compiled fallbacks are not production secrets. |
+| `FRONTEND_URL` | CORS allowlist. Local Vite origins are added only when `NODE_ENV≠production`. |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | Must be non-default in production; compiled fallbacks are development-only. |
 
 ---
 

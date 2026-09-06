@@ -6,6 +6,7 @@ import { startReservationExpiryJob } from "../jobs/reservationExpiryJob.js";
 import { startOutboxDispatcherJob } from "../jobs/outboxDispatcherJob.js";
 import { startSellerLedgerReconciliationJob } from "../jobs/sellerLedgerReconciliationJob.js";
 import { installProcessShutdownHandlers } from "./shutdown.js";
+import { assertProductionJwtSecrets } from "../utils/jwt.js";
 
 export function startApiProcess(
   app: Express,
@@ -16,6 +17,7 @@ export function startApiProcess(
     onListening?: () => void | Promise<void>;
   }
 ): Server {
+  assertProductionJwtSecrets();
   const port = options?.port ?? Number(process.env.PORT ?? 3001);
   const host = options?.host ?? "0.0.0.0";
   const jobs: NodeJS.Timeout[] = [];

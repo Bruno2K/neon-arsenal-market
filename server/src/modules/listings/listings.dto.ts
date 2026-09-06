@@ -1,23 +1,28 @@
 import { z } from "zod";
 import { CURSOR_MAX_LENGTH } from "../../shared/pagination/cursor.js";
 import { LISTING_STATUSES } from "../../shared/types/roles.js";
+import {
+  CURRENCY_MAX,
+  SEARCH_MAX,
+  STEAM_ASSET_ID_MAX,
+  resourceIdSchema,
+} from "../../shared/validation/httpLimits.js";
 
 export const createListingDto = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: resourceIdSchema("Product ID"),
   floatValue: z
     .number()
     .min(0, "Float value must be between 0 and 1")
     .max(1, "Float value must be between 0 and 1"),
   pattern: z.number().int().positive().optional(),
   price: z.number().positive("Price must be positive"),
-  currency: z.string().default("USD"),
+  currency: z.string().min(1).max(CURRENCY_MAX).default("USD"),
   tradeLockUntil: z.string().datetime().optional().or(z.date().optional()),
-  steamAssetId: z.string().optional(),
+  steamAssetId: z.string().max(STEAM_ASSET_ID_MAX).optional(),
 });
 
 export const updateListingDto = z.object({
   price: z.number().positive().optional(),
-  status: z.enum(LISTING_STATUSES).optional(),
   tradeLockUntil: z.string().datetime().optional().or(z.date().optional()).nullable(),
 });
 
@@ -33,7 +38,7 @@ export const listListingsQueryDto = z.object({
   maxPrice: z.coerce.number().optional(),
   minFloat: z.coerce.number().min(0).max(1).optional(),
   maxFloat: z.coerce.number().min(0).max(1).optional(),
-  exterior: z.string().optional(),
+  exterior: z.string().max(SEARCH_MAX).optional(),
   isStattrak: z.coerce.boolean().optional(),
   /**
    * Opaque keyset cursor (`createdAt` + `id`). When present (including empty = first
@@ -45,7 +50,7 @@ export const listListingsQueryDto = z.object({
 });
 
 export const listingIdParamsDto = z.object({
-  id: z.string().min(1, "Listing ID is required"),
+  id: resourceIdSchema("Listing ID"),
 });
 
 export type CreateListingInput = z.infer<typeof createListingDto>;

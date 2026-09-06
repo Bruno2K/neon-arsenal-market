@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { ORDER_STATUSES, PAYMENT_STATUSES } from "../../shared/types/roles.js";
+import { TRACKING_MAX, resourceIdSchema } from "../../shared/validation/httpLimits.js";
 
 export const createOrderItemDto = z.object({
-  listingId: z.string().min(1, "Listing ID is required"),
+  listingId: resourceIdSchema("Listing ID"),
 });
 
 export const createOrderDto = z.object({
@@ -19,12 +20,12 @@ export const listOrdersQueryDto = z.object({
 });
 
 export const orderIdParamsDto = z.object({
-  id: z.string().min(1, "Order ID is required"),
+  id: resourceIdSchema("Order ID"),
 });
 
 export const updateOrderTrackingDto = z.object({
-  trackingCode: z.string().optional(),
-  trackingCarrier: z.string().optional(),
+  trackingCode: z.string().max(TRACKING_MAX).optional(),
+  trackingCarrier: z.string().max(TRACKING_MAX).optional(),
 });
 
 export type CreateOrderInput = z.infer<typeof createOrderDto>;

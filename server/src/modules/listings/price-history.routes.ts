@@ -2,9 +2,10 @@ import { Router } from "express";
 import { priceHistoryController } from "./price-history.controller.js";
 import { z } from "zod";
 import { validateParams } from "../../shared/middlewares/validateParams.js";
+import { resourceIdSchema } from "../../shared/validation/httpLimits.js";
 
 const listingIdParamsDto = z.object({
-  listingId: z.string().min(1, "Listing ID is required"),
+  listingId: resourceIdSchema("Listing ID"),
 });
 
 const router = Router();

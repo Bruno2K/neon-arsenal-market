@@ -5,3 +5,4 @@ export { validateQuery } from "./validateQuery.js";
 export { validateParams } from "./validateParams.js";
 export { notFound } from "./notFound.js";
 export { requestId } from "./requestId.js";
+export { securityHeaders } from "./securityHeaders.js";

@@ -1,8 +1,8 @@
 import { Router } from "express";
 import { adminController } from "./admin.controller.js";
-import { authenticate, requireRole, validateQuery } from "../../shared/middlewares/index.js";
+import { authenticate, requireRole, validateParams, validateQuery } from "../../shared/middlewares/index.js";
 import { validateBody } from "../../shared/middlewares/validateBody.js";
-import { approveSellerDto } from "../sellers/sellers.dto.js";
+import { approveSellerDto, sellerIdParamsDto } from "../sellers/sellers.dto.js";
 import { listOrdersQueryDto } from "../orders/orders.dto.js";
 import { listAuditLogsQueryDto } from "../audit/audit.dto.js";
 
@@ -18,6 +18,7 @@ router.get("/catalog/cs2sh-import", adminController.getCs2ShImport);
 router.post("/catalog/cs2sh-import", adminController.startCs2ShImport);
 router.patch(
   "/sellers/:id/approve",
+  validateParams(sellerIdParamsDto),
   validateBody(approveSellerDto),
   adminController.approveSeller
 );

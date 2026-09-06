@@ -3,7 +3,6 @@ import { listingsRepository } from "./listings.repository.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { buildReservationWindow } from "../../shared/config/reservation.js";
 import type { Prisma } from "@prisma/client";
-import type { ListingStatus } from "../../shared/types/roles.js";
 import type {
   CreateListingInput,
   UpdateListingInput,
@@ -20,14 +19,6 @@ import {
   decodeCreatedAtIdCursor,
   nextCreatedAtIdCursor,
 } from "../../shared/pagination/cursor.js";
-
-// INV-LISTING-SOLD-IRREVERSIBLE: SOLD and CANCELED have no outgoing edges.
-const VALID_STATUS_TRANSITIONS: Record<ListingStatus, readonly ListingStatus[]> = {
-  ACTIVE: ["RESERVED", "CANCELED"],
-  RESERVED: ["ACTIVE", "SOLD", "CANCELED"],
-  SOLD: [],
-  CANCELED: [],
-};
 
 export const listingsService = {
   async list(query: ListListingsQuery) {
@@ -145,17 +136,8 @@ export const listingsService = {
       }
     }
 
-    // Validate status transition
-    if (input.status && listing.status !== input.status) {
-      const allowedTransitions = VALID_STATUS_TRANSITIONS[listing.status] || [];
-      if (!allowedTransitions.includes(input.status)) {
-        throw new AppError(400, `Invalid status transition from ${listing.status} to ${input.status}`);
-      }
-    }
-
     const updateData: Prisma.ListingUpdateInput = {};
     if (input.price !== undefined) updateData.price = input.price;
-    if (input.status !== undefined) updateData.status = input.status;
     if (input.tradeLockUntil !== undefined) {
       updateData.tradeLockUntil = input.tradeLockUntil === null ? null : new Date(input.tradeLockUntil as string);
     }

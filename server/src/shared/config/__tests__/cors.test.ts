@@ -32,4 +32,17 @@ describe("CORS configuration", () => {
       true
     );
   });
+
+  it("does not append local Vite origins in production when FRONTEND_URL is set", () => {
+    const allowedOrigins = getAllowedCorsOrigins("https://frontend.example.com", "production");
+    expect(allowedOrigins).toEqual(["https://frontend.example.com"]);
+    expect(isCorsOriginAllowed("http://localhost:5173", allowedOrigins)).toBe(false);
+    expect(isCorsOriginAllowed("http://127.0.0.1:5173", allowedOrigins)).toBe(false);
+  });
+
+  it("still allows local Vite origins outside production", () => {
+    const allowedOrigins = getAllowedCorsOrigins("https://frontend.example.com", "development");
+    expect(isCorsOriginAllowed("http://localhost:5173", allowedOrigins)).toBe(true);
+    expect(isCorsOriginAllowed("http://127.0.0.1:5173", allowedOrigins)).toBe(true);
+  });
 });

@@ -44,29 +44,14 @@ describe(`${DomainInvariant.LISTING_SOLD_IRREVERSIBLE} listingsService`, () => {
     );
   });
 
-  it("rejects PATCH SOLD → ACTIVE", async () => {
+  it("does not write listing status through the generic update path", async () => {
     vi.mocked(listingsRepository.findById).mockResolvedValue(soldListing as never);
     vi.mocked(prisma.seller.findUnique).mockResolvedValue({ id: "seller-1" } as never);
+    vi.mocked(listingsRepository.update).mockResolvedValue(soldListing as never);
 
-    await expect(
-      listingsService.update("listing-1", "user-1", "SELLER", { status: "ACTIVE" })
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      message: "Invalid status transition from SOLD to ACTIVE",
-    });
-    expect(listingsRepository.update).not.toHaveBeenCalled();
-  });
+    await listingsService.update("listing-1", "user-1", "SELLER", { price: 50 });
 
-  it("rejects PATCH SOLD → RESERVED", async () => {
-    vi.mocked(listingsRepository.findById).mockResolvedValue(soldListing as never);
-    vi.mocked(prisma.seller.findUnique).mockResolvedValue({ id: "seller-1" } as never);
-
-    await expect(
-      listingsService.update("listing-1", "user-1", "ADMIN", { status: "RESERVED" })
-    ).rejects.toMatchObject({
-      statusCode: 400,
-      message: "Invalid status transition from SOLD to RESERVED",
-    });
+    expect(listingsRepository.update).toHaveBeenCalledWith("listing-1", { price: 50 });
   });
 
   it("rejects cancel of a SOLD listing", async () => {

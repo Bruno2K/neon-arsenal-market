@@ -2,10 +2,26 @@ import jwt from "jsonwebtoken";
 import { randomUUID } from "crypto";
 import type { Role } from "../types/roles.js";
 
-const JWT_SECRET = process.env.JWT_SECRET ?? "default-secret-change-me";
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? "default-refresh-secret";
+export const FALLBACK_JWT_SECRET = "default-secret-change-me";
+export const FALLBACK_JWT_REFRESH_SECRET = "default-refresh-secret";
+
+const JWT_SECRET = process.env.JWT_SECRET ?? FALLBACK_JWT_SECRET;
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET ?? FALLBACK_JWT_REFRESH_SECRET;
 const JWT_ACCESS_EXPIRES = process.env.JWT_ACCESS_EXPIRES_IN ?? "15m";
 const JWT_REFRESH_EXPIRES = process.env.JWT_REFRESH_EXPIRES_IN ?? "7d";
+
+/** Fail closed in production instead of signing tokens with compiled fallbacks. */
+export function assertProductionJwtSecrets(
+  env: NodeJS.ProcessEnv = process.env
+): void {
+  if (env.NODE_ENV !== "production") return;
+  if (!env.JWT_SECRET || env.JWT_SECRET === FALLBACK_JWT_SECRET) {
+    throw new Error("JWT_SECRET must be set to a non-default value when NODE_ENV=production");
+  }
+  if (!env.JWT_REFRESH_SECRET || env.JWT_REFRESH_SECRET === FALLBACK_JWT_REFRESH_SECRET) {
+    throw new Error("JWT_REFRESH_SECRET must be set to a non-default value when NODE_ENV=production");
+  }
+}
 
 export interface JwtPayload {
   sub: string;

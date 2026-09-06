@@ -1,9 +1,10 @@
 import express from "express";
 import cors from "cors";
 import { errorHandler } from "./shared/errors/index.js";
-import { notFound, requestId } from "./shared/middlewares/index.js";
+import { notFound, requestId, securityHeaders } from "./shared/middlewares/index.js";
 import { httpTelemetry } from "./shared/observability/http.js";
 import { apiLimiter, authLimiter } from "./shared/middlewares/rateLimit.js";
+import { JSON_BODY_LIMIT } from "./shared/config/http.js";
 import { healthRoutes } from "./shared/routes/health.routes.js";
 import { docsRoutes } from "./shared/routes/docs.routes.js";
 import { authRoutes } from "./modules/auth/auth.routes.js";
@@ -24,6 +25,7 @@ const app = express();
 app.set("trust proxy", true);
 
 app.use(requestId);
+app.use(securityHeaders);
 app.use(httpTelemetry);
 
 // Restrict to the configured frontend origin (defaults to localhost:5173 for dev)
@@ -50,6 +52,7 @@ app.use(
 );
 app.use(
   express.json({
+    limit: JSON_BODY_LIMIT,
     verify: (req, _res, buf) => {
       (req as express.Request).rawBody = Buffer.from(buf);
     },

@@ -1,14 +1,15 @@
 import { z } from "zod";
 import { REGISTRATION_ROLES } from "../../shared/types/roles.js";
 import { passwordSchema } from "../../shared/validation/passwordPolicy.js";
+import { PERSON_NAME_MAX, STORE_NAME_MAX } from "../../shared/validation/httpLimits.js";
 
 export const registerDto = z
   .object({
-    name: z.string().min(1, "Name is required"),
+    name: z.string().min(1, "Name is required").max(PERSON_NAME_MAX),
     email: z.string().email("Invalid email"),
     password: passwordSchema,
     role: z.enum(REGISTRATION_ROLES).default("CUSTOMER"),
-    storeName: z.string().min(1).optional(),
+    storeName: z.string().min(1).max(STORE_NAME_MAX).optional(),
   })
   .refine((data) => data.role !== "SELLER" || (data.storeName && data.storeName.trim().length > 0), {
     message: "Store name is required for seller registration",

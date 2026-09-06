@@ -43,6 +43,7 @@ router.patch(
 
 router.post(
   "/:id/reserve",
+  authenticate,
   validateParams(listingIdParamsDto),
   listingsController.reserve
 );

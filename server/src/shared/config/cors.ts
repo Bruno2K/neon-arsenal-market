@@ -14,11 +14,18 @@ export function normalizeOrigin(origin: string): string | null {
   }
 }
 
-export function getAllowedCorsOrigins(frontendUrl = process.env.FRONTEND_URL): string[] {
+export function getAllowedCorsOrigins(
+  frontendUrl = process.env.FRONTEND_URL,
+  nodeEnv = process.env.NODE_ENV
+): string[] {
   const configuredOrigins = (frontendUrl ?? DEFAULT_FRONTEND_ORIGIN)
     .split(",")
     .map((origin) => normalizeOrigin(origin))
     .filter((origin): origin is string => Boolean(origin));
+
+  if (nodeEnv === "production") {
+    return [...new Set(configuredOrigins)];
+  }
 
   return [...new Set([...configuredOrigins, ...DEV_FRONTEND_ORIGINS])];
 }
