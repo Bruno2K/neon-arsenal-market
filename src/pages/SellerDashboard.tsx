@@ -1,27 +1,21 @@
 import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { Package, ShoppingBag, DollarSign } from "lucide-react";
+import { Package, Percent, Wallet } from "lucide-react";
 import { listOrders } from "@/api/orders";
 import { getSellerListings } from "@/api/listings";
+import { getCommissionBalance } from "@/api/commissions";
+import { getSellerMe } from "@/api/sellers";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  formatCommissionRate,
+  formatLedgerAmount,
+} from "@/lib/formatLedgerAmount";
 import { orderStatusLabel } from "@/lib/userFacingApiError";
 import type { Order } from "@/types/api";
-
-function orderTotal(order: Order): number {
-  if (order.totalAmount != null && Number(order.totalAmount) > 0) {
-    return Number(order.totalAmount);
-  }
-  return (
-    order.items?.reduce(
-      (sum, item) => sum + Number(item.priceSnapshot || 0),
-      0,
-    ) ?? 0
-  );
-}
 
 function orderSummary(order: Order): string {
   const names =
@@ -40,23 +34,46 @@ function orderSummary(order: Order): string {
 export default function SellerDashboard() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const sellerQueriesEnabled = !isAdmin;
 
   const listingsQuery = useQuery({
     queryKey: ["sellerListings"],
     queryFn: () => getSellerListings(),
-    enabled: !isAdmin,
+    enabled: sellerQueriesEnabled,
+  });
+  const balanceQuery = useQuery({
+    queryKey: ["commissionBalance"],
+    queryFn: () => getCommissionBalance(),
+    enabled: sellerQueriesEnabled,
+  });
+  const sellerMeQuery = useQuery({
+    queryKey: ["sellerMe"],
+    queryFn: () => getSellerMe(),
+    enabled: sellerQueriesEnabled,
   });
   const ordersQuery = useQuery({
     queryKey: ["orders"],
     queryFn: () => listOrders(),
-    enabled: !isAdmin,
+    enabled: sellerQueriesEnabled,
   });
 
   const listings = listingsQuery.data?.items ?? [];
   const orders = ordersQuery.data ?? [];
-  const isLoading = listingsQuery.isLoading || ordersQuery.isLoading;
-  const isError = listingsQuery.isError || ordersQuery.isError;
-  const error = listingsQuery.error ?? ordersQuery.error;
+  const isLoading =
+    listingsQuery.isLoading ||
+    balanceQuery.isLoading ||
+    sellerMeQuery.isLoading ||
+    ordersQuery.isLoading;
+  const isError =
+    listingsQuery.isError ||
+    balanceQuery.isError ||
+    sellerMeQuery.isError ||
+    ordersQuery.isError;
+  const error =
+    listingsQuery.error ??
+    balanceQuery.error ??
+    sellerMeQuery.error ??
+    ordersQuery.error;
 
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
@@ -65,20 +82,22 @@ export default function SellerDashboard() {
   const activeListings = listings.filter(
     (listing) => listing.status === "ACTIVE",
   ).length;
-  const totalRevenue = orders.reduce(
-    (sum, order) => sum + orderTotal(order),
-    0,
+  const balanceLabel = formatLedgerAmount(balanceQuery.data?.balance);
+  const commissionLabel = formatCommissionRate(
+    sellerMeQuery.data?.commissionRate,
   );
 
   if (isLoading) {
     return (
       <div className="space-y-6" role="status" aria-label="Carregando">
         <Skeleton className="h-8 w-48" />
+        <Skeleton className="h-4 w-64" />
         <div className="grid gap-3 sm:grid-cols-3">
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
           <Skeleton className="h-24 w-full" />
         </div>
+        <Skeleton className="h-40 w-full" />
       </div>
     );
   }
@@ -94,6 +113,8 @@ export default function SellerDashboard() {
             variant="outline"
             onClick={() => {
               void listingsQuery.refetch();
+              void balanceQuery.refetch();
+              void sellerMeQuery.refetch();
               void ordersQuery.refetch();
             }}
           >
@@ -105,13 +126,9 @@ export default function SellerDashboard() {
   }
 
   const stats = [
+    { label: "Saldo", value: balanceLabel, icon: Wallet },
+    { label: "Comissão", value: commissionLabel, icon: Percent },
     { label: "Listings ativos", value: String(activeListings), icon: Package },
-    {
-      label: "Receita",
-      value: `$${totalRevenue.toFixed(2)}`,
-      icon: DollarSign,
-    },
-    { label: "Pedidos", value: String(orders.length), icon: ShoppingBag },
   ];
 
   return (
@@ -119,7 +136,7 @@ export default function SellerDashboard() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight">Visão geral</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Listings únicos, pedidos e receita da loja.
+          Saldo {balanceLabel} · Comissão {commissionLabel}
         </p>
       </div>
 
@@ -145,9 +162,14 @@ export default function SellerDashboard() {
           <h2 className="text-sm font-semibold tracking-tight">
             Pedidos recentes
           </h2>
-          <Button asChild variant="outline" size="sm">
-            <Link to="/seller/orders">Ver pedidos</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline" size="sm">
+              <Link to="/seller/transactions">Ver transações</Link>
+            </Button>
+            <Button asChild variant="outline" size="sm">
+              <Link to="/seller/orders">Ver pedidos</Link>
+            </Button>
+          </div>
         </div>
         {orders.length === 0 ? (
           <EmptyState
@@ -176,7 +198,7 @@ export default function SellerDashboard() {
                 </div>
                 <div className="text-right">
                   <p className="tabular-nums text-sm font-semibold">
-                    ${orderTotal(order).toFixed(2)}
+                    {formatLedgerAmount(order.totalAmount)}
                   </p>
                   <Badge variant="secondary" className="mt-1">
                     {orderStatusLabel(order.status)}

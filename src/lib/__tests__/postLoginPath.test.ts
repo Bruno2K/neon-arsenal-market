@@ -61,6 +61,7 @@ describe("postLoginPath", () => {
     expect(postLoginPath("ADMIN", "/seller/listings").path).toBe("/admin");
     expect(postLoginPath("ADMIN", "/seller/products").path).toBe("/admin");
     expect(postLoginPath("ADMIN", "/seller/orders").path).toBe("/admin");
+    expect(postLoginPath("ADMIN", "/seller/transactions").path).toBe("/admin");
   });
 
   it("sends seller without from to /seller", () => {

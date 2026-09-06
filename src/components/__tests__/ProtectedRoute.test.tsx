@@ -19,6 +19,7 @@ const SELLER_ROUTES = [
   "/seller/listings",
   "/seller/products",
   "/seller/orders",
+  "/seller/transactions",
 ] as const;
 
 function userFor(role: Role): User {
@@ -50,6 +51,7 @@ function renderSellerGate(path: string) {
           <Route path="/seller/listings" element={null} />
           <Route path="/seller/products" element={null} />
           <Route path="/seller/orders" element={null} />
+          <Route path="/seller/transactions" element={null} />
         </Route>
         <Route path="/admin" element={<div>admin-home</div>} />
         <Route path="/login" element={<div>login</div>} />
