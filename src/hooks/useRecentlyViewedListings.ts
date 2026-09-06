@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useQueries } from "@tanstack/react-query";
 import { getListing } from "@/api/listings";
 import {
@@ -11,7 +11,12 @@ import type { Listing } from "@/types/api";
 
 export function useRecentlyViewedListings(excludeId?: string): Listing[] {
   const excluded = normalizeRecentlyViewedId(excludeId);
-  const storedIds = useMemo(() => loadRecentlyViewedIds(), []);
+  const [storedIds, setStoredIds] = useState(loadRecentlyViewedIds);
+
+  useEffect(() => {
+    setStoredIds(loadRecentlyViewedIds());
+  }, [excluded]);
+
   const fetchIds = useMemo(
     () => storedIds.filter((id) => id !== excluded),
     [storedIds, excluded],
