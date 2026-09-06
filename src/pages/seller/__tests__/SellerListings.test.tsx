@@ -96,7 +96,7 @@ describe("SellerListings", () => {
       items: [product()],
       total: 1,
       page: 1,
-      limit: 100,
+      limit: 20,
     });
     authState.user = {
       id: "seller-user",
@@ -121,6 +121,7 @@ describe("SellerListings", () => {
     expect(screen.getByTitle("Atualizar preço")).toBeTruthy();
     expect(screen.getByTitle("Cancelar listing")).toBeTruthy();
     expect(screen.getByLabelText("Editar")).toBeTruthy();
+    expect(listProducts).not.toHaveBeenCalled();
   });
 
   it("shows an empty state when the seller has no listings", async () => {
@@ -209,7 +210,7 @@ describe("SellerListings", () => {
     ).toHaveAttribute("src", "https://cs2.sh/image/ak-redline.png");
   });
 
-  it("shows option thumbnails and a preview when creating a listing", async () => {
+  it("searches the catalog instead of listing only the first 100 products", async () => {
     const awp = product({
       id: "awp-asiimov-ft",
       weapon: "AWP",
@@ -218,9 +219,9 @@ describe("SellerListings", () => {
     });
     listProducts.mockResolvedValue({
       items: [product(), awp],
-      total: 2,
+      total: 21924,
       page: 1,
-      limit: 100,
+      limit: 20,
     });
 
     render(
@@ -233,13 +234,25 @@ describe("SellerListings", () => {
       await screen.findByRole("button", { name: "Novo Listing" }),
     );
     expect(await screen.findByText("Novo listing")).toBeTruthy();
-
-    fireEvent.click(screen.getByLabelText("Produto"));
-    const option = await screen.findByText("AWP | Asiimov (Field-Tested)");
     expect(
-      option
-        .closest("[role='option']")
-        ?.querySelector('img[src="https://cs2.sh/image/awp-asiimov.png"]'),
+      await screen.findByRole("option", {
+        name: "AK-47 | Redline (Field-Tested)",
+      }),
+    ).toBeTruthy();
+    expect(listProducts).toHaveBeenCalledWith({
+      page: 1,
+      limit: 20,
+    });
+    expect(listProducts).not.toHaveBeenCalledWith(
+      expect.objectContaining({ limit: 100 }),
+    );
+    expect(screen.getByText("Mostrando 2 de 21924")).toBeTruthy();
+
+    const option = screen.getByRole("option", {
+      name: "AWP | Asiimov (Field-Tested)",
+    });
+    expect(
+      option.querySelector('img[src="https://cs2.sh/image/awp-asiimov.png"]'),
     ).toBeTruthy();
 
     fireEvent.click(option);
