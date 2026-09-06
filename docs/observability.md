@@ -2,6 +2,8 @@
 
 Neon Arsenal Market uses OpenTelemetry for traces and metrics, and Pino for logs. The goal is to diagnose latency, errors and business failures on the checkout path without running an observability platform locally.
 
+Operator dashboards, SLOs, and request/trace diagnosis (issues #62 / #63, `SPEC-0008`) live in [`docs/operations/dashboards.md`](./operations/dashboards.md) and [`docs/operations/slos.md`](./operations/slos.md). They reuse the meters and spans below. They do not add Grafana, Prometheus, Redis, or AWS.
+
 Storefront funnel events (`page_view` → PayPal → `order_viewed`) live in the frontend wrapper documented in [`docs/product-analytics.md`](./product-analytics.md). They are not OTel spans and do not use `OTEL_*`.
 
 ## Defaults
@@ -31,6 +33,8 @@ X-Request-Id → request.id on http.server.request → child spans → logs
 
 Inbound W3C `traceparent` / `tracestate` are accepted. Do not introduce a second correlation-ID scheme.
 
+Step-by-step incident walk: [`docs/operations/runbook.md`](./operations/runbook.md#diagnose-with-request-id-and-trace-id).
+
 ## Spans
 
 | Span | Meaning |
@@ -40,6 +44,8 @@ Inbound W3C `traceparent` / `tracestate` are accepted. Do not introduce a second
 | `orders.create.transaction` | PostgreSQL transaction that reserves listings and writes the order |
 | `listings.reserve` | Reservation attempt (order path or standalone reserve) |
 | `listings.expire` | Expired-reservation sweep |
+| `payments.create_link` | `POST /payments/create` (PayPal OrdersCreate + local `PaymentLink`) |
+| `payments.capture` | `POST /payments/capture` (OrdersCapture, then confirm) |
 | `payments.confirm` | Payment confirmation |
 | `payments.confirm.transaction` | Claim order, sell listings, write seller transactions |
 | `payments.reconcile` | PayPal GET reconciliation batch |
@@ -54,12 +60,13 @@ Inbound W3C `traceparent` / `tracestate` are accepted. Do not introduce a second
 
 | Outcome | Typical cause | Span status |
 |---|---|---|
-| `created` / `confirmed` | Success | UNSET |
+| `created` / `confirmed` / `already_confirmed` | Success or duplicate confirm | UNSET |
 | `idempotency_replay` | Same key and listing set | UNSET |
 | `idempotency_conflict` | Same key, different request or in-progress | UNSET |
 | `reservation_conflict` | Listing already held | UNSET |
 | `reservation_expired` | Payment after expiry | UNSET |
 | `webhook_duplicate` / `webhook_ignored` | Duplicate or unsupported event | UNSET |
+| `webhook_failed` | Verify/parse/handle failure (may include `reservation_expired` on the handle span as its own outcome) | UNSET unless classified operational |
 | `timeout` / `provider_error` / `error` | PayPal/DB/unexpected | ERROR |
 
 ## Metrics
