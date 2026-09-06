@@ -12,8 +12,9 @@ From `server/`:
 |---|---|
 | `npm run test:unit` | Unit tests only. No PostgreSQL. |
 | `npm test` | Same as `test:unit`. |
+| `npm run test:contract` | OpenAPI contract tests against real HTTP handlers. No PostgreSQL. |
 | `npm run test:integration` | PostgreSQL integration tests. Fails if the database is missing. |
-| `npm run test:all` | Unit tests, then integration tests. |
+| `npm run test:all` | Unit, contract, then integration tests. |
 | `npm run test:db:prepare` | `prisma migrate deploy` against `DATABASE_URL`. |
 | `npm run perf:evidence` | Seed a disposable catalog, print `EXPLAIN ANALYZE` + `listingsService.list` timings. |
 | `npm run import:cs2sh` | Local upsert of Product catalog from cs2.sh. Needs `CS2SH_API_KEY`. Not available on Render (no shell); use ADMIN `POST /admin/catalog/cs2sh-import`. Live API is not used in CI. |
@@ -88,12 +89,15 @@ No PayPal credentials are required for persistence tests. PayPal HTTP calls stay
 
 ## CI
 
-GitHub Actions starts `postgres:16-alpine`, waits until `pg_isready` succeeds, sets `DATABASE_URL`, runs `prisma migrate deploy`, then:
+GitHub Actions is documented in `docs/operations/ci-protection.md`. The backend job starts `postgres:16-alpine`, waits until `pg_isready` succeeds, sets `DATABASE_URL`, runs `prisma migrate deploy`, then unit + integration tests. A separate `contract` job runs `npm run test:contract` (no PostgreSQL). A `security` job runs `npm audit --audit-level=high` for the root and `server/` lockfiles.
 
 ```bash
 npm run test:unit
+npm run test:contract
 npm run test:integration
 ```
+
+`test:contract` compares real Express handlers to the single in-repo OpenAPI document (`server/src/shared/docs/openapi.ts`). It covers documented status codes, the `{ error }` error shape, offset/cursor pagination, and headers (`X-Request-Id`, `Idempotency-Key`, PayPal webhook headers, rate-limit). Types are not codegen'd: the Market client already has `src/types/api.ts`. Login `429` + `Retry-After` remains in `auth.security.integration.test.ts` because it needs PostgreSQL throttle rows.
 
 Integration tests are not skipped when PostgreSQL is down. A missing or unreachable database fails the job.
 
