@@ -36,7 +36,7 @@ Buyer approval on PayPal is **not** local `PAID`. Standard Checkout stays `APPRO
 Register a **Sandbox** webhook on the same REST app as `PAYPAL_CLIENT_ID`:
 
 1. Developer Dashboard → Apps → the sandbox app → Webhooks.
-2. URL: `https://<api-host>/payments/webhook` (production API is `https://neon-arsenal-market-api.onrender.com/payments/webhook`). Do not point PayPal at the Vite/Vercel origin.
+2. URL: `https://<api-host>/payments/webhook` (production API is `https://neon-arsenal-market-api.onrender.com/payments/webhook`). `POST /api/v1/payments/webhook` is the same v1 handler (SPEC-0007). This runbook does not require changing the registered PayPal URL. Do not point PayPal at the Vite/Vercel origin.
 3. Subscribe at least to `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is stored as `IGNORED` and does not sell listings.
 4. Copy the webhook **ID** into Render env `PAYPAL_WEBHOOK_ID` on `neon-arsenal-market-api`, then restart. Production (`NODE_ENV=production`) rejects unsigned events when this is missing.
 

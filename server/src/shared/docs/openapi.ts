@@ -3,6 +3,10 @@
  *
  * Served at GET /docs as Swagger UI (CDN-based, no extra packages needed).
  * Raw JSON available at GET /docs/json.
+ *
+ * Current public contract is `/api/v1` (SPEC-0007 / ADR 0017). Unversioned
+ * domain paths are compatibility aliases of the same v1 handlers. Health and
+ * docs stay at the host root. Policy: docs/architecture/api-versioning.md.
  */
 export const openApiSpec = {
   openapi: "3.0.3",
@@ -11,12 +15,18 @@ export const openApiSpec = {
     version: "1.0.0",
     description:
       "REST API for Neon Arsenal Market — a CS2 skin marketplace with PayPal payments, " +
-      "seller commissions, and admin management.",
+      "seller commissions, and admin management. Current public base is `/api/v1`. " +
+      "Unversioned domain paths (`/auth`, `/listings`, `/payments`, …) are v1 compatibility " +
+      "aliases and must not diverge. Additive changes may land on v1; breaking changes " +
+      "require a new major prefix. Operational `/health`, `/ready`, and `/docs` are unversioned. " +
+      "See docs/architecture/api-versioning.md.",
     contact: { name: "Bruno", email: "brunoharry2009@gmail.com" },
   },
   servers: [
-    { url: "http://localhost:3001", description: "Local development" },
-    { url: "https://api.neonarsenal.com", description: "Production" },
+    { url: "http://localhost:3001/api/v1", description: "Local development — current public contract (v1)" },
+    { url: "https://api.neonarsenal.com/api/v1", description: "Production — current public contract (v1)" },
+    { url: "http://localhost:3001", description: "Local unversioned v1 compatibility aliases" },
+    { url: "https://api.neonarsenal.com", description: "Production unversioned v1 compatibility aliases" },
   ],
   components: {
     securitySchemes: {
@@ -24,7 +34,7 @@ export const openApiSpec = {
         type: "http",
         scheme: "bearer",
         bearerFormat: "JWT",
-        description: "Access token obtained from /auth/login or /auth/refresh",
+        description: "Access token obtained from /api/v1/auth/login or /api/v1/auth/refresh (unversioned /auth/* aliases work)",
       },
     },
     schemas: {
@@ -201,6 +211,10 @@ export const openApiSpec = {
         tags: ["Health"],
         summary: "Health check",
         security: [],
+        servers: [
+          { url: "http://localhost:3001", description: "Local operational (unversioned)" },
+          { url: "https://api.neonarsenal.com", description: "Production operational (unversioned)" },
+        ],
         responses: {
           200: { description: "Service is running", content: { "application/json": { schema: { type: "object", properties: { status: { type: "string", example: "ok" } } } } } },
         },
@@ -210,8 +224,12 @@ export const openApiSpec = {
       get: {
         tags: ["Health"],
         summary: "Readiness check",
+        servers: [
+          { url: "http://localhost:3001", description: "Local operational (unversioned)" },
+          { url: "https://api.neonarsenal.com", description: "Production operational (unversioned)" },
+        ],
         description:
-          "Returns 200 when PostgreSQL is reachable. Returns 503 `unavailable` when the database check fails, or 503 `shutting_down` after SIGTERM/SIGINT so Render (`healthCheckPath: /ready`) can stop sending traffic. Liveness remains `GET /health`.",
+          "Returns 200 when PostgreSQL is reachable. Returns 503 `unavailable` when the database check fails, or 503 `shutting_down` after SIGTERM/SIGINT so Render (`healthCheckPath: /ready`) can stop sending traffic. Liveness remains `GET /health`. Not versioned under `/api/v1`.",
         security: [],
         responses: {
           200: { description: "Process can serve traffic", content: { "application/json": { schema: { type: "object", properties: { status: { type: "string", example: "ready" } } } } } },
