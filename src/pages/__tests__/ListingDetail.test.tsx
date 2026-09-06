@@ -1,5 +1,11 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor, fireEvent } from "@testing-library/react";
+import {
+  render,
+  screen,
+  waitFor,
+  fireEvent,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ListingDetail from "../ListingDetail";
@@ -18,6 +24,12 @@ import {
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
+import {
+  RECENTLY_VIEWED_HEADING,
+  RECENTLY_VIEWED_STORAGE_KEY,
+  loadRecentlyViewedIds,
+  saveRecentlyViewedIds,
+} from "@/lib/recentlyViewed";
 import {
   setAnalyticsCollector,
   type AnalyticsEventName,
@@ -181,6 +193,7 @@ describe("ListingDetail", () => {
     authState.isAuthenticated = false;
     authState.isLoading = false;
     localStorage.removeItem(CART_STORAGE_KEY);
+    localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY);
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
     listProductReviews.mockResolvedValue([]);
@@ -443,5 +456,125 @@ describe("ListingDetail", () => {
       });
     });
     expect(JSON.stringify(analyticsEvents)).not.toMatch(/NeonTrader|Ana|@/);
+  });
+
+  it("records the current listing and shows earlier ACTIVE views only", async () => {
+    saveRecentlyViewedIds(["listing-seen", "listing-1", "listing-sold"]);
+    getListing.mockImplementation(async (id: unknown) => {
+      if (id === "listing-1") return makeListing();
+      if (id === "listing-seen") {
+        return makeListing({
+          id: "listing-seen",
+          productId: "awp-asiimov-ft",
+          product: {
+            ...makeListing().product,
+            id: "awp-asiimov-ft",
+            weapon: "AWP",
+            skinName: "Asiimov",
+          },
+        });
+      }
+      if (id === "listing-sold") {
+        return makeListing({
+          id: "listing-sold",
+          status: "SOLD",
+          productId: "m4-howl",
+          product: {
+            ...makeListing().product,
+            id: "m4-howl",
+            weapon: "M4A4",
+            skinName: "Howl",
+          },
+        });
+      }
+      throw new Error("gone");
+    });
+
+    renderDetail();
+
+    expect(
+      await screen.findByRole("heading", { name: /AK-47 \| Redline/ }),
+    ).toBeTruthy();
+    expect(await screen.findByText(RECENTLY_VIEWED_HEADING)).toBeTruthy();
+    expect(screen.getByText("AWP | Asiimov (Field-Tested)")).toBeTruthy();
+    expect(screen.queryByText("M4A4 | Howl (Field-Tested)")).toBeNull();
+    expect(
+      screen.getAllByRole("heading", { name: /AK-47 \| Redline/ }),
+    ).toHaveLength(1);
+    expect(screen.queryByText(/recomendado para você/i)).toBeNull();
+    expect(screen.queryByText(/outros compradores/i)).toBeNull();
+    expect(loadRecentlyViewedIds()).toEqual([
+      "listing-1",
+      "listing-seen",
+      "listing-sold",
+    ]);
+    expect(getListing).toHaveBeenCalledWith("listing-seen");
+    expect(getListing).toHaveBeenCalledWith("listing-sold");
+  });
+
+  it("omits the recently viewed block when only the current listing is stored", async () => {
+    getListing.mockResolvedValue(makeListing());
+    renderDetail();
+
+    expect(
+      await screen.findByRole("heading", { name: /AK-47 \| Redline/ }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(loadRecentlyViewedIds()).toEqual(["listing-1"]);
+    });
+    expect(screen.queryByText(RECENTLY_VIEWED_HEADING)).toBeNull();
+    expect(screen.queryByText(/nenhum visto/i)).toBeNull();
+  });
+
+  it("shows earlier ACTIVE views after navigating to another listing", async () => {
+    const first = makeListing();
+    const second = makeListing({
+      id: "listing-2",
+      productId: "awp-asiimov-ft",
+      product: {
+        ...makeListing().product,
+        id: "awp-asiimov-ft",
+        weapon: "AWP",
+        skinName: "Asiimov",
+      },
+    });
+    getListing.mockImplementation(async (id: unknown) => {
+      if (id === "listing-1") return first;
+      if (id === "listing-2") return second;
+      throw new Error("gone");
+    });
+    listListings.mockResolvedValue({
+      items: [first, second],
+      total: 2,
+      page: 1,
+      limit: 4,
+    });
+
+    renderDetail();
+
+    expect(
+      await screen.findByRole("heading", { name: /AK-47 \| Redline/ }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(loadRecentlyViewedIds()).toEqual(["listing-1"]);
+    });
+    expect(screen.queryByText(RECENTLY_VIEWED_HEADING)).toBeNull();
+
+    fireEvent.click(screen.getByText("AWP | Asiimov (Field-Tested)"));
+
+    expect(
+      await screen.findByRole("heading", { name: /AWP \| Asiimov/ }),
+    ).toBeTruthy();
+    expect(await screen.findByText(RECENTLY_VIEWED_HEADING)).toBeTruthy();
+    const rail = screen
+      .getByRole("heading", { name: RECENTLY_VIEWED_HEADING })
+      .closest("section");
+    expect(rail).toBeTruthy();
+    expect(
+      within(rail as HTMLElement).getByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    expect(
+      within(rail as HTMLElement).queryByText("AWP | Asiimov (Field-Tested)"),
+    ).toBeNull();
   });
 });

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ListingCard } from "@/components/ProductCard";
+import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { listListings } from "@/api/listings";
 import { listProducts } from "@/api/products";
@@ -9,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MARKET_VIEW_CTA } from "@/lib/listingCartCta";
 import { track } from "@/lib/analytics";
+import { useRecentlyViewedListings } from "@/hooks/useRecentlyViewedListings";
 import {
   HOME_EMPTY_DESCRIPTION,
   HOME_EMPTY_TITLE,
@@ -48,6 +50,7 @@ export default function IndexPage() {
   const listingsTotal = listingsQuery.data?.total;
   const approvedSellerCount = sellersQuery.data?.length;
   const shortcuts = catalogDiscoveryLinks(productsQuery.data?.items ?? []);
+  const recentlyViewed = useRecentlyViewedListings();
 
   return (
     <div className="container space-y-12 py-10">
@@ -125,6 +128,8 @@ export default function IndexPage() {
           </div>
         )}
       </section>
+
+      <RecentlyViewedRail listings={recentlyViewed} />
 
       <section aria-labelledby="home-new-heading">
         <h2
