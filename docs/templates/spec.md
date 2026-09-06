@@ -1,76 +1,141 @@
-# [SPEC-ID] — Title
+---
+id: SPEC-EXAMPLE-001
+status: Proposed
+version: 1
+source_issue: "#..."
+owner: "team"
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# SPEC-EXAMPLE-001 — Title
 
 ## Status
 
-Proposed | Accepted | Superseded
+`Proposed` | `Accepted` | `Superseded`
+
+A material Specification becomes authoritative for implementation only when its status is `Accepted`.
 
 ## Problem
 
-What problem exists today?
+Describe the observable problem or unmet requirement. Do not prescribe implementation.
 
 ## Goal
 
-What outcome must become true?
+Describe the measurable outcome that must become true.
 
 ## Actors
 
-Who or what participates in the behavior?
+Identify users, internal services, external providers, scheduled jobs, or administrative actors involved.
 
 ## Scope
 
-What this specification includes.
+Explicitly describe what behavior is included.
 
 ## Non-goals
 
-What this specification explicitly does not include.
+Explicitly describe behavior that is not part of this change. Non-goals prevent agents from expanding scope by assumption.
 
 ## Business Rules
 
-Rules that define expected domain behavior.
+Number material rules so they can be referenced by plans, tasks, tests, and convergence checks.
+
+- `BR-01`: ...
+- `BR-02`: ...
 
 ## Invariants
 
-Reference canonical invariant IDs. Create a new invariant only when the rule is genuinely new.
+Reference canonical invariant IDs only. Do not redefine an existing invariant in a way that conflicts with `docs/domain/invariants.md`.
+
+- `INV-...`
 
 ## State Transitions
 
-Document lifecycle transitions when applicable.
+Document lifecycle transitions when applicable. State transitions must identify allowed, forbidden, and terminal states.
+
+```text
+STATE_A → STATE_B
+STATE_B → STATE_C
+```
 
 ## API / Data Contract
 
-Requests, responses, events, persistence or schema changes when applicable.
+Describe externally observable requests, responses, events, persistence, schema changes, or compatibility requirements when applicable.
+
+For each public contract, specify required fields, constraints, ownership, and error semantics. Reference OpenAPI/Prisma artifacts when they become the implementation source.
 
 ## Concurrency Model
 
-Race conditions, transaction boundaries and isolation assumptions when applicable.
+Describe race conditions, transaction boundaries, uniqueness constraints, isolation assumptions, optimistic/pessimistic controls, and retry semantics whenever state can be changed concurrently.
 
 ## Failure Modes
 
-Retries, crashes, timeouts, partial completion and recovery behavior.
+Describe timeout, duplicate request/event, retry, process crash, partial completion, provider failure, recovery, and reconciliation behavior as applicable.
 
 ## Security
 
-Trust boundaries, authentication, authorization, validation and sensitive-data constraints.
+Describe trust boundaries, authentication, authorization, validation, sensitive data, secret handling, abuse/rate-limit requirements, and external callback authenticity.
 
 ## Observability
 
-Logs, metrics, traces and operational signals needed to prove or operate the behavior.
+Define logs, metrics, traces, correlation identifiers, and operational signals needed to prove or operate the behavior. Avoid sensitive data.
 
 ## Backward Compatibility
 
-Compatibility constraints and migrations.
+Describe compatibility with existing clients, data, APIs, schemas, migrations, or operational behavior. State whether a migration, rollout strategy, or deprecation is required.
 
 ## Acceptance Criteria
 
-- [ ] AC-01: ...
-- [ ] AC-02: ...
+Acceptance criteria define the observable contract. Every material criterion must be independently verifiable and should identify its evidence class.
 
-Every material criterion should indicate how it can be verified.
+- [ ] `AC-01` — ... **Evidence:** test | static check | integration | runtime | manual review
+- [ ] `AC-02` — ... **Evidence:** ...
+
+### Acceptance rules
+
+1. Criteria must describe observable outcomes, not implementation steps.
+2. Criteria must be deterministic enough for an independent verifier to judge.
+3. Criteria must cover important failure and security behavior, not only the happy path.
+4. A criterion is not accepted because a test passes when the test does not actually prove the criterion.
 
 ## Verification Strategy
 
-Commands, tests, static checks, integration tests, browser/runtime checks or human review required to establish acceptance.
+Define the verification surface before implementation.
+
+- Required commands/checks: `...`
+- Unit tests: `...`
+- Integration/concurrency tests: `...`
+- Security/contract checks: `...`
+- Runtime/manual checks: `...`
+- Required external evidence: `...`
+
+The final implementation must be traceable from each material acceptance criterion to evidence.
 
 ## Decisions / References
 
-Relevant ADRs, architecture docs and external provider documentation.
+Reference relevant ADRs, current architecture, invariant catalog, provider documentation, prior accepted Specs, and other authoritative artifacts.
+
+## Traceability
+
+Material changes must preserve this chain:
+
+```text
+GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+```
+
+### Traceability metadata
+
+- Issue: `#...`
+- Spec: `SPEC-...`
+- Plan: `PLAN-...`
+- Tasks: `TASK-...`
+- PR: `#...`
+- Verification/Convergence: `...`
+- Evaluation: `EVAL-...`
+- Memory: `MEM-...`
+
+## Change History
+
+Record material changes to the Specification and why they occurred. A change to an accepted Spec requires re-evaluating downstream Plan/Task artifacts.
+
+- `v1` — Initial proposal — YYYY-MM-DD
