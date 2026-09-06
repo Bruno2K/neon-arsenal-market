@@ -161,9 +161,9 @@ describe("SellerListings", () => {
     );
 
     expect(
-      await screen.findByRole("button", { name: "Novo Listing" }),
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
     ).toBeTruthy();
-    expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Novo Listing" })).toBeTruthy();
     expect(screen.getByTitle("Editar")).toBeTruthy();
     expect(screen.getByTitle("Atualizar preço")).toBeTruthy();
     expect(screen.getByTitle("Cancelar listing")).toBeTruthy();
