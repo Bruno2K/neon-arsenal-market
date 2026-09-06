@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
-import { ListingCard } from "../ProductCard";
+import { ListingCard, SkinThumb } from "../ProductCard";
 import { CartProvider, useCart } from "../../contexts/CartContext";
 import type { Listing } from "@/types/api";
 import {
@@ -277,5 +277,41 @@ describe("ListingCard", () => {
     renderCard(makeListing());
     expect(screen.queryByText(/SKINMARKET/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/CS2 Skin Marketplace/i)).not.toBeInTheDocument();
+  });
+});
+
+describe("SkinThumb", () => {
+  it("renders a compact catalog image", () => {
+    render(
+      <SkinThumb
+        product={{
+          weapon: "AK-47",
+          skinName: "Redline",
+          exterior: "Field-Tested",
+          imageUrl: "https://cs2.sh/image/ak.png",
+        }}
+      />,
+    );
+    expect(
+      screen.getByRole("img", { name: "AK-47 | Redline (Field-Tested)" }),
+    ).toHaveAttribute("src", "https://cs2.sh/image/ak.png");
+  });
+
+  it("hides the image from the accessibility tree when decorative", () => {
+    render(
+      <SkinThumb
+        decorative
+        product={{
+          weapon: "AK-47",
+          skinName: "Redline",
+          exterior: "Field-Tested",
+          imageUrl: "https://cs2.sh/image/ak.png",
+        }}
+      />,
+    );
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(
+      document.querySelector('img[src="https://cs2.sh/image/ak.png"]'),
+    ).toBeTruthy();
   });
 });
