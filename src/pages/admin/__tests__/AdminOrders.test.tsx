@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminOrders from "../AdminOrders";
 import type { Order } from "@/types/api";
@@ -11,7 +11,7 @@ vi.mock("@/api/admin", () => ({
   listAdminOrders: (...args: unknown[]) => listAdminOrders(...args),
 }));
 
-function order(): Order {
+function order(overrides: Partial<Order> = {}): Order {
   return {
     id: "order-abcdef12",
     totalAmount: 18.5,
@@ -19,17 +19,20 @@ function order(): Order {
     paymentStatus: "PAID",
     createdAt: new Date("2026-01-15T12:00:00.000Z").toISOString(),
     updatedAt: new Date("2026-01-15T12:00:00.000Z").toISOString(),
+    ...overrides,
   };
 }
 
-function renderOrders() {
+function renderOrders(path = "/admin/orders") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
   return render(
     <QueryClientProvider client={client}>
-      <MemoryRouter>
-        <AdminOrders />
+      <MemoryRouter initialEntries={[path]}>
+        <Routes>
+          <Route path="/admin/orders" element={<AdminOrders />} />
+        </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -49,7 +52,52 @@ describe("AdminOrders", () => {
     expect(screen.getByText("#order-ab")).toBeTruthy();
     expect(screen.getByText("$18.50")).toBeTruthy();
     expect(screen.getByText("Pago")).toBeTruthy();
-    expect(listAdminOrders).toHaveBeenCalled();
+    expect(listAdminOrders).toHaveBeenCalledWith({});
     expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
+    expect(screen.queryByText(/reembols/i)).toBeNull();
+    expect(screen.getByRole("link", { name: "#order-ab" })).toHaveAttribute(
+      "href",
+      "/admin/orders/order-abcdef12",
+    );
+  });
+
+  it("sends URL query filters to GET /admin/orders", async () => {
+    listAdminOrders.mockResolvedValue([]);
+
+    renderOrders("/admin/orders?status=PENDING&paymentStatus=PENDING");
+
+    expect(await screen.findByText("Nenhum pedido neste filtro")).toBeTruthy();
+    expect(screen.getByText("Tente ajustar os filtros")).toBeTruthy();
+    expect(listAdminOrders).toHaveBeenCalledWith({
+      status: "PENDING",
+      paymentStatus: "PENDING",
+    });
+    expect(screen.getByLabelText("Status")).toHaveValue("PENDING");
+    expect(screen.getByLabelText("Pagamento")).toHaveValue("PENDING");
+  });
+
+  it("distinguishes an empty platform from an empty filter", async () => {
+    listAdminOrders.mockResolvedValue([]);
+
+    renderOrders();
+
+    expect(await screen.findByText("Nenhum pedido encontrado")).toBeTruthy();
+    expect(screen.queryByText("Nenhum pedido neste filtro")).toBeNull();
+    expect(screen.queryByText("Tente ajustar os filtros")).toBeNull();
+  });
+
+  it("updates the URL when a payment filter is chosen", async () => {
+    listAdminOrders.mockResolvedValue([order()]);
+
+    renderOrders();
+    expect(await screen.findByText("#order-ab")).toBeTruthy();
+
+    listAdminOrders.mockResolvedValue([]);
+    fireEvent.change(screen.getByLabelText("Pagamento"), {
+      target: { value: "PENDING" },
+    });
+
+    expect(await screen.findByText("Nenhum pedido neste filtro")).toBeTruthy();
+    expect(listAdminOrders).toHaveBeenCalledWith({ paymentStatus: "PENDING" });
   });
 });
