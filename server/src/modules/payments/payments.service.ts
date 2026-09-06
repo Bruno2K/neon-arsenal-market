@@ -131,7 +131,9 @@ export const paymentsService = {
 
       const outcome = await syncRemotePaypalPayment(order, { captureIfApproved: true });
       span.setAttribute("paypal.order_status", outcome.paypalStatus ?? "unknown");
-      markSpanOutcome(span, outcome.paymentStatus === "PAID" ? "confirmed" : "pending");
+      if (outcome.paymentStatus === "PAID") {
+        markSpanOutcome(span, "confirmed");
+      }
       return {
         orderId: order.id,
         paymentStatus: outcome.paymentStatus,
