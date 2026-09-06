@@ -63,9 +63,10 @@ Implemented:
 - optional OpenTelemetry SDK (`OTEL_ENABLED`, exporters `none` / `console` / `otlp`);
 - HTTP, Prisma, PayPal and critical workflow spans;
 - engineering and business counters with low-cardinality attributes;
-- expected business results distinguished from operational errors.
+- expected business results distinguished from operational errors;
+- operator dashboards, SLOs, error budget, and request/trace diagnosis documented from those instruments (`SPEC-0008`, issues #62 / #63). No Grafana/Prometheus server.
 
-See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`.
+See `docs/observability.md`, `docs/operations/dashboards.md`, `docs/operations/slos.md`, and `docs/adr/0004-opentelemetry.md`.
 
 ### P1.3 Resilience
 
@@ -139,6 +140,8 @@ Maintain:
 - `docs/architecture/threat-model.md`
 - `docs/adr/`
 - `docs/operations/runbook.md`
+- `docs/operations/dashboards.md`
+- `docs/operations/slos.md`
 - `docs/agents/`
 
 Documentation is part of the implementation whenever a design or operational decision changes.
