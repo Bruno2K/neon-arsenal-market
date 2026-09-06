@@ -70,18 +70,19 @@ export default function AccountFavoritesPage() {
         <ul className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((favorite) => {
             const listing = favorite.listing;
+            const id = favorite.listingId ?? favorite.listing?.id ?? "";
             if (!listing) {
               return (
                 <li
-                  key={favorite.id}
+                  key={id}
                   className="rounded-md border border-border p-4 text-sm text-muted-foreground"
                 >
-                  Listing {favorite.listingId}
+                  Listing {id}
                 </li>
               );
             }
             return (
-              <li key={favorite.id} className="space-y-2">
+              <li key={id} className="space-y-2">
                 {listing.status === "SOLD" ? (
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="secondary">Vendido</Badge>

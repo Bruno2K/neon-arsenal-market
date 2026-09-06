@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   hasMarketFilters,
   isValidNumericRange,
+  MARKET_TAXONOMY_EMPTY_HINT,
+  marketFiltersEmptyDescription,
   marketPath,
   marketSearchEmptyTitle,
   parseMarketQuery,
@@ -147,6 +149,14 @@ describe("weapon and rarity", () => {
     expect(query.rarity).toBe("Covert");
     expect(serializeMarketQuery(query).toString()).toBe(
       "weapon=AK-47&rarity=Covert",
+    );
+  });
+
+  it("suggests clearing weapon or rarity in the empty-filter copy", () => {
+    const query = parseMarketQuery(new URLSearchParams("weapon=AK-47"));
+    expect(marketFiltersEmptyDescription(query)).toContain("arma AK-47");
+    expect(marketFiltersEmptyDescription(query)).toContain(
+      MARKET_TAXONOMY_EMPTY_HINT,
     );
   });
 });

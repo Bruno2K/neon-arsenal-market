@@ -38,6 +38,8 @@ export const MARKET_FLOAT_HINT = "0.00–1.00";
 export const MARKET_FLOAT_RANGE_ERROR =
   "O float mínimo não pode ser maior que o máximo.";
 export const MARKET_FILTERS_EMPTY_TITLE = "Nenhum listing com estes filtros";
+export const MARKET_TAXONOMY_EMPTY_HINT =
+  "Limpe a arma ou a raridade para ver mais listings.";
 export const MARKET_CATALOG_EMPTY_TITLE = "Nenhum item encontrado";
 export const MARKET_CATALOG_EMPTY_DESCRIPTION = "Tente ajustar os filtros";
 
@@ -253,6 +255,18 @@ export function describeMarketFilters(query: MarketQuery): string[] {
     parts.push(`float ${query.minFloat || "0"}–${query.maxFloat || "1"}`);
   }
   return parts;
+}
+
+export function marketFiltersEmptyDescription(query: MarketQuery): string {
+  const summary = describeMarketFilters(query);
+  const base =
+    summary.length > 0
+      ? `Nenhum listing para ${summary.join(", ")}.`
+      : "Nenhum listing combina com os filtros ativos.";
+  if (query.weapon || query.rarity) {
+    return `${base} ${MARKET_TAXONOMY_EMPTY_HINT}`;
+  }
+  return base;
 }
 
 export function marketSearchEmptyTitle(term: string): string {

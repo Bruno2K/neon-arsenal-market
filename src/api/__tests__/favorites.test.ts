@@ -30,10 +30,21 @@ describe("favorites client", () => {
     expect(get).toHaveBeenCalledWith("/favorites");
   });
 
-  it("POSTs /favorites with listingId", async () => {
-    post.mockResolvedValue({ id: "f1", userId: "u1", listingId: "l1" });
-    await addFavorite("l1");
+  it("POSTs /favorites with listingId only and accepts duplicate 200", async () => {
+    post.mockResolvedValue({ listingId: "l1" });
+    await expect(addFavorite("l1")).resolves.toEqual({ listingId: "l1" });
     expect(post).toHaveBeenCalledWith("/favorites", { listingId: "l1" });
+    expect(post.mock.calls[0]?.[1]).toEqual({ listingId: "l1" });
+    expect(post.mock.calls[0]?.[1]).not.toHaveProperty("userId");
+  });
+
+  it("normalizes GET items that only include listingId and listing", async () => {
+    get.mockResolvedValue({
+      items: [{ listingId: "l1", listing: { id: "l1", status: "ACTIVE" } }],
+    });
+    await expect(listFavorites()).resolves.toEqual([
+      { listingId: "l1", listing: { id: "l1", status: "ACTIVE" } },
+    ]);
   });
 
   it("DELETEs /favorites/:listingId", async () => {

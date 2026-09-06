@@ -56,6 +56,8 @@ describe("FavoriteButton", () => {
     toast.mockReset();
     authState.isAuthenticated = false;
     authState.user = null;
+    sessionStorage.clear();
+    localStorage.clear();
     listFavorites.mockResolvedValue([]);
     addFavorite.mockResolvedValue({
       id: "f1",
@@ -86,5 +88,70 @@ describe("FavoriteButton", () => {
     await waitFor(() => {
       expect(addFavorite).toHaveBeenCalledWith("listing-1");
     });
+  });
+
+  it("treats a duplicate POST 200 as success", async () => {
+    authState.isAuthenticated = true;
+    authState.user = { id: "u1", role: "CUSTOMER" };
+    addFavorite.mockResolvedValue({ listingId: "listing-1" });
+    renderButton();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Adicionar aos favoritos" }),
+    );
+    await waitFor(() => {
+      expect(addFavorite).toHaveBeenCalledWith("listing-1");
+    });
+    expect(toast).not.toHaveBeenCalled();
+  });
+
+  it("rolls back and toasts when the API fails", async () => {
+    authState.isAuthenticated = true;
+    authState.user = { id: "u1", role: "CUSTOMER" };
+    addFavorite.mockRejectedValue(new Error("listing missing"));
+    renderButton();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Adicionar aos favoritos" }),
+    );
+    await waitFor(() => {
+      expect(toast).toHaveBeenCalled();
+    });
+    expect(
+      screen.getByRole("button", { name: "Adicionar aos favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("does not claim success when a seller would get 403", async () => {
+    authState.isAuthenticated = true;
+    authState.user = { id: "s1", role: "SELLER" };
+    renderButton();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Adicionar aos favoritos" }),
+    );
+    expect(addFavorite).not.toHaveBeenCalled();
+    expect(toast).toHaveBeenCalled();
+    expect(
+      screen.getByRole("button", { name: "Adicionar aos favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("posts the one-shot pending favorite after a customer logs in", async () => {
+    sessionStorage.setItem("pendingFavoriteListingId", "listing-1");
+    authState.isAuthenticated = true;
+    authState.user = { id: "u1", role: "CUSTOMER" };
+    renderButton();
+    await waitFor(() => {
+      expect(addFavorite).toHaveBeenCalledWith("listing-1");
+    });
+    expect(sessionStorage.getItem("pendingFavoriteListingId")).toBeNull();
+  });
+
+  it("does not present sessionStorage pending as a saved list", async () => {
+    sessionStorage.setItem("pendingFavoriteListingId", "listing-1");
+    renderButton();
+    expect(
+      screen.getByRole("button", { name: "Adicionar aos favoritos" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(listFavorites).not.toHaveBeenCalled();
+    expect(screen.queryByText("Nenhum favorito")).toBeNull();
   });
 });

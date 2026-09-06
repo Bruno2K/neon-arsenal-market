@@ -1,4 +1,5 @@
 import type { Product } from "@/types/api";
+import { MARKET_WEAPONS } from "@/lib/catalogTaxonomy";
 import { similarItemsMarketPath } from "@/lib/listingCartCta";
 import { MARKET_EXTERIORS, marketPath } from "@/lib/marketQuery";
 
@@ -11,7 +12,7 @@ export const HOME_NEW_SORT_COPY =
 
 export const HOME_SHORTCUTS_HEADING = "Descobrir no Market";
 export const HOME_SHORTCUTS_COPY =
-  "Atalhos para skins do catálogo. Cada um abre o Market nessa skin.";
+  "Atalhos de arma e skins. Cada arma abre o Market com o filtro na URL.";
 
 export const HOME_TRUST_HEADING = "Como comprar";
 export const HOME_TRUST_ITEMS = [
@@ -36,6 +37,13 @@ export const HOME_EXTERIOR_LINKS = MARKET_EXTERIORS.filter(Boolean).map(
     href: marketPath({ exterior }),
   }),
 );
+
+/** Common CS2 weapons → Market `weapon=` query. Not a categories table. */
+export const HOME_WEAPON_LINKS = MARKET_WEAPONS.map((weapon) => ({
+  weapon,
+  label: weapon,
+  href: marketPath({ weapon }),
+}));
 
 export interface CatalogShortcut {
   productId: string;

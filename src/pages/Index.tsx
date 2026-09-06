@@ -26,6 +26,7 @@ import {
   HOME_VALUE_PROP,
   approvedSellersCountLabel,
   catalogDiscoveryLinks,
+  HOME_WEAPON_LINKS,
   listingsCountLabel,
 } from "@/lib/homeDiscovery";
 
@@ -106,6 +107,26 @@ export default function IndexPage() {
             <Button asChild variant="outline" size="sm">
               <Link to="/products">{MARKET_VIEW_CTA}</Link>
             </Button>
+            {HOME_WEAPON_LINKS.map((shortcut) => (
+              <Button
+                key={`weapon-${shortcut.weapon}`}
+                asChild
+                variant="outline"
+                size="sm"
+              >
+                <Link
+                  to={shortcut.href}
+                  onClick={() =>
+                    track("category_view", {
+                      category: shortcut.weapon,
+                      source: "home",
+                    })
+                  }
+                >
+                  {shortcut.label}
+                </Link>
+              </Button>
+            ))}
             {HOME_EXTERIOR_LINKS.map((shortcut) => (
               <Button
                 key={shortcut.exterior}

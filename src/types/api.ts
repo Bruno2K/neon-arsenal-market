@@ -215,9 +215,14 @@ export interface UpdateReviewBody {
 
 /** GET /favorites — listing may be SOLD and still returned. */
 export interface Favorite {
-  id: string;
-  userId: string;
   listingId: string;
-  createdAt?: string;
   listing?: Listing;
+  id?: string;
+  userId?: string;
+  createdAt?: string;
+}
+
+/** POST /favorites 200 — create and duplicate are both `{ listingId }`. */
+export interface AddFavoriteResponse {
+  listingId: string;
 }
