@@ -104,3 +104,61 @@ describe("ProtectedRoute seller surface", () => {
     expect(screen.queryByText("seller-page")).toBeNull();
   });
 });
+
+const ADMIN_ORDER_ROUTES = [
+  "/admin/orders",
+  "/admin/orders/order-abcdef12",
+] as const;
+
+function renderAdminGate(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route
+          element={
+            <ProtectedRoute>
+              <ProtectedRoute allowedRoles={["ADMIN"]}>
+                <div>admin-page</div>
+              </ProtectedRoute>
+            </ProtectedRoute>
+          }
+        >
+          <Route path="/admin/orders" element={null} />
+          <Route path="/admin/orders/:id" element={null} />
+        </Route>
+        <Route path="/login" element={<div>login</div>} />
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
+describe("ProtectedRoute admin orders", () => {
+  beforeEach(() => {
+    authState.user = null;
+    authState.isAuthenticated = false;
+    authState.isLoading = false;
+  });
+
+  it.each(ADMIN_ORDER_ROUTES)("keeps ADMIN on %s", (path) => {
+    authState.user = userFor("ADMIN");
+    authState.isAuthenticated = true;
+
+    renderAdminGate(path);
+
+    expect(screen.getByText("admin-page")).toBeTruthy();
+    expect(screen.queryByText("Acesso negado")).toBeNull();
+  });
+
+  it.each(["SELLER", "CUSTOMER"] as const)(
+    "denies %s on admin order list and detail",
+    (role) => {
+      authState.user = userFor(role);
+      authState.isAuthenticated = true;
+
+      renderAdminGate("/admin/orders/order-abcdef12");
+
+      expect(screen.getByText("Acesso negado")).toBeTruthy();
+      expect(screen.queryByText("admin-page")).toBeNull();
+    },
+  );
+});
