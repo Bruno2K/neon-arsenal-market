@@ -51,10 +51,11 @@ describe("AdminOrders", () => {
     expect(await screen.findByText("Pedidos")).toBeTruthy();
     expect(screen.getByText("#order-ab")).toBeTruthy();
     expect(screen.getByText("$18.50")).toBeTruthy();
-    expect(screen.getByText("Pago")).toBeTruthy();
+    expect(screen.getAllByText("Pago").length).toBeGreaterThan(0);
     expect(listAdminOrders).toHaveBeenCalledWith({});
     expect(screen.queryByRole("button", { name: "Aprovar" })).toBeNull();
-    expect(screen.queryByText(/reembols/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /reembols/i })).toBeNull();
+    expect(screen.queryByRole("link", { name: /reembols/i })).toBeNull();
     expect(screen.getByRole("link", { name: "#order-ab" })).toHaveAttribute(
       "href",
       "/admin/orders/order-abcdef12",

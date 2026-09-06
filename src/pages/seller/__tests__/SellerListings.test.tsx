@@ -43,7 +43,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
-function seller(): Seller {
+function seller(overrides: Partial<Seller> = {}): Seller {
   return {
     id: "seller-1",
     userId: "user-1",
@@ -51,6 +51,7 @@ function seller(): Seller {
     balance: 0,
     rating: 0,
     isApproved: true,
+    ...overrides,
   };
 }
 
