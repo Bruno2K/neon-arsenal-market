@@ -30,6 +30,7 @@ ID_PATTERNS = {
 
 FRONTMATTER_REQUIRED = ("id", "status", "version", "source_issue", "owner", "created", "updated")
 VALID_SPEC_STATUSES = {"Proposed", "Accepted", "Superseded"}
+GITHUB_ISSUE_REF = re.compile(r"^#[1-9][0-9]*$")
 
 
 def validate_templates(errors: list[str]) -> None:
@@ -103,6 +104,10 @@ def validate_spec(path: Path, content: str, title_id: str, errors: list[str]) ->
 
     if frontmatter.get("version") and not frontmatter["version"].isdigit():
         errors.append(f"{relative} has non-numeric Specification version: {frontmatter['version']}")
+
+    source_issue = frontmatter.get("source_issue")
+    if source_issue and not GITHUB_ISSUE_REF.fullmatch(source_issue):
+        errors.append(f"{relative} has invalid source_issue; expected canonical GitHub Issue reference #<number>: {source_issue}")
 
     if re.search(r"^\s*- \[ \] `AC-[^`]+`.*\*\*Evidence:\*\*\s*(?:test|static check|integration|runtime|manual review)\s*$", content, re.MULTILINE) is None:
         errors.append(f"{relative} must contain at least one unchecked acceptance criterion with an Evidence class")

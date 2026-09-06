@@ -134,6 +134,8 @@ GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE �
 - Evaluation: `EVAL-...`
 - Memory: `MEM-...`
 
+The frontmatter `source_issue` must use the canonical GitHub Issue reference format `#<number>` and identify the material Issue that authorized this Specification.
+
 ## Change History
 
 Record material changes to the Specification and why they occurred. A change to an accepted Spec requires re-evaluating downstream Plan/Task artifacts.
