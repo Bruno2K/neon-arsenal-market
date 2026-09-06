@@ -195,6 +195,14 @@ describe("Index", () => {
     expect(marketLinks.length).toBeGreaterThan(1);
     expect(marketLinks[0]).toHaveAttribute("href", "/products");
 
+    expect(screen.getByRole("link", { name: "Factory New" })).toHaveAttribute(
+      "href",
+      "/products?exterior=Factory+New",
+    );
+    expect(screen.getByRole("link", { name: "Minimal Wear" })).toHaveAttribute(
+      "href",
+      "/products?exterior=Minimal+Wear",
+    );
     expect(
       screen.getByRole("link", { name: "AK-47 | Redline" }),
     ).toHaveAttribute("href", similarItemsMarketPath("ak-redline-ft"));

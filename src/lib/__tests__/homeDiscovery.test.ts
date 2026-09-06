@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import type { Product } from "@/types/api";
 import { similarItemsMarketPath } from "@/lib/listingCartCta";
+import { marketPath } from "@/lib/marketQuery";
 import {
   approvedSellersCountLabel,
   catalogDiscoveryLinks,
+  HOME_EXTERIOR_LINKS,
   listingsCountLabel,
 } from "../homeDiscovery";
 
@@ -53,6 +55,19 @@ describe("catalogDiscoveryLinks", () => {
       },
     ]);
     expect(links.every((link) => !link.href.includes("#"))).toBe(true);
+  });
+});
+
+describe("HOME_EXTERIOR_LINKS", () => {
+  it("deep-links Market exteriors", () => {
+    expect(HOME_EXTERIOR_LINKS[0]).toEqual({
+      exterior: "Factory New",
+      label: "Factory New",
+      href: marketPath({ exterior: "Factory New" }),
+    });
+    expect(HOME_EXTERIOR_LINKS.map((link) => link.href)).toContain(
+      "/products?exterior=Minimal+Wear",
+    );
   });
 });
 

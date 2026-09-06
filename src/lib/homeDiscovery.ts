@@ -1,5 +1,6 @@
 import type { Product } from "@/types/api";
 import { similarItemsMarketPath } from "@/lib/listingCartCta";
+import { MARKET_EXTERIORS, marketPath } from "@/lib/marketQuery";
 
 export const HOME_VALUE_PROP =
   "Skins CS2 de item único, anunciadas por vendedores. A reserva começa no checkout; o pagamento é pelo PayPal.";
@@ -27,6 +28,14 @@ export const HOME_EMPTY_DESCRIPTION =
 
 export const HOME_CATALOG_SHORTCUT_LIMIT = 6;
 export const HOME_LISTING_RAIL_LIMIT = 8;
+
+export const HOME_EXTERIOR_LINKS = MARKET_EXTERIORS.filter(Boolean).map(
+  (exterior) => ({
+    exterior,
+    label: exterior,
+    href: marketPath({ exterior }),
+  }),
+);
 
 export interface CatalogShortcut {
   productId: string;

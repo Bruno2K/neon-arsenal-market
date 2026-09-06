@@ -14,6 +14,7 @@ import { useRecentlyViewedListings } from "@/hooks/useRecentlyViewedListings";
 import {
   HOME_EMPTY_DESCRIPTION,
   HOME_EMPTY_TITLE,
+  HOME_EXTERIOR_LINKS,
   HOME_LISTING_RAIL_LIMIT,
   HOME_NEW_HEADING,
   HOME_NEW_SORT_COPY,
@@ -105,6 +106,26 @@ export default function IndexPage() {
             <Button asChild variant="outline" size="sm">
               <Link to="/products">{MARKET_VIEW_CTA}</Link>
             </Button>
+            {HOME_EXTERIOR_LINKS.map((shortcut) => (
+              <Button
+                key={shortcut.exterior}
+                asChild
+                variant="outline"
+                size="sm"
+              >
+                <Link
+                  to={shortcut.href}
+                  onClick={() =>
+                    track("category_view", {
+                      category: shortcut.exterior,
+                      source: "home",
+                    })
+                  }
+                >
+                  {shortcut.label}
+                </Link>
+              </Button>
+            ))}
             {shortcuts.map((shortcut) => (
               <Button
                 key={shortcut.productId}

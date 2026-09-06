@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
-import { MemoryRouter } from "react-router-dom";
+import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Header } from "../Header";
 import type { User } from "@/types/api";
 
@@ -18,10 +18,27 @@ vi.mock("@/contexts/CartContext", () => ({
   useCart: () => ({ totalItems: 0 }),
 }));
 
+function LocationEcho() {
+  const location = useLocation();
+  return (
+    <div data-testid="location">
+      {location.pathname}
+      {location.search}
+    </div>
+  );
+}
+
 function renderHeader(path = "/") {
   return render(
     <MemoryRouter initialEntries={[path]}>
       <Header />
+      <LocationEcho />
+      <Routes>
+        <Route path="/" element={<div>home</div>} />
+        <Route path="/products" element={<div>market</div>} />
+        <Route path="/login" element={<div>login</div>} />
+        <Route path="/register" element={<div>register</div>} />
+      </Routes>
     </MemoryRouter>,
   );
 }
@@ -112,5 +129,25 @@ describe("Header", () => {
     );
     expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
+  });
+
+  it("submits header search to /products?q=", () => {
+    renderHeader();
+    fireEvent.change(screen.getByLabelText("Buscar no Market"), {
+      target: { value: "  talon " },
+    });
+    fireEvent.submit(screen.getByRole("search"));
+    expect(screen.getByTestId("location").textContent).toBe(
+      "/products?q=talon",
+    );
+  });
+
+  it("keeps an empty header search on the default Market URL", () => {
+    renderHeader("/products?q=talon&exterior=Factory+New");
+    fireEvent.change(screen.getByLabelText("Buscar no Market"), {
+      target: { value: "   " },
+    });
+    fireEvent.submit(screen.getByRole("search"));
+    expect(screen.getByTestId("location").textContent).toBe("/products");
   });
 });

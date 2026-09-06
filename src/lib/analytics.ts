@@ -97,6 +97,7 @@ export function readAnalyticsSource(
 }
 
 export function marketSearchQuery(input: {
+  q?: string;
   productId?: string;
   exterior?: string;
   isStattrak?: boolean;
@@ -104,6 +105,7 @@ export function marketSearchQuery(input: {
   maxPrice?: string;
 }): string | undefined {
   const params = new URLSearchParams();
+  if (input.q) params.set("q", input.q);
   if (input.productId) params.set("productId", input.productId);
   if (input.exterior) params.set("exterior", input.exterior);
   if (input.isStattrak !== undefined) {

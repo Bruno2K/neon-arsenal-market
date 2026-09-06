@@ -4,36 +4,29 @@ import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
 import { ListingCard } from "@/components/ProductCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
-import { listListings } from "@/api/listings";
 import {
   MARKET_SIMILAR_EMPTY_DESCRIPTION,
   MARKET_SIMILAR_EMPTY_TITLE,
   MARKET_VIEW_CTA,
 } from "@/lib/listingCartCta";
+import { fetchMarketListings } from "@/lib/marketListings";
+import {
+  MARKET_EXTERIORS,
+  MARKET_PAGE_SIZE,
+  MARKET_SEARCH_DEBOUNCE_MS,
+  MARKET_SORTS,
+  hasMarketFilters,
+  marketPath,
+  marketSearchEmptyTitle,
+  parseMarketQuery,
+  serializeMarketQuery,
+  type MarketQuery,
+} from "@/lib/marketQuery";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { marketSearchQuery, track } from "@/lib/analytics";
-
-const EXTERIORS = [
-  "",
-  "Factory New",
-  "Minimal Wear",
-  "Field-Tested",
-  "Well-Worn",
-  "Battle-Scarred",
-] as const;
-
-const SORTS = [
-  { value: "", label: "Padrão" },
-  { value: "price-asc", label: "Menor Preço" },
-  { value: "price-desc", label: "Maior Preço" },
-  { value: "float-asc", label: "Menor Float" },
-  { value: "float-desc", label: "Maior Float" },
-] as const;
-
-const PAGE_SIZE = 20;
 
 function Chip({
   active,
@@ -57,68 +50,118 @@ function Chip({
   );
 }
 
+function ExteriorShortcuts({
+  onPick,
+}: {
+  onPick?: (exterior: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap justify-center gap-1.5">
+      {MARKET_EXTERIORS.filter(Boolean).map((ext) => (
+        <Button key={ext} size="sm" variant="outline" asChild>
+          <Link
+            to={marketPath({ exterior: ext })}
+            onClick={() => onPick?.(ext)}
+          >
+            {ext}
+          </Link>
+        </Button>
+      ))}
+    </div>
+  );
+}
+
 export default function Products() {
-  const [searchParams] = useSearchParams();
-  const productId = searchParams.get("productId")?.trim() || undefined;
-  const [exterior, setExterior] = useState("");
-  const [isStattrak, setIsStattrak] = useState<boolean | undefined>(undefined);
-  const [sort, setSort] = useState("");
-  const [page, setPage] = useState(1);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const query = parseMarketQuery(searchParams);
+  const [searchDraft, setSearchDraft] = useState(query.q);
+  const [minPriceDraft, setMinPriceDraft] = useState(query.minPrice);
+  const [maxPriceDraft, setMaxPriceDraft] = useState(query.maxPrice);
+  const [minFloatDraft, setMinFloatDraft] = useState(query.minFloat);
+  const [maxFloatDraft, setMaxFloatDraft] = useState(query.maxFloat);
+
+  useEffect(() => {
+    setSearchDraft(query.q);
+  }, [query.q]);
+
+  useEffect(() => {
+    setMinPriceDraft(query.minPrice);
+    setMaxPriceDraft(query.maxPrice);
+    setMinFloatDraft(query.minFloat);
+    setMaxFloatDraft(query.maxFloat);
+  }, [query.minPrice, query.maxPrice, query.minFloat, query.maxFloat]);
+
+  useEffect(() => {
+    const handle = window.setTimeout(() => {
+      const next = searchDraft.trim();
+      setSearchParams(
+        (prev) => {
+          const current = parseMarketQuery(prev);
+          if (next === current.q) return prev;
+          return serializeMarketQuery({ ...current, q: next, page: 1 });
+        },
+        { replace: true },
+      );
+    }, MARKET_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [searchDraft, setSearchParams]);
+
+  const writeQuery = (
+    patch: Partial<MarketQuery>,
+    history: { replace?: boolean } = {},
+  ) => {
+    setSearchParams(
+      (prev) => serializeMarketQuery({ ...parseMarketQuery(prev), ...patch }),
+      history,
+    );
+  };
 
   const { data, isLoading, isError, error, refetch } = useQuery({
-    queryKey: [
-      "listings",
-      { page, exterior, isStattrak, sort, minPrice, maxPrice, productId },
-    ],
-    queryFn: () =>
-      listListings({
-        page,
-        limit: PAGE_SIZE,
-        status: "ACTIVE",
-        ...(productId ? { productId } : {}),
-        ...(exterior ? { exterior } : {}),
-        ...(isStattrak !== undefined ? { isStattrak } : {}),
-        ...(minPrice ? { minPrice: parseFloat(minPrice) } : {}),
-        ...(maxPrice ? { maxPrice: parseFloat(maxPrice) } : {}),
-      }),
+    queryKey: ["listings", "market", query],
+    queryFn: () => fetchMarketListings(query),
   });
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
   const searchQuery = marketSearchQuery({
-    productId,
-    exterior,
-    isStattrak,
-    minPrice,
-    maxPrice,
+    q: query.q || undefined,
+    productId: query.productId,
+    exterior: query.exterior || undefined,
+    isStattrak: query.isStattrak,
+    minPrice: query.minPrice || undefined,
+    maxPrice: query.maxPrice || undefined,
   });
 
   useEffect(() => {
     if (!searchQuery || isLoading || isError) return;
     track("search", {
       query: searchQuery,
-      productId,
+      productId: query.productId,
       source: "market",
       resultCount: total,
     });
-  }, [searchQuery, productId, isLoading, isError, total]);
+  }, [searchQuery, query.productId, isLoading, isError, total]);
 
-  const sortedItems =
-    sort === "price-asc"
-      ? [...items].sort((a, b) => Number(a.price) - Number(b.price))
-      : sort === "price-desc"
-        ? [...items].sort((a, b) => Number(b.price) - Number(a.price))
-        : sort === "float-asc"
-          ? [...items].sort(
-              (a, b) => Number(a.floatValue) - Number(b.floatValue),
-            )
-          : sort === "float-desc"
-            ? [...items].sort(
-                (a, b) => Number(b.floatValue) - Number(a.floatValue),
-              )
-            : items;
+  const applyPriceFloat = () => {
+    writeQuery(
+      {
+        minPrice: minPriceDraft.trim(),
+        maxPrice: maxPriceDraft.trim(),
+        minFloat: minFloatDraft.trim(),
+        maxFloat: maxFloatDraft.trim(),
+        page: 1,
+      },
+      { replace: true },
+    );
+  };
+
+  const clearFilters = () => {
+    setSearchParams(new URLSearchParams());
+  };
+
+  const clearSearch = () => {
+    writeQuery({ q: "", page: 1 }, { replace: true });
+  };
 
   return (
     <div className="container py-8">
@@ -126,29 +169,43 @@ export default function Products() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Market</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            {productId
+            {query.productId
               ? "Listings ativos desta skin · item único"
               : "Listings ativos · item único"}
           </p>
         </div>
         {!isLoading && !isError ? (
           <p className="text-sm tabular-nums text-muted-foreground">
-            {total} resultado{total !== 1 ? "s" : ""}
+            {query.q
+              ? `${total} resultado${total !== 1 ? "s" : ""} para ${query.q}`
+              : `${total} resultado${total !== 1 ? "s" : ""}`}
           </p>
         ) : null}
       </div>
 
       <div className="mb-8 space-y-4 border-b border-border pb-6">
+        <div className="space-y-1.5">
+          <Label htmlFor="market-search">Buscar</Label>
+          <Input
+            id="market-search"
+            type="search"
+            value={searchDraft}
+            onChange={(event) => setSearchDraft(event.target.value)}
+            placeholder="Arma, skin ou coleção"
+            autoComplete="off"
+            aria-label="Buscar no Market"
+          />
+        </div>
+
         <fieldset className="space-y-1.5">
           <legend className="text-xs text-muted-foreground">Exterior</legend>
           <div className="flex flex-wrap gap-1.5">
-            {EXTERIORS.map((ext) => (
+            {MARKET_EXTERIORS.map((ext) => (
               <Chip
                 key={ext || "all"}
-                active={exterior === ext}
+                active={query.exterior === ext}
                 onClick={() => {
-                  setExterior(ext);
-                  setPage(1);
+                  writeQuery({ exterior: ext, page: 1 });
                   if (ext) {
                     track("category_view", {
                       category: ext,
@@ -176,11 +233,8 @@ export default function Products() {
               ).map(({ value, label }) => (
                 <Chip
                   key={String(value)}
-                  active={isStattrak === value}
-                  onClick={() => {
-                    setIsStattrak(value);
-                    setPage(1);
-                  }}
+                  active={query.isStattrak === value}
+                  onClick={() => writeQuery({ isStattrak: value, page: 1 })}
                 >
                   {label}
                 </Chip>
@@ -200,8 +254,8 @@ export default function Products() {
                 id="minPrice"
                 type="number"
                 placeholder="Mín"
-                value={minPrice}
-                onChange={(e) => setMinPrice(e.target.value)}
+                value={minPriceDraft}
+                onChange={(e) => setMinPriceDraft(e.target.value)}
                 className="w-24"
               />
               <span className="text-sm text-muted-foreground">–</span>
@@ -212,11 +266,51 @@ export default function Products() {
                 id="maxPrice"
                 type="number"
                 placeholder="Máx"
-                value={maxPrice}
-                onChange={(e) => setMaxPrice(e.target.value)}
+                value={maxPriceDraft}
+                onChange={(e) => setMaxPriceDraft(e.target.value)}
                 className="w-24"
               />
-              <Button size="sm" variant="outline" onClick={() => setPage(1)}>
+            </div>
+          </fieldset>
+
+          <fieldset className="space-y-1.5">
+            <legend className="text-xs text-muted-foreground">Float</legend>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="minFloat" className="sr-only">
+                Float mínimo
+              </Label>
+              <Input
+                id="minFloat"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                placeholder="0.00"
+                value={minFloatDraft}
+                onChange={(e) => setMinFloatDraft(e.target.value)}
+                className="w-24"
+              />
+              <span className="text-sm text-muted-foreground">–</span>
+              <Label htmlFor="maxFloat" className="sr-only">
+                Float máximo
+              </Label>
+              <Input
+                id="maxFloat"
+                type="number"
+                step="0.01"
+                min="0"
+                max="1"
+                placeholder="1.00"
+                value={maxFloatDraft}
+                onChange={(e) => setMaxFloatDraft(e.target.value)}
+                className="w-24"
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                onClick={applyPriceFloat}
+              >
                 <Filter className="mr-1 h-3 w-3" />
                 Filtrar
               </Button>
@@ -227,17 +321,28 @@ export default function Products() {
         <fieldset className="space-y-1.5">
           <legend className="text-xs text-muted-foreground">Ordenar</legend>
           <div className="flex flex-wrap gap-1.5">
-            {SORTS.map(({ value, label }) => (
+            {MARKET_SORTS.map(({ value, label }) => (
               <Chip
                 key={value || "default"}
-                active={sort === value}
-                onClick={() => setSort(value)}
+                active={query.sort === value}
+                onClick={() => writeQuery({ sort: value, page: 1 })}
               >
                 {label}
               </Chip>
             ))}
           </div>
         </fieldset>
+
+        {hasMarketFilters(query) ? (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={clearFilters}
+          >
+            Limpar filtros
+          </Button>
+        ) : null}
       </div>
 
       {isLoading && (
@@ -266,8 +371,26 @@ export default function Products() {
 
       {!isLoading &&
         !isError &&
-        sortedItems.length === 0 &&
-        (productId ? (
+        items.length === 0 &&
+        (query.q ? (
+          <EmptyState
+            title={marketSearchEmptyTitle(query.q)}
+            description="Tente outro termo, limpe a busca ou escolha um exterior."
+            action={
+              <div className="flex flex-col items-center gap-3">
+                <div className="flex flex-wrap justify-center gap-2">
+                  <Button type="button" variant="outline" onClick={clearSearch}>
+                    Limpar busca
+                  </Button>
+                  <Button asChild>
+                    <Link to="/products">Explorar Market</Link>
+                  </Button>
+                </div>
+                <ExteriorShortcuts />
+              </div>
+            }
+          />
+        ) : query.productId ? (
           <EmptyState
             title={MARKET_SIMILAR_EMPTY_TITLE}
             description={MARKET_SIMILAR_EMPTY_DESCRIPTION}
@@ -281,34 +404,48 @@ export default function Products() {
           <EmptyState
             title="Nenhum item encontrado"
             description="Tente ajustar os filtros"
+            action={
+              hasMarketFilters(query) ? (
+                <div className="flex flex-col items-center gap-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={clearFilters}
+                  >
+                    Limpar filtros
+                  </Button>
+                  <ExteriorShortcuts />
+                </div>
+              ) : undefined
+            }
           />
         ))}
 
-      {!isLoading && !isError && sortedItems.length > 0 && (
+      {!isLoading && !isError && items.length > 0 && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {sortedItems.map((listing) => (
+            {items.map((listing) => (
               <ListingCard key={listing.id} listing={listing} source="market" />
             ))}
           </div>
-          {total > PAGE_SIZE && (
+          {total > MARKET_PAGE_SIZE && (
             <div className="mt-8 flex justify-center gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page === 1}
-                onClick={() => setPage((p) => p - 1)}
+                disabled={query.page === 1}
+                onClick={() => writeQuery({ page: query.page - 1 })}
               >
                 Anterior
               </Button>
               <span className="self-center text-sm tabular-nums text-muted-foreground">
-                Página {page}
+                Página {query.page}
               </span>
               <Button
                 variant="outline"
                 size="sm"
-                disabled={page * PAGE_SIZE >= total}
-                onClick={() => setPage((p) => p + 1)}
+                disabled={query.page * MARKET_PAGE_SIZE >= total}
+                onClick={() => writeQuery({ page: query.page + 1 })}
               >
                 Próxima
               </Button>
