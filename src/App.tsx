@@ -14,6 +14,7 @@ import ListingDetail from "./pages/ListingDetail";
 import CartPage from "./pages/CartPage";
 import Checkout from "./pages/Checkout";
 import OrderStatusPage from "./pages/OrderStatus";
+import AccountPage from "./pages/Account";
 import AccountOrdersPage, {
   AccountOrderDetailRedirect,
 } from "./pages/AccountOrders";
@@ -68,6 +69,14 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <OrderStatusPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/account"
+                    element={
+                      <ProtectedRoute>
+                        <AccountPage />
                       </ProtectedRoute>
                     }
                   />

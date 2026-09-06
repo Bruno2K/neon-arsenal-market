@@ -92,21 +92,29 @@ export function Header() {
 
           {isAuthenticated ? (
             <div className="hidden items-center gap-2 sm:flex">
-              <span className="max-w-[10rem] truncate text-sm text-muted-foreground">
+              <Link
+                to="/account"
+                className="max-w-[10rem] truncate text-sm text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
                 {user?.name}
-              </span>
-              <Button variant="ghost" size="sm" onClick={logout}>
+              </Link>
+              <Button variant="ghost" size="sm" onClick={() => void logout()}>
                 Sair
               </Button>
             </div>
           ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => navigate("/login")}
-            >
-              Login
-            </Button>
+            <div className="flex items-center gap-1.5">
+              <Button size="sm" variant="ghost" asChild>
+                <Link to="/register">Register</Link>
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => navigate("/login")}
+              >
+                Login
+              </Button>
+            </div>
           )}
 
           <Button
@@ -154,17 +162,34 @@ export function Header() {
             </Link>
           ))}
           {isAuthenticated ? (
-            <button
-              type="button"
-              className="block min-h-11 w-full rounded-md px-3 py-2.5 text-left text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => {
-                logout();
-                setMenuOpen(false);
-              }}
+            <>
+              <Link
+                to="/account"
+                className={`block rounded-md px-3 py-2.5 text-sm ${linkClass("/account")}`}
+                onClick={() => setMenuOpen(false)}
+              >
+                {user?.name ?? "Minha conta"}
+              </Link>
+              <button
+                type="button"
+                className="block min-h-11 w-full rounded-md px-3 py-2.5 text-left text-sm text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                onClick={() => {
+                  void logout();
+                  setMenuOpen(false);
+                }}
+              >
+                Sair
+              </button>
+            </>
+          ) : (
+            <Link
+              to="/register"
+              className={`block rounded-md px-3 py-2.5 text-sm ${linkClass("/register")}`}
+              onClick={() => setMenuOpen(false)}
             >
-              Sair
-            </button>
-          ) : null}
+              Register
+            </Link>
+          )}
         </nav>
       )}
     </header>

@@ -39,6 +39,10 @@ describe("Header", () => {
     expect(screen.getByText("Home")).toBeTruthy();
     expect(screen.getByText("Market")).toBeTruthy();
     expect(screen.getByText("Login")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Register" })).toHaveAttribute(
+      "href",
+      "/register",
+    );
     expect(screen.queryByText("SKINMARKET")).toBeNull();
     expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
     expect(screen.getByLabelText("Carrinho")).toBeTruthy();
@@ -60,7 +64,12 @@ describe("Header", () => {
     expect(screen.getByText("Dashboard")).toBeTruthy();
     expect(screen.queryByText("Admin")).toBeNull();
     expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
+    expect(screen.getByRole("link", { name: "Seller" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
     expect(screen.getByText("Sair")).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Register" })).toBeNull();
   });
 
   it("shows Pedidos for an authenticated customer", () => {
@@ -76,6 +85,10 @@ describe("Header", () => {
       "href",
       "/account/orders",
     );
+    expect(screen.getByRole("link", { name: "Buyer" })).toHaveAttribute(
+      "href",
+      "/account",
+    );
     expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Admin" })).toBeNull();
   });
@@ -83,7 +96,7 @@ describe("Header", () => {
   it("shows Admin for an admin", () => {
     authState.user = {
       id: "a1",
-      name: "Admin",
+      name: "Ada",
       email: "admin@test.com",
       role: "ADMIN",
     };
@@ -92,6 +105,10 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute(
       "href",
       "/admin",
+    );
+    expect(screen.getByRole("link", { name: "Ada" })).toHaveAttribute(
+      "href",
+      "/account",
     );
     expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();

@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from "react";
 import * as authApi from "@/api/auth";
+import { updateMe, type UpdateMeInput } from "@/api/users";
 import {
   logTechnicalError,
   userFacingApiError,
@@ -27,7 +28,8 @@ interface AuthContextType {
   }) => Promise<{ message: string; code?: string }>;
   /** Step 2: confirm email with code and complete registration. */
   confirmRegistration: (email: string, code: string) => Promise<void>;
-  logout: () => void;
+  updateProfile: (input: UpdateMeInput) => Promise<User>;
+  logout: () => Promise<void>;
   isAuthenticated: boolean;
   error: string | null;
   clearError: () => void;
@@ -50,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const me = await authApi.me();
       setUser(me);
     } catch {
-      authApi.logout();
+      await authApi.logout();
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -112,8 +114,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [],
   );
 
-  const logout = useCallback(() => {
-    authApi.logout();
+  const updateProfile = useCallback(async (input: UpdateMeInput) => {
+    setError(null);
+    try {
+      const updated = await updateMe(input);
+      setUser(updated);
+      return updated;
+    } catch (e) {
+      const message = userFacingApiError(e);
+      logTechnicalError(e);
+      setError(message);
+      throw e;
+    }
+  }, []);
+
+  const logout = useCallback(async () => {
+    await authApi.logout();
     setUser(null);
     setError(null);
   }, []);
@@ -128,6 +144,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         startRegistration,
         confirmRegistration,
+        updateProfile,
         logout,
         isAuthenticated: !!user,
         error,
