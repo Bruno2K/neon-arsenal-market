@@ -35,3 +35,9 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Local agent worktrees
+.claude/worktrees/
+
+# Temporary analysis/planning documents kept outside the repository root
+/*.docx
