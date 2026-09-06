@@ -17,6 +17,9 @@ export function errorHandler(
     if (err.statusCode >= 500) {
       logger.error({ err, ...bindings, requestId }, err.message);
     }
+    if (err.retryAfterSeconds != null) {
+      res.setHeader("Retry-After", String(err.retryAfterSeconds));
+    }
     res.status(err.statusCode).json({ error: err.message });
     return;
   }

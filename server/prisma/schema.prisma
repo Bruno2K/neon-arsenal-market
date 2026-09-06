@@ -73,6 +73,7 @@ model User {
   orders               Order[]               @relation("CustomerOrders")
   orderIdempotencyKeys OrderIdempotencyKey[]
   reviews              Review[]
+  refreshTokens        RefreshToken[]
 }
 
 // Pending sign-up: user is created only after email verification (code confirmation)
@@ -308,16 +309,35 @@ model Review {
   @@index([userId])
 }
 
-// Refresh token blacklist — populated on logout to prevent token reuse
-model RevokedToken {
-  id        String   @id @default(cuid())
-  jti       String   @unique // JWT ID (jti claim) — unique per token
+// Issued refresh tokens (allowlist). Each login starts a family. Rotation marks
+// the previous row used and inserts a successor in the same family. Presenting a
+// used or unknown token in a live family revokes every row in that family.
+// Do not store the raw JWT — only jti / familyId. See docs/adr/0015-refresh-token-families.md.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  jti       String    @unique
+  familyId  String
   userId    String
-  expiresAt DateTime // Tokens can be pruned after expiry
-  createdAt DateTime @default(now())
+  expiresAt DateTime
+  usedAt    DateTime?
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
 
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
   @@index([userId])
   @@index([expiresAt])
+}
+
+// Per-email login throttle (issue #57). Unknown emails are tracked too so
+// enumeration does not skip the delay. nextAllowedAt is the progressive delay.
+model LoginThrottle {
+  emailNormalized String    @id
+  failedCount     Int       @default(0)
+  lastFailedAt    DateTime
+  nextAllowedAt   DateTime?
+  updatedAt       DateTime  @updatedAt
 }
 
 // Append-only audit trail for sensitive mutations (issue #42).

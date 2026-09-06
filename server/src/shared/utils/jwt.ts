@@ -12,8 +12,12 @@ export interface JwtPayload {
   email: string;
   role: Role;
   type: "access" | "refresh";
-  jti: string; // Unique token ID — used for blacklisting on logout
+  jti: string;
+  /** Refresh-token family. Present only on refresh tokens. */
+  familyId?: string;
 }
+
+export type RefreshJwtPayload = JwtPayload & { type: "refresh"; familyId: string };
 
 /** Parse a duration string like "7d", "15m", "1h" to milliseconds */
 export function parseDuration(s: string): number {
@@ -30,7 +34,7 @@ export function parseDuration(s: string): number {
   }
 }
 
-export function signAccessToken(payload: Omit<JwtPayload, "type" | "jti">): string {
+export function signAccessToken(payload: Omit<JwtPayload, "type" | "jti" | "familyId">): string {
   return jwt.sign(
     { ...payload, type: "access" as const, jti: randomUUID() },
     JWT_SECRET,
@@ -38,9 +42,11 @@ export function signAccessToken(payload: Omit<JwtPayload, "type" | "jti">): stri
   );
 }
 
-export function signRefreshToken(payload: Omit<JwtPayload, "type" | "jti">): string {
+export function signRefreshToken(
+  payload: Omit<JwtPayload, "type"> & { jti: string; familyId: string }
+): string {
   return jwt.sign(
-    { ...payload, type: "refresh" as const, jti: randomUUID() },
+    { ...payload, type: "refresh" as const },
     JWT_REFRESH_SECRET,
     { expiresIn: JWT_REFRESH_EXPIRES } as jwt.SignOptions
   );
@@ -52,10 +58,11 @@ export function verifyAccessToken(token: string): JwtPayload {
   return decoded;
 }
 
-export function verifyRefreshToken(token: string): JwtPayload {
+export function verifyRefreshToken(token: string): RefreshJwtPayload {
   const decoded = jwt.verify(token, JWT_REFRESH_SECRET) as JwtPayload;
   if (decoded.type !== "refresh") throw new Error("Invalid token type");
-  return decoded;
+  if (!decoded.jti || !decoded.familyId) throw new Error("Invalid refresh token claims");
+  return decoded as RefreshJwtPayload;
 }
 
 /** Calculate absolute expiry date from now + duration string */

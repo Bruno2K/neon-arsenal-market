@@ -112,6 +112,7 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `seller.ledger.integration.test.ts` | Sequential/concurrent confirm; Decimal net identity; projection matches PAID SUM. |
 | `seller.ledger.reconcile.integration.test.ts` | Matching projection is a no-op; drifted projection is SET once + audited; concurrent confirmPayment cannot double-credit. |
 | `listings.cursor.integration.test.ts` | Keyset first/next/last page; concurrent insert does not duplicate/skip under cursor; offset `page`/`limit`/`total` still works; invalid cursor HTTP 400. |
+| `auth.security.integration.test.ts` | Refresh family rotation/reuse revocation; concurrent refresh; login throttle 429; password policy. |
 
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.
 

@@ -1,11 +1,17 @@
+import { randomUUID } from "crypto";
 import { prisma } from "../../shared/database/index.js";
 import { authRepository } from "./auth.repository.js";
-import { hashPassword, comparePassword } from "../../shared/utils/hash.js";
+import {
+  hashPassword,
+  comparePassword,
+  UNKNOWN_USER_PASSWORD_HASH,
+} from "../../shared/utils/hash.js";
 import {
   signAccessToken,
   signRefreshToken,
   verifyRefreshToken,
   getRefreshExpiresAt,
+  type RefreshJwtPayload,
 } from "../../shared/utils/jwt.js";
 import { generateVerificationCode, getVerificationExpiresAt } from "../../shared/utils/verificationCode.js";
 import {
@@ -13,21 +19,45 @@ import {
   sendVerificationCode,
 } from "../../shared/utils/sendVerificationCode.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { logger } from "../../shared/logger.js";
+import { normalizeLoginEmail } from "./loginThrottle.js";
 import type { RegisterInput, VerifyEmailInput, LoginInput } from "./auth.dto.js";
+import type { Role } from "../../shared/types/roles.js";
 
-// Type assertion helper — RevokedToken is added by Sprint 6 migration; the Prisma
-// client types will be regenerated on the next `prisma generate` in the dev environment.
-const db = prisma as typeof prisma & {
-  revokedToken: {
-    findUnique: (args: { where: { jti: string } }) => Promise<{ id: string } | null>;
-    create: (args: { data: { jti: string; userId: string; expiresAt: Date } }) => Promise<unknown>;
-    upsert: (args: {
-      where: { jti: string };
-      update: Record<string, never>;
-      create: { jti: string; userId: string; expiresAt: Date };
-    }) => Promise<unknown>;
-  };
-};
+const REUSE_MESSAGE = "Refresh token reuse detected. Please log in again.";
+const INVALID_REFRESH_MESSAGE = "Invalid or expired refresh token";
+const LOGIN_THROTTLE_MESSAGE = "Too many login attempts. Try again later.";
+const INVALID_CREDENTIALS_MESSAGE = "Invalid email or password";
+
+type SessionUser = { id: string; name: string; email: string; role: Role };
+
+function wrapRefreshVerify(refreshToken: string): RefreshJwtPayload {
+  try {
+    return verifyRefreshToken(refreshToken);
+  } catch {
+    throw new AppError(401, INVALID_REFRESH_MESSAGE);
+  }
+}
+
+async function issueSession(user: SessionUser, familyId = randomUUID()) {
+  const jti = randomUUID();
+  const expiresAt = getRefreshExpiresAt();
+  await authRepository.createRefreshToken({
+    jti,
+    familyId,
+    userId: user.id,
+    expiresAt,
+  });
+  const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
+  const refreshToken = signRefreshToken({
+    sub: user.id,
+    email: user.email,
+    role: user.role,
+    jti,
+    familyId,
+  });
+  return { user, accessToken, refreshToken };
+}
 
 export const authService = {
   /**
@@ -110,12 +140,9 @@ export const authService = {
 
     await prisma.pendingRegistration.delete({ where: { id: pending.id } });
 
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
+    const session = await issueSession(user);
     return {
-      user,
-      accessToken,
-      refreshToken,
+      ...session,
       ...(pending.role === "SELLER"
         ? { message: "Account created. Your seller account is pending administrator approval." }
         : {}),
@@ -123,58 +150,100 @@ export const authService = {
   },
 
   async login(input: LoginInput) {
-    const user = await authRepository.findByEmail(input.email);
-    if (!user) throw new AppError(401, "Invalid email or password");
-    const valid = await comparePassword(input.password, user.password);
-    if (!valid) throw new AppError(401, "Invalid email or password");
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    const refreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
+    const emailNormalized = normalizeLoginEmail(input.email);
+    const throttle = await authRepository.getLoginThrottle(emailNormalized);
+    const retryAfter = authRepository.secondsUntilLoginAllowed(throttle);
+    if (retryAfter != null) {
+      throw new AppError(429, LOGIN_THROTTLE_MESSAGE, true, retryAfter);
+    }
+
+    const user = await authRepository.findByEmail(emailNormalized);
+    const passwordHash = user?.password ?? UNKNOWN_USER_PASSWORD_HASH;
+    const valid = await comparePassword(input.password, passwordHash);
+
+    if (!user || !valid) {
+      await authRepository.recordFailedLogin(emailNormalized);
+      throw new AppError(401, INVALID_CREDENTIALS_MESSAGE);
+    }
+
+    await authRepository.clearLoginThrottle(emailNormalized);
     const { password: _p, ...safe } = user;
-    return { user: safe, accessToken, refreshToken };
+    return issueSession(safe);
   },
 
   async refresh(refreshToken: string) {
-    const payload = verifyRefreshToken(refreshToken);
+    const payload = wrapRefreshVerify(refreshToken);
+    const now = new Date();
 
-    // Check token blacklist — reject if already revoked (e.g. after logout)
-    const isRevoked = await db.revokedToken.findUnique({ where: { jti: payload.jti } });
-    if (isRevoked) throw new AppError(401, "Token has been revoked. Please log in again.");
+    const rotated = await prisma.$transaction(async (tx) => {
+      const claimed = await authRepository.claimRefreshToken(payload.jti, now, tx);
+      if (claimed.count === 1) {
+        const existing = await authRepository.findRefreshTokenByJti(payload.jti, tx);
+        if (!existing) throw new AppError(401, INVALID_REFRESH_MESSAGE);
+        if (existing.familyId !== payload.familyId) {
+          await authRepository.revokeFamily(existing.familyId, now, tx);
+          return { kind: "reuse" as const, familyId: existing.familyId, userId: existing.userId };
+        }
+        const user = await tx.user.findUnique({
+          where: { id: existing.userId },
+          select: { id: true, name: true, email: true, role: true },
+        });
+        if (!user) throw new AppError(401, "User no longer exists");
+        const nextJti = randomUUID();
+        const expiresAt = getRefreshExpiresAt();
+        await authRepository.createRefreshToken(
+          {
+            jti: nextJti,
+            familyId: existing.familyId,
+            userId: user.id,
+            expiresAt,
+          },
+          tx
+        );
+        return { kind: "ok" as const, user, nextJti, familyId: existing.familyId };
+      }
 
-    const user = await authRepository.findByEmail(payload.email);
-    if (!user) throw new AppError(401, "User no longer exists");
-
-    // Rotate: revoke old refresh token, issue new pair
-    await db.revokedToken.create({
-      data: {
-        jti: payload.jti,
-        userId: user.id,
-        expiresAt: getRefreshExpiresAt(),
-      },
+      const existing = await authRepository.findRefreshTokenByJti(payload.jti, tx);
+      if (existing && (existing.usedAt || existing.revokedAt)) {
+        await authRepository.revokeFamily(existing.familyId, now, tx);
+        return { kind: "reuse" as const, familyId: existing.familyId, userId: existing.userId };
+      }
+      return { kind: "invalid" as const };
     });
 
-    const accessToken = signAccessToken({ sub: user.id, email: user.email, role: user.role });
-    const newRefreshToken = signRefreshToken({ sub: user.id, email: user.email, role: user.role });
-    const { password: _p, ...safe } = user;
-    return { user: safe, accessToken, refreshToken: newRefreshToken };
+    if (rotated.kind === "reuse") {
+      logger.warn(
+        { event: "refresh_token_reuse", userId: rotated.userId, familyId: rotated.familyId },
+        "Refresh token family revoked"
+      );
+      throw new AppError(401, REUSE_MESSAGE);
+    }
+    if (rotated.kind === "invalid") {
+      throw new AppError(401, INVALID_REFRESH_MESSAGE);
+    }
+
+    const accessToken = signAccessToken({
+      sub: rotated.user.id,
+      email: rotated.user.email,
+      role: rotated.user.role,
+    });
+    const newRefreshToken = signRefreshToken({
+      sub: rotated.user.id,
+      email: rotated.user.email,
+      role: rotated.user.role,
+      jti: rotated.nextJti,
+      familyId: rotated.familyId,
+    });
+    return { user: rotated.user, accessToken, refreshToken: newRefreshToken };
   },
 
   /**
-   * Logout: add the refresh token to the blacklist so it can't be reused.
-   * The access token expires naturally (15m TTL).
+   * Logout: revoke the refresh token family. Access tokens expire on TTL.
    */
   async logout(refreshToken: string) {
     try {
       const payload = verifyRefreshToken(refreshToken);
-      // Upsert prevents duplicate-key errors if called twice
-      await db.revokedToken.upsert({
-        where: { jti: payload.jti },
-        update: {},
-        create: {
-          jti: payload.jti,
-          userId: payload.sub,
-          expiresAt: getRefreshExpiresAt(),
-        },
-      });
+      await authRepository.revokeFamily(payload.familyId, new Date());
     } catch {
       // Silently ignore invalid/expired tokens on logout
     }
