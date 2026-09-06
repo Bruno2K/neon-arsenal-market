@@ -59,6 +59,39 @@ Do not point Render at `/health`. That would keep a draining or DB-less instance
 
 A new Render deploy does not take traffic until `GET /ready` is 2xx/3xx (Postgres up, not shutting down).
 
+## Diagnose with request ID and trace ID
+
+Do not search logs for emails, JWTs, PayPal access tokens, or `paypal-transmission-sig`. Use the correlation IDs the API already writes.
+
+1. Take `X-Request-Id` from the client response header, the storefront error page, or the inbound header if the client sent one. The middleware echoes it on every response.
+2. In Render logs for `neon-arsenal-api`, search that value as Pino `requestId`. The same string is `request.id` on span `http.server.request`.
+3. If OpenTelemetry was on, the same log line should also have `trace_id` and `span_id` (Pino mixin when a span is active). Follow `trace_id` to child spans: `orders.create`, `payments.create_link` / `payments.capture` / `payments.confirm`, `paypal.webhook.verify` / `paypal.webhook.handle`, `paypal.*`, `db.prisma`.
+4. Read `app.outcome` on the workflow span. `reservation_conflict`, `idempotency_conflict`, `idempotency_replay`, `webhook_duplicate`, `webhook_ignored`, and `reservation_expired` are expected business results (span status UNSET). `timeout`, `provider_error`, and `error` are operational (span status ERROR).
+5. If the failure is payment-shaped, continue with **Inspect payments and reservations** below. `paypal.webhooks.failed` / `payments.failed` alone do not mean an outage — they also increment on capture-after-expiry.
+6. If OTEL is off, stop at step 2 and use SQL + log messages (`paypal webhook received`, `paypal capture webhook processed`, `paypal reconciliation skipped: reservation expired`). There is no second correlation scheme.
+
+Dashboard map: [`dashboards.md`](./dashboards.md). SLOs: [`slos.md`](./slos.md).
+
+## Alert thresholds (no pager)
+
+These are investigation triggers for a human. This repository does not add a pager, Grafana Cloud, or Prometheus.
+
+| Signal | Threshold | First look |
+|---|---|---|
+| `http.server.errors / http.server.request.count` | &gt; 1% over ~15 minutes of recorded samples | SLO-AVAIL-01. Filter `http.route`. Diagnose with request ID. |
+| Catalog `http.server.request.duration` p95 | &gt; 50 ms on GET `/listings` / `/products` (and `/api/v1` twins) | SLO-LAT-CATALOG. `docs/architecture/scaling-path.md`. |
+| `POST /orders` duration p95 | &gt; 1 s | SLO-LAT-CHECKOUT-RESERVE. `orders.create` + `db.prisma`. |
+| `paypal.client.request.duration` p95 | &gt; 8 s | Approaching 10 s timeout. PayPal sandbox/live health. |
+| `paypal.client.timeouts` | Any point in 15 minutes | 504 path. Do not retry `OrdersCreate` / `OrdersCapture`. |
+| `paypal.client.errors` ratio | &gt; 5% of `paypal.client.request.count` | SLO-ERR-PAYPAL. Check `PAYPAL_CLIENT_AUTH_FAILED` in logs. |
+| `seller.ledger.drift_detected` | Any increment | Ledger span + `SellerTransaction` SUM. Correction should follow (`seller.ledger.corrected`). |
+| `outbox.failed` | Any increment | `outbox.dispatch` retries exhausted. Rows stay in PostgreSQL. |
+| `db.client.errors` | Any increment | Prisma exceptions. No SQL text in spans — use Render logs. |
+| `paypal.webhooks.failed` | Rising while `app.outcome` is not `reservation_expired` | Verify `PAYPAL_WEBHOOK_ID`, signature, `order_not_resolved` (503). |
+| Pending PayPal orders older than 5 minutes | SQL count &gt; 0 and not dropping | Instance asleep, GET sweep stuck, or capture-after-expiry. |
+
+Render free-tier spin-down produces **no** metric samples. A silent dashboard is not “100% available.”
+
 ## Shutdown drain
 
 On SIGTERM/SIGINT (`docs/adr/0005-external-retry-and-graceful-shutdown.md`):

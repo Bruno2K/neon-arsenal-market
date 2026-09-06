@@ -1,0 +1,185 @@
+{
+  "version": 1,
+  "id": "neon-arsenal-api",
+  "title": "Neon Arsenal API operational definition",
+  "service": "neon-arsenal-api",
+  "meter": "neon-arsenal-api",
+  "spec": "SPEC-0008",
+  "note": "Vendor-neutral OTLP instrument catalog. Import names into an operator-owned backend later. This file is not a Grafana Cloud, Prometheus, or AWS dashboard and does not require those products.",
+  "security": {
+    "forbiddenMetricLabels": [
+      "user.id",
+      "order.id",
+      "listing.id",
+      "customer.id",
+      "email",
+      "authorization",
+      "access_token",
+      "paypal-transmission-sig"
+    ]
+  },
+  "routePrefixes": ["", "/api/v1"],
+  "instruments": [
+    {
+      "name": "http.server.request.duration",
+      "type": "histogram",
+      "unit": "s",
+      "attributes": ["http.request.method", "http.route", "http.response.status_code"]
+    },
+    {
+      "name": "http.server.request.count",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["http.request.method", "http.route", "http.response.status_code"]
+    },
+    {
+      "name": "http.server.errors",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["http.request.method", "http.route", "http.response.status_code"]
+    },
+    {
+      "name": "db.client.operation.duration",
+      "type": "histogram",
+      "unit": "s",
+      "attributes": ["db.system", "db.operation", "db.collection"]
+    },
+    {
+      "name": "db.client.errors",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["db.system", "db.operation", "db.collection"]
+    },
+    {
+      "name": "paypal.client.request.count",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["paypal.operation"]
+    },
+    {
+      "name": "paypal.client.errors",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["paypal.operation"]
+    },
+    {
+      "name": "paypal.client.timeouts",
+      "type": "counter",
+      "unit": "1",
+      "attributes": ["paypal.operation"]
+    },
+    {
+      "name": "paypal.client.request.duration",
+      "type": "histogram",
+      "unit": "s",
+      "attributes": ["paypal.operation"]
+    },
+    { "name": "orders.created", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "orders.creation_failed", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "orders.idempotency_replay", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "orders.idempotency_conflict", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "reservations.created", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "reservations.conflict", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "reservations.expired", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "payments.confirmed", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "payments.failed", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "paypal.webhooks.received", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "paypal.webhooks.duplicate", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "paypal.webhooks.ignored", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "paypal.webhooks.failed", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "seller.ledger.drift_detected", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "seller.ledger.corrected", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "outbox.published", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "outbox.retry", "type": "counter", "unit": "1", "attributes": [] },
+    { "name": "outbox.failed", "type": "counter", "unit": "1", "attributes": [] }
+  ],
+  "spans": [
+    { "name": "http.server.request", "file": "server/src/shared/observability/http.ts" },
+    { "name": "orders.create", "file": "server/src/modules/orders/orders.service.ts" },
+    { "name": "orders.create.transaction", "file": "server/src/modules/orders/orders.service.ts" },
+    { "name": "listings.reserve", "file": "server/src/modules/listings/listings.service.ts" },
+    { "name": "listings.expire", "file": "server/src/modules/listings/listings.service.ts" },
+    { "name": "payments.create_link", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "payments.capture", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "payments.confirm", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "payments.confirm.transaction", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "payments.reconcile", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "paypal.webhook.verify", "file": "server/src/modules/payments/payments.controller.ts" },
+    { "name": "paypal.webhook.handle", "file": "server/src/modules/payments/payments.service.ts" },
+    { "name": "seller.ledger.reconcile", "file": "server/src/modules/commissions/commissions.service.ts" },
+    { "name": "outbox.dispatch", "file": "server/src/shared/outbox/outbox.dispatcher.ts" },
+    { "name": "db.prisma", "file": "server/src/shared/observability/prisma.ts" },
+    { "name": "paypal.", "file": "server/src/shared/observability/paypal.ts", "note": "Name is paypal.${operation}" }
+  ],
+  "dashboards": [
+    {
+      "id": "api",
+      "title": "API",
+      "sloRefs": ["SLO-AVAIL-01", "SLO-LAT-CATALOG", "SLO-LAT-CHECKOUT-RESERVE"],
+      "panels": [
+        { "title": "Request rate", "instrument": "http.server.request.count" },
+        { "title": "Request duration", "instrument": "http.server.request.duration" },
+        { "title": "5xx", "instrument": "http.server.errors" }
+      ]
+    },
+    {
+      "id": "orders",
+      "title": "Orders and reservations",
+      "sloRefs": ["SLO-LAT-CHECKOUT-RESERVE"],
+      "panels": [
+        { "title": "Orders created", "instrument": "orders.created" },
+        { "title": "Creation failed", "instrument": "orders.creation_failed" },
+        { "title": "Idempotency replay", "instrument": "orders.idempotency_replay" },
+        { "title": "Idempotency conflict", "instrument": "orders.idempotency_conflict" },
+        { "title": "Reservations created", "instrument": "reservations.created" },
+        { "title": "Reservation conflicts", "instrument": "reservations.conflict" },
+        { "title": "Reservations expired", "instrument": "reservations.expired" }
+      ]
+    },
+    {
+      "id": "payments",
+      "title": "Payments",
+      "sloRefs": ["SLO-LAT-PAYPAL-HTTP", "SLO-ERR-PAYPAL"],
+      "panels": [
+        { "title": "PayPal requests", "instrument": "paypal.client.request.count" },
+        { "title": "PayPal duration", "instrument": "paypal.client.request.duration" },
+        { "title": "PayPal errors", "instrument": "paypal.client.errors" },
+        { "title": "PayPal timeouts", "instrument": "paypal.client.timeouts" },
+        { "title": "Payments confirmed", "instrument": "payments.confirmed" },
+        { "title": "Payments failed (mixed business/ops)", "instrument": "payments.failed" }
+      ]
+    },
+    {
+      "id": "webhooks",
+      "title": "Webhooks",
+      "sloRefs": [],
+      "panels": [
+        { "title": "Received", "instrument": "paypal.webhooks.received" },
+        { "title": "Duplicate", "instrument": "paypal.webhooks.duplicate" },
+        { "title": "Ignored", "instrument": "paypal.webhooks.ignored" },
+        { "title": "Failed (mixed business/ops)", "instrument": "paypal.webhooks.failed" }
+      ]
+    },
+    {
+      "id": "reconciliation",
+      "title": "Reconciliation and ledger",
+      "sloRefs": ["SLO-RECONCILE"],
+      "panels": [
+        { "title": "Ledger drift", "instrument": "seller.ledger.drift_detected" },
+        { "title": "Ledger corrected", "instrument": "seller.ledger.corrected" },
+        { "title": "Outbox published", "instrument": "outbox.published" },
+        { "title": "Outbox retry", "instrument": "outbox.retry" },
+        { "title": "Outbox failed", "instrument": "outbox.failed" }
+      ]
+    },
+    {
+      "id": "database",
+      "title": "Database",
+      "sloRefs": [],
+      "panels": [
+        { "title": "Prisma duration", "instrument": "db.client.operation.duration" },
+        { "title": "Prisma errors", "instrument": "db.client.errors" }
+      ]
+    }
+  ]
+}

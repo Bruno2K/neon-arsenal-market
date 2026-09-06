@@ -309,7 +309,7 @@ The API keeps Pino and `X-Request-Id`. OpenTelemetry is **disabled by default**.
 OTEL_ENABLED=true npm run dev --prefix server
 ```
 
-Exporters: `none` (default), `console`, or `otlp`. A missing collector does not prevent the process from starting. See `docs/observability.md`.
+Exporters: `none` (default), `console`, or `otlp`. A missing collector does not prevent the process from starting. See `docs/observability.md`. Operator dashboard definitions and SLOs that cite those instruments: `docs/operations/dashboards.md`, `docs/operations/slos.md`.
 
 ## Engineering Notes
 
@@ -338,7 +338,7 @@ Potential next iterations include:
 - Improved monetary precision using database-native decimal operations
 - Asynchronous processing for non-critical workflows
 - Distributed rate limiting
-- Stronger production export of traces/metrics (collector, dashboards)
+- Optional production OTLP collector (dashboard/SLO definitions already live under `docs/operations/`)
 - Benchmarks and query plans for the hottest checkout paths
 
 ## Project Status
