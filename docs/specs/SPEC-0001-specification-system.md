@@ -2,7 +2,7 @@
 id: SPEC-0001
 status: Accepted
 version: 1
-source_issue: "Factory F2.1 / F2.5"
+source_issue: "#173"
 owner: "AI Engineering Factory"
 created: 2026-09-06
 updated: 2026-09-06
@@ -87,6 +87,8 @@ Specification frontmatter must contain:
 - `created`
 - `updated`
 
+The `source_issue` value must use the canonical GitHub Issue reference format `#<number>`.
+
 The title must contain the same canonical `SPEC-*` identifier as the frontmatter.
 
 The document must contain the canonical contract sections in `docs/templates/spec.md`.
@@ -152,11 +154,11 @@ Existing ADRs, invariant documents, code, and tests remain authoritative for the
 GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Issue: `Factory F2.1 / F2.5`
+- Issue: `#173`
 - Spec: `SPEC-0001`
 - Plan: pending F3
 - Tasks: `F2.1`
-- PR: pending
+- PR: `#173`
 - Verification/Convergence: pending F4
 - Evaluation: pending F5
 - Memory: pending F6
