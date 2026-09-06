@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { productsService } from "./products.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { requestParam } from "../../shared/http/requestFields.js";
 import type { ListProductsQuery } from "./products.dto.js";
 
 export const productsController = {
@@ -15,7 +16,7 @@ export const productsController = {
 
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const product = await productsService.getById(req.params.id);
+      const product = await productsService.getById(requestParam(req, "id"));
       res.json(product);
     } catch (e) {
       next(e);
@@ -35,7 +36,7 @@ export const productsController = {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const product = await productsService.update(req.params.id, user.id, user.role, req.body);
+      const product = await productsService.update(requestParam(req, "id"), user.id, user.role, req.body);
       res.json(product);
     } catch (e) {
       next(e);
@@ -45,7 +46,7 @@ export const productsController = {
   async delete(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      await productsService.delete(req.params.id, user.id, user.role);
+      await productsService.delete(requestParam(req, "id"), user.id, user.role);
       res.status(204).send();
     } catch (e) {
       next(e);

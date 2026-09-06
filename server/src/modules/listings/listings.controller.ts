@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { listingsService } from "./listings.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { requestParam } from "../../shared/http/requestFields.js";
 import { auditActorFromRequest } from "../audit/audit.service.js";
 import type { ListListingsQuery } from "./listings.dto.js";
 
@@ -16,7 +17,7 @@ export const listingsController = {
 
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const listing = await listingsService.getById(req.params.id);
+      const listing = await listingsService.getById(requestParam(req, "id"));
       res.json(listing);
     } catch (e) {
       next(e);
@@ -36,7 +37,7 @@ export const listingsController = {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const listing = await listingsService.update(req.params.id, user.id, user.role, req.body);
+      const listing = await listingsService.update(requestParam(req, "id"), user.id, user.role, req.body);
       res.json(listing);
     } catch (e) {
       next(e);
@@ -47,7 +48,7 @@ export const listingsController = {
     try {
       const user = getAuthUser(req);
       const listing = await listingsService.updatePrice(
-        req.params.id,
+        requestParam(req, "id"),
         user.id,
         user.role,
         req.body,
@@ -61,7 +62,7 @@ export const listingsController = {
 
   async reserve(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const listing = await listingsService.reserve(req.params.id);
+      const listing = await listingsService.reserve(requestParam(req, "id"));
       res.json(listing);
     } catch (e) {
       next(e);
@@ -70,7 +71,7 @@ export const listingsController = {
 
   async markAsSold(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const listing = await listingsService.markAsSold(req.params.id);
+      const listing = await listingsService.markAsSold(requestParam(req, "id"));
       res.json(listing);
     } catch (e) {
       next(e);
@@ -80,7 +81,7 @@ export const listingsController = {
   async cancel(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      await listingsService.cancel(req.params.id, user.id, user.role, auditActorFromRequest(req));
+      await listingsService.cancel(requestParam(req, "id"), user.id, user.role, auditActorFromRequest(req));
       res.status(204).send();
     } catch (e) {
       next(e);

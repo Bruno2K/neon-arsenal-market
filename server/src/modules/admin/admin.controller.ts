@@ -4,6 +4,7 @@ import type { ListOrdersQuery } from "../orders/orders.dto.js";
 import { auditActorFromRequest } from "../audit/audit.service.js";
 import type { ListAuditLogsQueryInput } from "../audit/audit.dto.js";
 import { AppError } from "../../shared/errors/AppError.js";
+import { requestParam } from "../../shared/http/requestFields.js";
 import { isCs2ShConfigured } from "../../shared/config/cs2sh.js";
 import {
   getCs2ShImportStatus,
@@ -32,7 +33,7 @@ export const adminController = {
   async approveSeller(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const seller = await adminService.approveSeller(
-        req.params.id,
+        requestParam(req, "id"),
         req.body.isApproved,
         auditActorFromRequest(req)
       );
