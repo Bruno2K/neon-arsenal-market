@@ -131,6 +131,30 @@ describe("AdminDashboard", () => {
     });
   });
 
+  it("gives each empty admin section one real CTA", async () => {
+    listSellers.mockResolvedValue([]);
+    listAdminOrders.mockResolvedValue([]);
+    listProducts.mockResolvedValue({ items: [], total: 0, page: 1, limit: 1 });
+
+    renderDashboard();
+
+    expect(
+      await screen.findByText("Nenhum vendedor pendente de aprovação"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Ver vendedores" }),
+    ).toHaveAttribute("href", "/admin/sellers");
+    expect(screen.getByText("Nenhum vendedor cadastrado")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Ver usuários" })).toHaveAttribute(
+      "href",
+      "/admin/users",
+    );
+    expect(screen.getByText("Nenhum pedido encontrado")).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Aprovar vendedores" }),
+    ).toHaveAttribute("href", "/admin/sellers");
+  });
+
   it("keeps Importar catálogo when other admin lists fail", async () => {
     listAdminOrders.mockRejectedValue(new Error("boom"));
     listSellers.mockRejectedValue(new Error("boom"));

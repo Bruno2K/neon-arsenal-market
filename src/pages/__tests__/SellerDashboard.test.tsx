@@ -168,6 +168,21 @@ describe("SellerDashboard", () => {
     expect(getSellerMe).toHaveBeenCalled();
   });
 
+  it("shows a create-listing CTA when the seller has no recent orders", async () => {
+    getSellerListings.mockResolvedValue({ items: [], total: 0 });
+    listOrders.mockResolvedValue([]);
+    getCommissionBalance.mockResolvedValue({ balance: "0.00" });
+    getSellerMe.mockResolvedValue(sellerMe());
+
+    renderDashboard("SELLER");
+
+    expect(await screen.findByText("Nenhum pedido")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Criar listing" })).toHaveAttribute(
+      "href",
+      "/seller/listings",
+    );
+  });
+
   it("does not invent saldo by summing local order totals", async () => {
     getSellerListings.mockResolvedValue({ items: [], total: 0 });
     listOrders.mockResolvedValue([order("ord-1", 50), order("ord-2", 50)]);

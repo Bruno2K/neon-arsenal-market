@@ -43,6 +43,7 @@ import {
   PRODUCT_REVIEWS_SCOPE,
   PRODUCT_REVIEWS_SUBMIT,
 } from "@/components/ProductReviews";
+import { marketPath } from "@/lib/marketQuery";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
@@ -267,6 +268,46 @@ describe("ListingDetail", () => {
     expect(
       await screen.findByText("Sem alterações de preço ainda"),
     ).toBeTruthy();
+  });
+
+  it("links breadcrumbs and attributes to existing Market query routes", async () => {
+    const listing = makeListing();
+    getListing.mockResolvedValue(listing);
+    renderDetail();
+
+    const crumbs = await screen.findByRole("navigation", {
+      name: "breadcrumb",
+    });
+    expect(within(crumbs).getByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      within(crumbs).getByRole("link", { name: "Market" }),
+    ).toHaveAttribute("href", "/products");
+    expect(within(crumbs).getByRole("link", { name: "AK-47" })).toHaveAttribute(
+      "href",
+      marketPath({ weapon: "AK-47" }),
+    );
+    expect(
+      within(crumbs).getByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+
+    expect(
+      screen.getByRole("link", { name: "The Huntsman Collection" }),
+    ).toHaveAttribute("href", marketPath({ q: "The Huntsman Collection" }));
+    expect(screen.getByRole("link", { name: "Classified" })).toHaveAttribute(
+      "href",
+      marketPath({ rarity: "Classified" }),
+    );
+    expect(
+      screen
+        .getAllByRole("link", { name: "AK-47" })
+        .every(
+          (link) =>
+            link.getAttribute("href") === marketPath({ weapon: "AK-47" }),
+        ),
+    ).toBe(true);
   });
 
   it("falls back to same-weapon listings and a seller rail with honest headings", async () => {

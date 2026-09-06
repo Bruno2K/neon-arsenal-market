@@ -94,6 +94,18 @@ describe("SellerOrders", () => {
     setRole("SELLER");
   });
 
+  it("shows a create-listing CTA when there are no orders", async () => {
+    listOrders.mockResolvedValue([]);
+
+    renderOrders();
+
+    expect(await screen.findByText("Nenhum pedido")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Criar listing" })).toHaveAttribute(
+      "href",
+      "/seller/listings",
+    );
+  });
+
   it("renders the seller order list", async () => {
     listOrders.mockResolvedValue([order()]);
 
