@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   hasMarketFilters,
+  isValidNumericRange,
   marketPath,
   marketSearchEmptyTitle,
   parseMarketQuery,
@@ -24,7 +25,9 @@ describe("parseMarketQuery", () => {
       maxPrice: "40",
       minFloat: "0.1",
       maxFloat: "0.3",
-      sort: "price-asc",
+      weapon: "",
+      rarity: "",
+      sort: "price_asc",
       page: 2,
     });
   });
@@ -53,6 +56,8 @@ describe("parseMarketQuery", () => {
       maxPrice: "",
       minFloat: "",
       maxFloat: "",
+      weapon: "",
+      rarity: "",
       sort: "",
       page: 1,
     });
@@ -70,6 +75,8 @@ describe("serializeMarketQuery", () => {
         maxPrice: "",
         minFloat: "",
         maxFloat: "",
+        weapon: "",
+        rarity: "",
         sort: "",
         page: 1,
       }).toString(),
@@ -85,6 +92,8 @@ describe("serializeMarketQuery", () => {
       maxPrice: "",
       minFloat: "",
       maxFloat: "",
+      weapon: "",
+      rarity: "",
       sort: "",
       page: 1,
     }).toString();
@@ -126,5 +135,25 @@ describe("hasMarketFilters", () => {
 describe("marketSearchEmptyTitle", () => {
   it("includes the typed term", () => {
     expect(marketSearchEmptyTitle("talon")).toBe("Nenhum listing para ‘talon’");
+  });
+});
+
+describe("weapon and rarity", () => {
+  it("round-trips weapon and rarity in the Market URL", () => {
+    const query = parseMarketQuery(
+      new URLSearchParams("weapon=AK-47&rarity=Covert"),
+    );
+    expect(query.weapon).toBe("AK-47");
+    expect(query.rarity).toBe("Covert");
+    expect(serializeMarketQuery(query).toString()).toBe(
+      "weapon=AK-47&rarity=Covert",
+    );
+  });
+});
+
+describe("isValidNumericRange", () => {
+  it("rejects min greater than max", () => {
+    expect(isValidNumericRange("0.4", "0.1")).toBe(false);
+    expect(isValidNumericRange("0.1", "0.4")).toBe(true);
   });
 });

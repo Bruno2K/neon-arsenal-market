@@ -81,6 +81,7 @@ describe("fetchMarketListings", () => {
       page: 1,
       limit: 20,
       status: "ACTIVE",
+      sort: "createdAt_desc",
     });
     expect(result.items).toHaveLength(1);
   });
@@ -116,6 +117,7 @@ describe("fetchMarketListings", () => {
       status: "ACTIVE",
       productId: "talon-fade-fn",
       exterior: "Factory New",
+      sort: "createdAt_desc",
     });
     expect(result.items[0]?.id).toBe("listing-talon");
   });
@@ -165,7 +167,7 @@ describe("fetchMarketListings", () => {
     }));
 
     const result = await fetchMarketListings(
-      parseMarketQuery(new URLSearchParams("q=Printstream&sort=price-asc")),
+      parseMarketQuery(new URLSearchParams("q=Printstream&sort=price_asc")),
     );
 
     expect(listListings).toHaveBeenCalledTimes(2);
@@ -183,7 +185,7 @@ describe("sortMarketListings", () => {
     const b = makeListing({ id: "b", price: 10 });
     const input = [a, b];
     expect(
-      sortMarketListings(input, "price-asc").map((item) => item.id),
+      sortMarketListings(input, "price_asc").map((item) => item.id),
     ).toEqual(["b", "a"]);
     expect(input.map((item) => item.id)).toEqual(["a", "b"]);
   });

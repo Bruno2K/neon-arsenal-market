@@ -21,6 +21,7 @@ import {
   listingStatusLabel,
   orderStatusLabel,
   paymentStatusLabel,
+  toUserMessage,
   userFacingApiError,
 } from "../userFacingApiError";
 
@@ -32,6 +33,7 @@ describe("userFacingApiError", () => {
     );
 
     expect(userFacingApiError(error)).toBe(USER_FACING_NETWORK);
+    expect(toUserMessage(error)).toBe(USER_FACING_NETWORK);
     expect(error.message).toContain("http://localhost:3001");
     expect(error.message).toContain("Failed to fetch");
     expect(userFacingApiError(error)).not.toMatch(

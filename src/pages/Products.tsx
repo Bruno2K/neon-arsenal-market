@@ -10,12 +10,22 @@ import {
   MARKET_VIEW_CTA,
 } from "@/lib/listingCartCta";
 import { fetchMarketListings } from "@/lib/marketListings";
+import { MARKET_RARITIES, MARKET_WEAPONS } from "@/lib/catalogTaxonomy";
 import {
+  MARKET_CATALOG_EMPTY_DESCRIPTION,
+  MARKET_CATALOG_EMPTY_TITLE,
   MARKET_EXTERIORS,
+  MARKET_FILTERS_EMPTY_TITLE,
+  MARKET_FLOAT_HINT,
+  MARKET_FLOAT_RANGE_ERROR,
   MARKET_PAGE_SIZE,
   MARKET_SEARCH_DEBOUNCE_MS,
   MARKET_SORTS,
+  MARKET_SORT_DEFAULT_COPY,
+  describeMarketFilters,
+  hasActiveMarketConstraints,
   hasMarketFilters,
+  isValidNumericRange,
   marketPath,
   marketSearchEmptyTitle,
   parseMarketQuery,
@@ -26,6 +36,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
 import { marketSearchQuery, track } from "@/lib/analytics";
 
 function Chip({
@@ -79,6 +97,7 @@ export default function Products() {
   const [maxPriceDraft, setMaxPriceDraft] = useState(query.maxPrice);
   const [minFloatDraft, setMinFloatDraft] = useState(query.minFloat);
   const [maxFloatDraft, setMaxFloatDraft] = useState(query.maxFloat);
+  const [floatRangeError, setFloatRangeError] = useState<string | null>(null);
 
   useEffect(() => {
     setSearchDraft(query.q);
@@ -116,9 +135,11 @@ export default function Products() {
     );
   };
 
+  const rangeValid = isValidNumericRange(query.minFloat, query.maxFloat);
   const { data, isLoading, isError, error, refetch } = useQuery({
     queryKey: ["listings", "market", query],
     queryFn: () => fetchMarketListings(query),
+    enabled: rangeValid,
   });
 
   const items = data?.items ?? [];
@@ -133,22 +154,29 @@ export default function Products() {
   });
 
   useEffect(() => {
-    if (!searchQuery || isLoading || isError) return;
+    if (!searchQuery || isLoading || isError || !rangeValid) return;
     track("search", {
       query: searchQuery,
       productId: query.productId,
       source: "market",
       resultCount: total,
     });
-  }, [searchQuery, query.productId, isLoading, isError, total]);
+  }, [searchQuery, query.productId, isLoading, isError, total, rangeValid]);
 
   const applyPriceFloat = () => {
+    const minF = minFloatDraft.trim();
+    const maxF = maxFloatDraft.trim();
+    if (!isValidNumericRange(minF, maxF)) {
+      setFloatRangeError(MARKET_FLOAT_RANGE_ERROR);
+      return;
+    }
+    setFloatRangeError(null);
     writeQuery(
       {
         minPrice: minPriceDraft.trim(),
         maxPrice: maxPriceDraft.trim(),
-        minFloat: minFloatDraft.trim(),
-        maxFloat: maxFloatDraft.trim(),
+        minFloat: minF,
+        maxFloat: maxF,
         page: 1,
       },
       { replace: true },
@@ -156,6 +184,7 @@ export default function Products() {
   };
 
   const clearFilters = () => {
+    setFloatRangeError(null);
     setSearchParams(new URLSearchParams());
   };
 
@@ -163,8 +192,39 @@ export default function Products() {
     writeQuery({ q: "", page: 1 }, { replace: true });
   };
 
+  const filterSummary = describeMarketFilters(query);
+  const filteredEmpty = hasActiveMarketConstraints(query);
+
   return (
     <div className="container py-8">
+      <Breadcrumb className="mb-4">
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/">Home</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            {query.q ? (
+              <BreadcrumbLink asChild>
+                <Link to="/products">Market</Link>
+              </BreadcrumbLink>
+            ) : (
+              <BreadcrumbPage>Market</BreadcrumbPage>
+            )}
+          </BreadcrumbItem>
+          {query.q ? (
+            <>
+              <BreadcrumbSeparator />
+              <BreadcrumbItem>
+                <BreadcrumbPage>{query.q}</BreadcrumbPage>
+              </BreadcrumbItem>
+            </>
+          ) : null}
+        </BreadcrumbList>
+      </Breadcrumb>
+
       <div className="mb-6 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">Market</h1>
@@ -174,7 +234,7 @@ export default function Products() {
               : "Listings ativos · item único"}
           </p>
         </div>
-        {!isLoading && !isError ? (
+        {!isLoading && !isError && rangeValid ? (
           <p className="text-sm tabular-nums text-muted-foreground">
             {query.q
               ? `${total} resultado${total !== 1 ? "s" : ""} para ${query.q}`
@@ -196,6 +256,48 @@ export default function Products() {
             aria-label="Buscar no Market"
           />
         </div>
+
+        <fieldset className="space-y-1.5">
+          <legend className="text-xs text-muted-foreground">Arma</legend>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip
+              active={!query.weapon}
+              onClick={() => writeQuery({ weapon: "", page: 1 })}
+            >
+              Todas
+            </Chip>
+            {MARKET_WEAPONS.map((weapon) => (
+              <Chip
+                key={weapon}
+                active={query.weapon === weapon}
+                onClick={() => writeQuery({ weapon, page: 1 })}
+              >
+                {weapon}
+              </Chip>
+            ))}
+          </div>
+        </fieldset>
+
+        <fieldset className="space-y-1.5">
+          <legend className="text-xs text-muted-foreground">Raridade</legend>
+          <div className="flex flex-wrap gap-1.5">
+            <Chip
+              active={!query.rarity}
+              onClick={() => writeQuery({ rarity: "", page: 1 })}
+            >
+              Todas
+            </Chip>
+            {MARKET_RARITIES.map((rarity) => (
+              <Chip
+                key={rarity}
+                active={query.rarity === rarity}
+                onClick={() => writeQuery({ rarity, page: 1 })}
+              >
+                {rarity}
+              </Chip>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset className="space-y-1.5">
           <legend className="text-xs text-muted-foreground">Exterior</legend>
@@ -274,7 +376,9 @@ export default function Products() {
           </fieldset>
 
           <fieldset className="space-y-1.5">
-            <legend className="text-xs text-muted-foreground">Float</legend>
+            <legend className="text-xs text-muted-foreground">
+              Float ({MARKET_FLOAT_HINT})
+            </legend>
             <div className="flex items-center gap-2">
               <Label htmlFor="minFloat" className="sr-only">
                 Float mínimo
@@ -287,8 +391,13 @@ export default function Products() {
                 max="1"
                 placeholder="0.00"
                 value={minFloatDraft}
-                onChange={(e) => setMinFloatDraft(e.target.value)}
+                onChange={(e) => {
+                  setMinFloatDraft(e.target.value);
+                  setFloatRangeError(null);
+                }}
                 className="w-24"
+                aria-invalid={floatRangeError ? true : undefined}
+                aria-describedby="float-hint"
               />
               <span className="text-sm text-muted-foreground">–</span>
               <Label htmlFor="maxFloat" className="sr-only">
@@ -302,8 +411,12 @@ export default function Products() {
                 max="1"
                 placeholder="1.00"
                 value={maxFloatDraft}
-                onChange={(e) => setMaxFloatDraft(e.target.value)}
+                onChange={(e) => {
+                  setMaxFloatDraft(e.target.value);
+                  setFloatRangeError(null);
+                }}
                 className="w-24"
+                aria-invalid={floatRangeError ? true : undefined}
               />
               <Button
                 size="sm"
@@ -315,11 +428,21 @@ export default function Products() {
                 Filtrar
               </Button>
             </div>
+            <p id="float-hint" className="text-xs text-muted-foreground">
+              {MARKET_FLOAT_HINT}
+            </p>
+            {floatRangeError || !rangeValid ? (
+              <p className="text-sm text-destructive" role="alert">
+                {floatRangeError ?? MARKET_FLOAT_RANGE_ERROR}
+              </p>
+            ) : null}
           </fieldset>
         </div>
 
         <fieldset className="space-y-1.5">
-          <legend className="text-xs text-muted-foreground">Ordenar</legend>
+          <legend className="text-xs text-muted-foreground">
+            Ordenar ({MARKET_SORT_DEFAULT_COPY} no servidor)
+          </legend>
           <div className="flex flex-wrap gap-1.5">
             {MARKET_SORTS.map(({ value, label }) => (
               <Chip
@@ -345,7 +468,7 @@ export default function Products() {
         ) : null}
       </div>
 
-      {isLoading && (
+      {isLoading && rangeValid && (
         <div
           className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4"
           role="status"
@@ -371,6 +494,7 @@ export default function Products() {
 
       {!isLoading &&
         !isError &&
+        rangeValid &&
         items.length === 0 &&
         (query.q ? (
           <EmptyState
@@ -400,28 +524,31 @@ export default function Products() {
               </Button>
             }
           />
+        ) : filteredEmpty ? (
+          <EmptyState
+            title={MARKET_FILTERS_EMPTY_TITLE}
+            description={
+              filterSummary.length > 0
+                ? `Nenhum listing para ${filterSummary.join(", ")}.`
+                : "Nenhum listing combina com os filtros ativos."
+            }
+            action={
+              <div className="flex flex-col items-center gap-3">
+                <Button type="button" variant="outline" onClick={clearFilters}>
+                  Limpar filtros
+                </Button>
+                <ExteriorShortcuts />
+              </div>
+            }
+          />
         ) : (
           <EmptyState
-            title="Nenhum item encontrado"
-            description="Tente ajustar os filtros"
-            action={
-              hasMarketFilters(query) ? (
-                <div className="flex flex-col items-center gap-3">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={clearFilters}
-                  >
-                    Limpar filtros
-                  </Button>
-                  <ExteriorShortcuts />
-                </div>
-              ) : undefined
-            }
+            title={MARKET_CATALOG_EMPTY_TITLE}
+            description={MARKET_CATALOG_EMPTY_DESCRIPTION}
           />
         ))}
 
-      {!isLoading && !isError && items.length > 0 && (
+      {!isLoading && !isError && rangeValid && items.length > 0 && (
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {items.map((listing) => (

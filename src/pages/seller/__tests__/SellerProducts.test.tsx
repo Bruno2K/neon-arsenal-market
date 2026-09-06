@@ -72,6 +72,28 @@ describe("SellerProducts", () => {
     setRole("SELLER");
   });
 
+  it("shows a listings CTA when the catalog is empty", async () => {
+    listProducts.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+
+    renderProducts();
+
+    expect(await screen.findByText("Nenhum produto no catálogo")).toBeTruthy();
+    const listingCtas = screen.getAllByRole("link", {
+      name: "Ir para listings",
+    });
+    expect(listingCtas.length).toBeGreaterThan(0);
+    expect(
+      listingCtas.every(
+        (link) => link.getAttribute("href") === "/seller/listings",
+      ),
+    ).toBe(true);
+  });
+
   it("renders a read-only product catalog from listProducts", async () => {
     listProducts.mockResolvedValue({
       items: [product()],

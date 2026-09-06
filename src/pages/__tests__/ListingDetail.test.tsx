@@ -43,6 +43,7 @@ import {
   PRODUCT_REVIEWS_SCOPE,
   PRODUCT_REVIEWS_SUBMIT,
 } from "@/components/ProductReviews";
+import { marketPath } from "@/lib/marketQuery";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
@@ -76,6 +77,7 @@ vi.mock("@/hooks/use-toast", () => ({
 
 vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState,
+  useOptionalAuth: () => authState,
 }));
 
 vi.mock("@/api/reviews", () => ({
@@ -83,6 +85,12 @@ vi.mock("@/api/reviews", () => ({
   createReview: (...args: unknown[]) => createReview(...args),
   updateReview: (...args: unknown[]) => updateReview(...args),
   deleteReview: (...args: unknown[]) => deleteReview(...args),
+}));
+
+vi.mock("@/api/favorites", () => ({
+  listFavorites: () => Promise.resolve([]),
+  addFavorite: vi.fn(),
+  removeFavorite: vi.fn(),
 }));
 
 function makeListing(overrides: Partial<Listing> = {}): Listing {
@@ -194,6 +202,7 @@ describe("ListingDetail", () => {
     authState.isLoading = false;
     localStorage.removeItem(CART_STORAGE_KEY);
     localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY);
+    sessionStorage.clear();
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
     listProductReviews.mockResolvedValue([]);
@@ -231,7 +240,7 @@ describe("ListingDetail", () => {
     expect(screen.getAllByText("NeonTrader").length).toBeGreaterThan(0);
     expect(screen.getAllByText("$22.00").length).toBeGreaterThan(0);
     expect(screen.getByText(/Última alteração: \$22\.00/)).toBeTruthy();
-    expect(screen.getByText("Histórico de Preços")).toBeTruthy();
+    expect(screen.getByText("Histórico de preços deste listing")).toBeTruthy();
     expect(screen.getByText("Outros listings desta skin")).toBeTruthy();
 
     const addButton = screen.getAllByRole("button", {
@@ -249,6 +258,111 @@ describe("ListingDetail", () => {
     expect(reserveListing).not.toHaveBeenCalled();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(screen.queryByText(/15:00/)).toBeNull();
+    expect(screen.queryByText(/preço de mercado Steam/i)).toBeNull();
+  });
+
+  it("shows an explicit empty price history", async () => {
+    getListing.mockResolvedValue(makeListing());
+    getPriceHistory.mockResolvedValue([]);
+    renderDetail();
+    expect(
+      await screen.findByText("Sem alterações de preço ainda"),
+    ).toBeTruthy();
+  });
+
+  it("links breadcrumbs and attributes to existing Market query routes", async () => {
+    const listing = makeListing();
+    getListing.mockResolvedValue(listing);
+    renderDetail();
+
+    const crumbs = await screen.findByRole("navigation", {
+      name: "breadcrumb",
+    });
+    expect(within(crumbs).getByRole("link", { name: "Home" })).toHaveAttribute(
+      "href",
+      "/",
+    );
+    expect(
+      within(crumbs).getByRole("link", { name: "Market" }),
+    ).toHaveAttribute("href", "/products");
+    expect(within(crumbs).getByRole("link", { name: "AK-47" })).toHaveAttribute(
+      "href",
+      marketPath({ weapon: "AK-47" }),
+    );
+    expect(
+      within(crumbs).getByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+
+    expect(
+      screen.getByRole("link", { name: "The Huntsman Collection" }),
+    ).toHaveAttribute("href", marketPath({ q: "The Huntsman Collection" }));
+    expect(screen.getByRole("link", { name: "Classified" })).toHaveAttribute(
+      "href",
+      marketPath({ rarity: "Classified" }),
+    );
+    expect(
+      screen
+        .getAllByRole("link", { name: "AK-47" })
+        .every(
+          (link) =>
+            link.getAttribute("href") === marketPath({ weapon: "AK-47" }),
+        ),
+    ).toBe(true);
+  });
+
+  it("falls back to same-weapon listings and a seller rail with honest headings", async () => {
+    getListing.mockResolvedValue(makeListing());
+    const otherWeapon = makeListing({
+      id: "listing-weapon",
+      productId: "ak-other",
+      product: {
+        ...makeListing().product,
+        id: "ak-other",
+        skinName: "Slate",
+      },
+    });
+    const sellerOther = makeListing({
+      id: "listing-seller",
+      productId: "m4",
+      sellerId: "seller-1",
+      product: {
+        ...makeListing().product,
+        id: "m4",
+        weapon: "M4A4",
+        skinName: "Howl",
+        collection: "Other",
+      },
+    });
+    listListings.mockImplementation(
+      async (params: {
+        productId?: string;
+        sellerId?: string;
+        weapon?: string;
+      }) => {
+        if (params.productId) {
+          return { items: [makeListing()], total: 1, page: 1, limit: 5 };
+        }
+        if (params.sellerId) {
+          return { items: [sellerOther], total: 1, page: 1, limit: 5 };
+        }
+        if (params.weapon) {
+          return { items: [otherWeapon], total: 1, page: 1, limit: 8 };
+        }
+        return { items: [], total: 0, page: 1, limit: 4 };
+      },
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByText("Outros listings desta coleção"),
+    ).toBeTruthy();
+    expect(screen.getByText("Mais de NeonTrader Store")).toBeTruthy();
+    expect(screen.queryByText(/recomendado para você/i)).toBeNull();
+    expect(screen.getByRole("link", { name: "Ver loja" })).toHaveAttribute(
+      "href",
+      "/stores/seller-1",
+    );
   });
 
   it("replaces the add CTA on a SOLD listing with Vendido and similar items", async () => {
@@ -334,7 +448,11 @@ describe("ListingDetail", () => {
     expect(screen.getByText(PRODUCT_REVIEWS_SCOPE)).toBeTruthy();
     expect(screen.getByText("Ana")).toBeTruthy();
     expect(screen.getByText("Float honesto, entrega rápida.")).toBeTruthy();
-    expect(screen.getByText("Nota da loja: 4.5")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /Nota da loja \(campo do vendedor, não média de avaliações\): 4\.5/,
+      ),
+    ).toBeTruthy();
     expect(screen.queryByText(/média das avaliações/i)).toBeNull();
     expect(listProductReviews).toHaveBeenCalledWith("ak-redline-ft");
   });

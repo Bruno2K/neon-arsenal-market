@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AccountPage from "../Account";
 import type { Role, User } from "@/types/api";
 import { USER_FACING_NETWORK } from "@/lib/userFacingApiError";
@@ -21,9 +22,17 @@ const authState = {
   logout: (...args: unknown[]) => logout(...args),
 };
 
+const getSellerMe = vi.fn();
+const applySeller = vi.fn();
+
 vi.mock("@/api/users", () => ({
   getMe: (...args: unknown[]) => getMe(...args),
   updateMe: vi.fn(),
+}));
+
+vi.mock("@/api/sellers", () => ({
+  getSellerMe: (...args: unknown[]) => getSellerMe(...args),
+  applySeller: (...args: unknown[]) => applySeller(...args),
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -54,15 +63,24 @@ function setRole(role: Role) {
 }
 
 function renderPage() {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter initialEntries={["/account"]}>
-      <Routes>
-        <Route path="/account" element={<AccountPage />} />
-        <Route path="/account/orders" element={<div>orders-page</div>} />
-        <Route path="/seller" element={<div>seller-dash</div>} />
-        <Route path="/admin" element={<div>admin-dash</div>} />
-      </Routes>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter initialEntries={["/account"]}>
+        <Routes>
+          <Route path="/account" element={<AccountPage />} />
+          <Route path="/account/orders" element={<div>orders-page</div>} />
+          <Route
+            path="/account/favorites"
+            element={<div>favorites-page</div>}
+          />
+          <Route path="/seller" element={<div>seller-dash</div>} />
+          <Route path="/admin" element={<div>admin-dash</div>} />
+        </Routes>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -72,6 +90,9 @@ describe("AccountPage", () => {
     updateProfile.mockReset();
     logout.mockReset();
     toast.mockReset();
+    getSellerMe.mockReset();
+    applySeller.mockReset();
+    getSellerMe.mockRejectedValue(new Error("not a seller"));
     setRole("CUSTOMER");
     getMe.mockResolvedValue(profile());
     updateProfile.mockImplementation(async (input: { name?: string }) => {
@@ -185,6 +206,42 @@ describe("AccountPage", () => {
       await screen.findByRole("link", { name: "Dashboard" }),
     ).toHaveAttribute("href", "/admin");
     expect(screen.queryByRole("link", { name: "Meus pedidos" })).toBeNull();
+  });
+
+  it("lets a CUSTOMER apply as seller via POST /sellers/apply", async () => {
+    applySeller.mockResolvedValue({
+      id: "seller-new",
+      userId: "customer-1",
+      storeName: "Loja Nova",
+      balance: 0,
+      rating: 0,
+      isApproved: false,
+    });
+    getSellerMe
+      .mockRejectedValueOnce(new Error("not a seller"))
+      .mockResolvedValue({
+        id: "seller-new",
+        userId: "customer-1",
+        storeName: "Loja Nova",
+        balance: 0,
+        rating: 0,
+        isApproved: false,
+      });
+
+    renderPage();
+    expect(await screen.findByText("Quero vender")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Nome da loja"), {
+      target: { value: "Loja Nova" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Enviar candidatura" }));
+
+    await waitFor(() => {
+      expect(applySeller).toHaveBeenCalledWith({ storeName: "Loja Nova" });
+    });
+    expect(
+      await screen.findByText(/Aguardando aprovação de um admin/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/e-mail de aprovação/i)).toBeNull();
   });
 
   it("logout from the account page uses AuthContext.logout", async () => {

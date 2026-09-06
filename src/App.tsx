@@ -1,6 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
@@ -32,9 +32,13 @@ import AdminOrders from "./pages/admin/AdminOrders";
 import AdminOrderDetail from "./pages/admin/AdminOrderDetail";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCatalog from "./pages/admin/AdminCatalog";
+import AdminProducts from "./pages/admin/AdminProducts";
+import StorePage from "./pages/StorePage";
+import AccountFavoritesPage from "./pages/AccountFavorites";
 import NotFound from "./pages/NotFound";
+import { createAppQueryClient } from "@/lib/queryClient";
 
-const queryClient = new QueryClient();
+const queryClient = createAppQueryClient();
 
 const App = () => (
   <ErrorBoundary>
@@ -49,6 +53,7 @@ const App = () => (
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Index />} />
                   <Route path="/products" element={<Products />} />
+                  <Route path="/stores/:sellerId" element={<StorePage />} />
                   <Route path="/listing/:id" element={<ListingDetail />} />
                   <Route path="/cart" element={<CartPage />} />
                   <Route path="/checkout" element={<Checkout />} />
@@ -81,6 +86,14 @@ const App = () => (
                     element={
                       <ProtectedRoute>
                         <AccountPage />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/account/favorites"
+                    element={
+                      <ProtectedRoute>
+                        <AccountFavoritesPage />
                       </ProtectedRoute>
                     }
                   />
@@ -163,6 +176,14 @@ const App = () => (
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <AdminCatalog />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/products"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <AdminProducts />
                       </ProtectedRoute>
                     }
                   />

@@ -20,6 +20,10 @@ export function getSellerById(id: string): Promise<Seller> {
   return api.get<Seller>(`/sellers/${id}`);
 }
 
+export function applySeller(body: { storeName: string }): Promise<Seller> {
+  return api.post<Seller>("/sellers/apply", { storeName: body.storeName });
+}
+
 export function approveSeller(
   id: string,
   isApproved: boolean,

@@ -1,8 +1,10 @@
-import { Navigate } from "react-router-dom";
+import { useState } from "react";
+import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listOrders } from "@/api/orders";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
+import { OrderTrackingDialog } from "@/components/seller/OrderTrackingDialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -24,6 +26,7 @@ function orderTotal(order: Order): number {
 export default function SellerOrdersPage() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
+  const [trackingOrder, setTrackingOrder] = useState<Order | null>(null);
   const {
     data: orders = [],
     isLoading,
@@ -77,6 +80,11 @@ export default function SellerOrdersPage() {
         <EmptyState
           title="Nenhum pedido"
           description="Quando um listing for vendido, o pedido aparece aqui."
+          action={
+            <Button asChild>
+              <Link to="/seller/listings">Criar listing</Link>
+            </Button>
+          }
         />
       ) : (
         <ul className="space-y-2">
@@ -112,9 +120,17 @@ export default function SellerOrdersPage() {
                         {new Date(order.createdAt).toLocaleDateString()}
                       </span>
                     ) : null}
+                    {order.trackingCode ? (
+                      <span className="text-xs text-muted-foreground">
+                        {order.trackingCarrier
+                          ? `${order.trackingCarrier} · `
+                          : ""}
+                        {order.trackingCode}
+                      </span>
+                    ) : null}
                   </div>
                 </div>
-                <div className="text-left sm:text-right">
+                <div className="flex flex-col items-start gap-2 sm:items-end">
                   <p className="tabular-nums text-lg font-semibold">
                     ${orderTotal(order).toFixed(2)}
                   </p>
@@ -122,12 +138,28 @@ export default function SellerOrdersPage() {
                     {order.items?.length ?? 0}{" "}
                     {(order.items?.length ?? 0) === 1 ? "item" : "itens"}
                   </p>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setTrackingOrder(order)}
+                  >
+                    Informar envio
+                  </Button>
                 </div>
               </li>
             );
           })}
         </ul>
       )}
+      <OrderTrackingDialog
+        key={trackingOrder?.id ?? "closed"}
+        order={trackingOrder}
+        open={trackingOrder != null}
+        onOpenChange={(open) => {
+          if (!open) setTrackingOrder(null);
+        }}
+      />
     </div>
   );
 }

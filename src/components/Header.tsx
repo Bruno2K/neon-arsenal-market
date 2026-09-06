@@ -78,7 +78,11 @@ function HeaderSearch({
   );
 }
 
-export function Header() {
+export function Header({
+  hideMobileMenu = false,
+}: {
+  hideMobileMenu?: boolean;
+}) {
   const { totalItems } = useCart();
   const { user, logout, isAuthenticated } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
@@ -89,7 +93,10 @@ export function Header() {
     { to: "/", label: "Home" },
     { to: "/products", label: "Market" },
     ...(user?.role === "CUSTOMER"
-      ? [{ to: "/account/orders", label: "Pedidos" }]
+      ? [
+          { to: "/account/orders", label: "Pedidos" },
+          { to: "/account/favorites", label: "Favoritos" },
+        ]
       : []),
     ...(user?.role === "SELLER" ? [{ to: "/seller", label: "Dashboard" }] : []),
     ...(user?.role === "ADMIN" ? [{ to: "/admin", label: "Admin" }] : []),
@@ -105,6 +112,12 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
+      <a
+        href="#conteudo"
+        className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[60] focus:rounded-md focus:bg-background focus:px-3 focus:py-2 focus:text-sm focus:shadow"
+      >
+        Ir para o conteúdo
+      </a>
       <div className="container flex h-14 items-center justify-between">
         {brandMark()}
 
@@ -180,26 +193,28 @@ export function Header() {
             </div>
           )}
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            aria-expanded={menuOpen}
-            aria-controls="mobile-nav"
-            aria-haspopup="true"
-            onClick={() => setMenuOpen((open) => !open)}
-          >
-            {menuOpen ? (
-              <X className="h-4 w-4" />
-            ) : (
-              <Menu className="h-4 w-4" />
-            )}
-            <span className="sr-only">Menu</span>
-          </Button>
+          {hideMobileMenu ? null : (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="md:hidden"
+              aria-expanded={menuOpen}
+              aria-controls="mobile-nav"
+              aria-haspopup="true"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              {menuOpen ? (
+                <X className="h-4 w-4" />
+              ) : (
+                <Menu className="h-4 w-4" />
+              )}
+              <span className="sr-only">Menu</span>
+            </Button>
+          )}
         </div>
       </div>
 
-      {menuOpen && (
+      {!hideMobileMenu && menuOpen && (
         <nav
           id="mobile-nav"
           className="space-y-1 border-t border-border bg-background p-3 md:hidden"

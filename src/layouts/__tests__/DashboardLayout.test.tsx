@@ -20,6 +20,19 @@ vi.mock("@/api/sellers", () => ({
   getSellerMe: (...args: unknown[]) => getSellerMe(...args),
 }));
 
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => ({
+    logout: vi.fn(),
+    user: { role: "SELLER" },
+    isAuthenticated: true,
+  }),
+  useOptionalAuth: () => ({
+    logout: vi.fn(),
+    user: { role: "SELLER" },
+    isAuthenticated: true,
+  }),
+}));
+
 function sellerMe(overrides: Partial<Seller> = {}): Seller {
   return {
     id: "seller-1",
@@ -43,6 +56,7 @@ function renderLayout(path: string) {
           <Route element={<DashboardLayout />}>
             <Route path="/admin" element={<div>overview</div>} />
             <Route path="/admin/catalog" element={<div>catalog-page</div>} />
+            <Route path="/admin/products" element={<div>products-page</div>} />
             <Route path="/admin/orders" element={<div>admin-orders</div>} />
             <Route path="/seller" element={<div>overview</div>} />
             <Route
@@ -79,6 +93,13 @@ describe("DashboardLayout admin nav", () => {
       screen.getAllByRole("link", { name: "Visão Geral" })[0],
     ).toHaveAttribute("href", "/admin");
     expect(getSellerMe).not.toHaveBeenCalled();
+  });
+
+  it("exposes Produtos CRUD next to Catálogo", () => {
+    renderAdminNav("/admin/products");
+    const links = screen.getAllByRole("link", { name: "Produtos" });
+    expect(links[0]).toHaveAttribute("href", "/admin/products");
+    expect(screen.getByText("products-page")).toBeTruthy();
   });
 
   it("marks Catálogo current on /admin/catalog", () => {

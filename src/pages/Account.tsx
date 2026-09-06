@@ -4,6 +4,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { getMe } from "@/api/users";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
+import { ApplySellerCard } from "@/components/account/ApplySellerCard";
 import { ErrorState } from "@/components/page-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -293,12 +294,21 @@ export default function AccountPage() {
         </Button>
       </form>
 
+      <div className="mt-10">
+        <ApplySellerCard role={user?.role ?? loaded.role} />
+      </div>
+
       <div className="mt-10 space-y-3">
         <h2 className="text-lg font-semibold tracking-tight">Atalhos</h2>
         <div className="flex flex-wrap gap-2">
           {isCustomer ? (
             <Button asChild variant="outline">
               <Link to="/account/orders">Meus pedidos</Link>
+            </Button>
+          ) : null}
+          {isCustomer ? (
+            <Button asChild variant="outline">
+              <Link to="/account/favorites">Favoritos</Link>
             </Button>
           ) : null}
           {sellerAdminPath ? (

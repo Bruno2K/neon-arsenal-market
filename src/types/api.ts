@@ -212,3 +212,12 @@ export interface UpdateReviewBody {
   rating?: number;
   comment?: string;
 }
+
+/** GET /favorites — listing may be SOLD and still returned. */
+export interface Favorite {
+  id: string;
+  userId: string;
+  listingId: string;
+  createdAt?: string;
+  listing?: Listing;
+}

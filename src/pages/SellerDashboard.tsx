@@ -177,7 +177,9 @@ export default function SellerDashboard() {
             description="Quando houver vendas, elas aparecem aqui."
             action={
               <Button asChild>
-                <Link to="/seller/listings">Ver listings</Link>
+                <Link to="/seller/listings">
+                  {activeListings === 0 ? "Criar listing" : "Ver listings"}
+                </Link>
               </Button>
             }
           />

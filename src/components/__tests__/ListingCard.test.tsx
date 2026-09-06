@@ -1,6 +1,7 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ListingCard, SkinThumb } from "../ProductCard";
 import { CartProvider, useCart } from "../../contexts/CartContext";
 import type { Listing } from "@/types/api";
@@ -70,13 +71,18 @@ function renderCard(
   listing: Listing,
   source?: "home" | "market" | "related" | "seller",
 ) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <MemoryRouter>
-      <CartProvider>
-        <ListingCard listing={listing} source={source} />
-        <CartProbe />
-      </CartProvider>
-    </MemoryRouter>,
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <CartProvider>
+          <ListingCard listing={listing} source={source} />
+          <CartProbe />
+        </CartProvider>
+      </MemoryRouter>
+    </QueryClientProvider>,
   );
 }
 
@@ -117,6 +123,26 @@ describe("ListingCard", () => {
     expect(screen.queryByText("AK-", { exact: true })).not.toBeInTheDocument();
   });
 
+  it("uses lazy loading on catalog images and falls back after onError", () => {
+    renderCard(makeListing());
+    const image = screen.getByRole("img", {
+      name: "AK-47 | Redline (Field-Tested)",
+    });
+    expect(image).toHaveAttribute("loading", "lazy");
+    expect(image).toHaveAttribute("decoding", "async");
+    fireEvent.error(image);
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+    expect(screen.getByText("AK-", { exact: true })).toBeInTheDocument();
+  });
+
+  it("links the seller name to the public store", () => {
+    renderCard(makeListing());
+    expect(screen.getByRole("link", { name: "Alice" })).toHaveAttribute(
+      "href",
+      "/stores/seller-1",
+    );
+  });
+
   it("falls back to the weapon monogram when imageUrl is missing", () => {
     renderCard(
       makeListing({
@@ -134,20 +160,25 @@ describe("ListingCard", () => {
     const { rerender } = renderCard(makeListing());
     expect(screen.queryByText("StatTrak™")).not.toBeInTheDocument();
 
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     rerender(
-      <MemoryRouter>
-        <CartProvider>
-          <ListingCard
-            listing={makeListing({
-              product: {
-                ...makeListing().product,
-                isStattrak: true,
-              },
-            })}
-          />
-          <CartProbe />
-        </CartProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <CartProvider>
+            <ListingCard
+              listing={makeListing({
+                product: {
+                  ...makeListing().product,
+                  isStattrak: true,
+                },
+              })}
+            />
+            <CartProbe />
+          </CartProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.getByText("StatTrak™")).toBeInTheDocument();
   });
@@ -275,13 +306,18 @@ describe("ListingCard", () => {
     const { rerender } = renderCard(makeListing({ pattern: 412 }));
     expect(screen.getByText("Pattern: 412")).toBeInTheDocument();
 
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     rerender(
-      <MemoryRouter>
-        <CartProvider>
-          <ListingCard listing={makeListing({ pattern: null })} />
-          <CartProbe />
-        </CartProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <CartProvider>
+            <ListingCard listing={makeListing({ pattern: null })} />
+            <CartProbe />
+          </CartProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
     expect(screen.queryByText(/Pattern:/)).not.toBeInTheDocument();
   });
