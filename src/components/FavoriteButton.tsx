@@ -9,7 +9,11 @@ import {
   consumePendingFavoriteListingId,
   setPendingFavoriteListingId,
 } from "@/lib/pendingFavorite";
-import { userFacingApiError } from "@/lib/userFacingApiError";
+import { normalizeInternalPath } from "@/lib/postLoginPath";
+import {
+  USER_FACING_FORBIDDEN,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -22,6 +26,7 @@ export function FavoriteButton({
 }) {
   const auth = useOptionalAuth();
   const isAuthenticated = Boolean(auth?.isAuthenticated);
+  const isCustomer = auth?.user?.role === "CUSTOMER";
   const navigate = useNavigate();
   const location = useLocation();
   const queryClient = useQueryClient();
@@ -30,7 +35,7 @@ export function FavoriteButton({
   const favoritesQuery = useQuery({
     queryKey: ["favorites"],
     queryFn: listFavorites,
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && isCustomer,
   });
 
   const favorited = (favoritesQuery.data ?? []).some(
@@ -81,16 +86,33 @@ export function FavoriteButton({
   useEffect(() => {
     if (!isAuthenticated) return;
     const pending = consumePendingFavoriteListingId();
-    if (pending === listingId) toggle.mutate();
+    if (pending !== listingId) return;
+    if (!isCustomer) {
+      toast({
+        title: USER_FACING_FORBIDDEN,
+        variant: "destructive",
+      });
+      return;
+    }
+    toggle.mutate();
     // one-shot pending favorite after login
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated, listingId]);
+  }, [isAuthenticated, isCustomer, listingId]);
 
   const onClick = () => {
     if (!isAuthenticated) {
       setPendingFavoriteListingId(listingId);
       navigate("/login", {
-        state: { from: `${location.pathname}${location.search}` },
+        state: {
+          from: normalizeInternalPath(`${location.pathname}${location.search}`),
+        },
+      });
+      return;
+    }
+    if (!isCustomer) {
+      toast({
+        title: USER_FACING_FORBIDDEN,
+        variant: "destructive",
       });
       return;
     }

@@ -29,11 +29,14 @@ function authedUser(role: Role): User {
   };
 }
 
-function renderLogin(from?: string) {
+function renderLogin(from?: string, asString = false) {
   const entry =
     from === undefined
       ? "/login"
-      : { pathname: "/login", state: { from: { pathname: from } } };
+      : {
+          pathname: "/login",
+          state: { from: asString ? from : { pathname: from } },
+        };
 
   return render(
     <MemoryRouter initialEntries={[entry]}>
@@ -44,6 +47,7 @@ function renderLogin(from?: string) {
         <Route path="/admin" element={<div>landed-admin</div>} />
         <Route path="/checkout" element={<div>landed-checkout</div>} />
         <Route path="/seller/listings" element={<div>landed-listings</div>} />
+        <Route path="/listing/:id" element={<div>landed-listing</div>} />
       </Routes>
     </MemoryRouter>,
   );
@@ -98,6 +102,18 @@ describe("Login", () => {
     renderLogin();
     await submitAs("SELLER");
     expect(await screen.findByText("landed-seller")).toBeTruthy();
+  });
+
+  it("returns a customer to a safe listing path from a string from", async () => {
+    renderLogin("/listing/listing-1", true);
+    await submitAs("CUSTOMER");
+    expect(await screen.findByText("landed-listing")).toBeTruthy();
+  });
+
+  it("rejects an external from string", async () => {
+    renderLogin("https://evil.example", true);
+    await submitAs("CUSTOMER");
+    expect(await screen.findByText("landed-home")).toBeTruthy();
   });
 
   it("sends customer with from=/checkout to /checkout", async () => {

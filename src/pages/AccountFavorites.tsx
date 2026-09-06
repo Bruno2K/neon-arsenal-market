@@ -1,6 +1,10 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { listFavorites } from "@/api/favorites";
+import {
+  favoriteListing,
+  favoriteListingId,
+  listFavorites,
+} from "@/api/favorites";
 import { ListingCard } from "@/components/ProductCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
@@ -69,19 +73,20 @@ export default function AccountFavoritesPage() {
       ) : (
         <ul className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((favorite) => {
-            const listing = favorite.listing;
+            const listing = favoriteListing(favorite);
+            const id = favoriteListingId(favorite);
             if (!listing) {
               return (
                 <li
-                  key={favorite.id}
+                  key={id}
                   className="rounded-md border border-border p-4 text-sm text-muted-foreground"
                 >
-                  Listing {favorite.listingId}
+                  Listing {id}
                 </li>
               );
             }
             return (
-              <li key={favorite.id} className="space-y-2">
+              <li key={id} className="space-y-2">
                 {listing.status === "SOLD" ? (
                   <div className="flex items-center justify-between gap-2">
                     <Badge variant="secondary">Vendido</Badge>

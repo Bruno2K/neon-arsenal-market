@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
@@ -22,7 +22,7 @@ import {
   MARKET_SEARCH_DEBOUNCE_MS,
   MARKET_SORTS,
   MARKET_SORT_DEFAULT_COPY,
-  describeMarketFilters,
+  marketFiltersEmptyDescription,
   hasActiveMarketConstraints,
   hasMarketFilters,
   isValidNumericRange,
@@ -92,6 +92,7 @@ function ExteriorShortcuts({
 export default function Products() {
   const [searchParams, setSearchParams] = useSearchParams();
   const query = parseMarketQuery(searchParams);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   const [searchDraft, setSearchDraft] = useState(query.q);
   const [minPriceDraft, setMinPriceDraft] = useState(query.minPrice);
   const [maxPriceDraft, setMaxPriceDraft] = useState(query.maxPrice);
@@ -192,8 +193,15 @@ export default function Products() {
     writeQuery({ q: "", page: 1 }, { replace: true });
   };
 
-  const filterSummary = describeMarketFilters(query);
   const filteredEmpty = hasActiveMarketConstraints(query);
+  const emptyFilterDescription = marketFiltersEmptyDescription(query);
+
+  const focusOtherWeaponsSearch = () => {
+    writeQuery({ weapon: "", page: 1 }, { replace: true });
+    window.requestAnimationFrame(() => {
+      searchInputRef.current?.focus();
+    });
+  };
 
   return (
     <div className="container py-8">
@@ -248,6 +256,7 @@ export default function Products() {
           <Label htmlFor="market-search">Buscar</Label>
           <Input
             id="market-search"
+            ref={searchInputRef}
             type="search"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
@@ -255,6 +264,9 @@ export default function Products() {
             autoComplete="off"
             aria-label="Buscar no Market"
           />
+          <p className="text-xs text-muted-foreground">
+            Armas fora da lista: use Outras e a busca.
+          </p>
         </div>
 
         <fieldset className="space-y-1.5">
@@ -275,6 +287,9 @@ export default function Products() {
                 {weapon}
               </Chip>
             ))}
+            <Chip active={false} onClick={focusOtherWeaponsSearch}>
+              Outras
+            </Chip>
           </div>
         </fieldset>
 
@@ -527,11 +542,7 @@ export default function Products() {
         ) : filteredEmpty ? (
           <EmptyState
             title={MARKET_FILTERS_EMPTY_TITLE}
-            description={
-              filterSummary.length > 0
-                ? `Nenhum listing para ${filterSummary.join(", ")}.`
-                : "Nenhum listing combina com os filtros ativos."
-            }
+            description={emptyFilterDescription}
             action={
               <div className="flex flex-col items-center gap-3">
                 <Button type="button" variant="outline" onClick={clearFilters}>

@@ -87,4 +87,20 @@ describe("AccountFavoritesPage", () => {
       screen.getByRole("link", { name: "Ver relacionados" }),
     ).toHaveAttribute("href", "/products?productId=prod-1");
   });
+
+  it("renders GET /favorites items that only include listingId", async () => {
+    const sold = soldFavorite();
+    listFavorites.mockResolvedValue([
+      { listingId: sold.listingId, listing: sold.listing },
+    ]);
+    renderPage();
+    expect(await screen.findAllByText("Vendido")).toHaveLength(2);
+  });
+
+  it("shows an error state without claiming a saved list", async () => {
+    listFavorites.mockRejectedValue(new Error("forbidden"));
+    renderPage();
+    expect(await screen.findByText("Erro ao carregar favoritos")).toBeTruthy();
+    expect(screen.queryByText("Nenhum favorito")).toBeNull();
+  });
 });

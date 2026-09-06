@@ -10,6 +10,7 @@ import {
   MARKET_SIMILAR_EMPTY_TITLE,
   MARKET_VIEW_CTA,
 } from "@/lib/listingCartCta";
+import { MARKET_TAXONOMY_EMPTY_HINT } from "@/lib/marketQuery";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 import {
   setAnalyticsCollector,
@@ -478,6 +479,99 @@ describe("Products", () => {
       ),
     ).toBeTruthy();
     expect(listListings).not.toHaveBeenCalled();
+  });
+
+  it("marks the weapon chip from the URL as pressed", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?weapon=AK-47");
+
+    expect(
+      await screen.findByRole("button", { name: "AK-47" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await waitFor(() => {
+      expect(listListings).toHaveBeenCalledWith(
+        expect.objectContaining({ weapon: "AK-47", status: "ACTIVE" }),
+      );
+    });
+  });
+
+  it("combines weapon with exterior, StatTrak, and search in the URL", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?weapon=AK-47&exterior=Field-Tested&stattrak=true");
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Buscar no Market"), {
+      target: { value: "redline" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId("market-query").textContent).toContain(
+        "weapon=AK-47",
+      );
+      expect(screen.getByTestId("market-query").textContent).toContain(
+        "exterior=Field-Tested",
+      );
+      expect(screen.getByTestId("market-query").textContent).toContain(
+        "stattrak=true",
+      );
+      expect(screen.getByTestId("market-query").textContent).toContain(
+        "q=redline",
+      );
+    });
+  });
+
+  it("uses Outras to focus search instead of inventing a weapon param", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?weapon=AK-47");
+    expect(
+      await screen.findByRole("button", { name: "AK-47" }),
+    ).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Outras" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("market-query").textContent).not.toContain(
+        "weapon=",
+      );
+    });
+    expect(screen.getByLabelText("Buscar no Market")).toHaveFocus();
+  });
+
+  it("suggests clearing weapon or rarity when those filters empty the grid", async () => {
+    listListings.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?weapon=AK-47&rarity=Covert");
+
+    expect(
+      await screen.findByText("Nenhum listing com estes filtros"),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(new RegExp(MARKET_TAXONOMY_EMPTY_HINT)),
+    ).toBeTruthy();
   });
 
   it("puts weapon and rarity in the URL and listListings params", async () => {

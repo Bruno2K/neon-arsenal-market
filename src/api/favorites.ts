@@ -1,19 +1,31 @@
 import { api } from "./client";
-import type { Favorite, Listing } from "@/types/api";
+import type { AddFavoriteResponse, Favorite, Listing } from "@/types/api";
 
 export interface ListFavoritesResponse {
   items: Favorite[];
 }
 
+function asFavorite(value: unknown): Favorite | null {
+  if (!value || typeof value !== "object") return null;
+  const listingId = favoriteListingId(value as Favorite);
+  if (!listingId) return null;
+  return value as Favorite;
+}
+
 function normalizeFavorites(payload: unknown): Favorite[] {
-  if (Array.isArray(payload)) return payload as Favorite[];
+  if (Array.isArray(payload)) {
+    return payload.flatMap((item) => {
+      const favorite = asFavorite(item);
+      return favorite ? [favorite] : [];
+    });
+  }
   if (
     payload &&
     typeof payload === "object" &&
     "items" in payload &&
     Array.isArray((payload as ListFavoritesResponse).items)
   ) {
-    return (payload as ListFavoritesResponse).items;
+    return normalizeFavorites((payload as ListFavoritesResponse).items);
   }
   return [];
 }
@@ -25,8 +37,8 @@ export async function listFavorites(): Promise<Favorite[]> {
   return normalizeFavorites(payload);
 }
 
-export function addFavorite(listingId: string): Promise<Favorite> {
-  return api.post<Favorite>("/favorites", { listingId });
+export function addFavorite(listingId: string): Promise<AddFavoriteResponse> {
+  return api.post<AddFavoriteResponse>("/favorites", { listingId });
 }
 
 export function removeFavorite(listingId: string): Promise<void> {

@@ -6,6 +6,7 @@ import {
   approvedSellersCountLabel,
   catalogDiscoveryLinks,
   HOME_EXTERIOR_LINKS,
+  HOME_WEAPON_LINKS,
   listingsCountLabel,
 } from "../homeDiscovery";
 
@@ -55,6 +56,19 @@ describe("catalogDiscoveryLinks", () => {
       },
     ]);
     expect(links.every((link) => !link.href.includes("#"))).toBe(true);
+  });
+});
+
+describe("HOME_WEAPON_LINKS", () => {
+  it("deep-links Market weapon filters", () => {
+    expect(HOME_WEAPON_LINKS[0]).toEqual({
+      weapon: "AK-47",
+      label: "AK-47",
+      href: marketPath({ weapon: "AK-47" }),
+    });
+    expect(HOME_WEAPON_LINKS.map((link) => link.href)).toContain(
+      "/products?weapon=AK-47",
+    );
   });
 });
 

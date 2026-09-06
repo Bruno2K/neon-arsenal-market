@@ -195,6 +195,10 @@ describe("Index", () => {
     expect(marketLinks.length).toBeGreaterThan(1);
     expect(marketLinks[0]).toHaveAttribute("href", "/products");
 
+    expect(screen.getByRole("link", { name: /^AK-47$/ })).toHaveAttribute(
+      "href",
+      "/products?weapon=AK-47",
+    );
     expect(screen.getByRole("link", { name: "Factory New" })).toHaveAttribute(
       "href",
       "/products?exterior=Factory+New",
