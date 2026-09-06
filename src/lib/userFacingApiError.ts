@@ -24,6 +24,8 @@ export const USER_FACING_NOT_FOUND =
 export const USER_FACING_CONFLICT =
   "Este recurso mudou. Recarregue a página e tente de novo.";
 
+export const USER_FACING_REVIEW_EXISTS = "Você já avaliou este produto.";
+
 export const USER_FACING_RATE_LIMIT =
   "Muitas tentativas. Espere um momento e tente de novo.";
 
@@ -156,6 +158,15 @@ export function isRetryableReadError(error: unknown): boolean {
   );
 }
 
+export function isAlreadyReviewedApiError(error: unknown): boolean {
+  const status = apiErrorStatus(error);
+  const message = technicalMessage(error);
+  return (
+    (status === 409 || status == null) &&
+    /already reviewed|já avaliou/i.test(message)
+  );
+}
+
 function isListingConflict(error: unknown): boolean {
   const status = apiErrorStatus(error);
   const message = technicalMessage(error);
@@ -185,6 +196,8 @@ export function userFacingApiError(error: unknown): string {
     copy = USER_FACING_NETWORK;
   } else if (isListingConflict(error)) {
     copy = USER_FACING_LISTING_CONFLICT;
+  } else if (isAlreadyReviewedApiError(error)) {
+    copy = USER_FACING_REVIEW_EXISTS;
   } else if (
     status === 409 &&
     /email already|already registered|already exists/i.test(message)

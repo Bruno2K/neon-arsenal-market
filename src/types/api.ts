@@ -182,3 +182,31 @@ export interface Order {
 export interface ApiError {
   error: string;
 }
+
+/** GET /reviews/product/:productId — review of a catalog Product, not a listing. */
+export interface ReviewUser {
+  id: string;
+  name: string;
+}
+
+export interface Review {
+  id: string;
+  productId: string;
+  userId: string;
+  rating: number;
+  comment?: string | null;
+  createdAt: string;
+  user: ReviewUser;
+  product?: { id: string; skinName: string };
+}
+
+export interface CreateReviewBody {
+  productId: string;
+  rating: number;
+  comment?: string;
+}
+
+export interface UpdateReviewBody {
+  rating?: number;
+  comment?: string;
+}
