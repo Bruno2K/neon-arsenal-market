@@ -5,6 +5,7 @@ import { getPayPalApiBaseUrl, getPayPalApiTimeoutMs, PAYPAL_IDEMPOTENT_RETRY } f
 import { withPaypalOperation } from "../observability/paypal.js";
 import { classifyHttpStatus, isTimeoutError, withRetry } from "../resilience/retry.js";
 import { isOneOf, isRecord } from "../types/guards.js";
+import { MONEY_CURRENCY } from "../money/policy.js";
 
 /**
  * Checkout Orders v2 `status` labels.
@@ -171,7 +172,7 @@ export function buildPayPalOrdersCreateBody(
 
 export async function createPayPalOrder(
   amount: string,
-  currency = "BRL",
+  currency = MONEY_CURRENCY,
   orderId: string,
   urls?: PayPalCheckoutUrls
 ): Promise<ParsedPayPalOrder> {

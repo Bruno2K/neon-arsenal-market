@@ -424,6 +424,68 @@ describe("paymentsService", () => {
       expect(data.status).toBe("PAID");
     });
 
+    it("writes one ledger row per seller for multi-item multi-seller orders", async () => {
+      vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) => {
+        vi.mocked(prisma.order.updateMany).mockResolvedValue({ count: 1 } as never);
+        vi.mocked(prisma.order.findUnique).mockResolvedValue(
+          mockOrder({
+            items: [
+              { listingId: "listing-1", sellerId: "seller-1", priceSnapshot: new Prisma.Decimal("99.99") },
+              { listingId: "listing-2", sellerId: "seller-1", priceSnapshot: new Prisma.Decimal("0.01") },
+              { listingId: "listing-3", sellerId: "seller-2", priceSnapshot: new Prisma.Decimal("40.00") },
+            ],
+          }) as never
+        );
+        vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 3 } as never);
+        vi.mocked(prisma.seller.findUnique)
+          .mockResolvedValueOnce({ commissionRate: new Prisma.Decimal("0.1") } as never)
+          .mockResolvedValueOnce({ commissionRate: new Prisma.Decimal("0.08") } as never);
+        vi.mocked(prisma.sellerTransaction.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.seller.update).mockResolvedValue({} as never);
+        vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
+        vi.mocked(prisma.outboxEvent.create).mockResolvedValue({} as never);
+        return fn(prisma);
+      });
+
+      await paymentsService.confirmPayment("order-1");
+
+      expect(prisma.sellerTransaction.create).toHaveBeenCalledTimes(2);
+      expect(prisma.sellerTransaction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sellerId: "seller-1",
+            grossAmount: new Prisma.Decimal("100.00"),
+            commissionAmount: new Prisma.Decimal("10.000"),
+            netAmount: new Prisma.Decimal("90.000"),
+            status: "PAID",
+          }),
+        })
+      );
+      expect(prisma.sellerTransaction.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            sellerId: "seller-2",
+            grossAmount: new Prisma.Decimal("40.00"),
+            commissionAmount: new Prisma.Decimal("3.200"),
+            netAmount: new Prisma.Decimal("36.800"),
+            status: "PAID",
+          }),
+        })
+      );
+      expect(prisma.seller.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "seller-1" },
+          data: { balance: { increment: new Prisma.Decimal("90.000") } },
+        })
+      );
+      expect(prisma.seller.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: "seller-2" },
+          data: { balance: { increment: new Prisma.Decimal("36.800") } },
+        })
+      );
+    });
+
     it("is idempotent when the order was already claimed", async () => {
       setupTransaction(0);
 
