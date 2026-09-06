@@ -106,6 +106,7 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `order.idempotency.integration.test.ts` | Replay, canonical listing order, conflicting key reuse, customer isolation, service-level rollback, concurrent same-key retries, reservation race. |
 | `payment.link.idempotency.integration.test.ts` | Payment-link replay, concurrent `POST /payments` (one `OrdersCreate`), claim rollback after PayPal failure, `PaymentLink(orderId)` uniqueness. |
 | `reservation.lifecycle.integration.test.ts` | Reservation timestamps, concurrent buyers, expiration vs payment, no duplicate seller transactions. |
+| `checkout.concurrency.integration.test.ts` | Eight concurrent `ordersService.create` for one listing (one winner); concurrent duplicate `PAYMENT.CAPTURE.COMPLETED` webhooks; concurrent `confirmPayment` (one PAID claim, one `SellerTransaction`). |
 | `paypal.webhook.integration.test.ts` | Duplicate/out-of-order events, expired capture, stale-order capture, payment rollback. PayPal remains isolated. |
 | `observability.integration.test.ts` | Order/reservation/payment/webhook spans and counters against real PostgreSQL. No secrets or high-cardinality labels. |
 | `seller.ledger.integration.test.ts` | Sequential/concurrent confirm; Decimal net identity; projection matches PAID SUM. |
