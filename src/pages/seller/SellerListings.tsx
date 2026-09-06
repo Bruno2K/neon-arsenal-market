@@ -494,7 +494,7 @@ export default function SellerListings() {
               </Select>
               {selectedFormProduct ? (
                 <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
-                  <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                  <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border">
                     <SkinVisual
                       product={selectedFormProduct}
                       className="text-sm"

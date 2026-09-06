@@ -13,9 +13,9 @@ export type SkinProduct = Pick<Product, "weapon" | "skinName" | "exterior"> & {
 };
 
 const SKIN_THUMB_SIZE = {
-  sm: "h-8 w-8",
-  md: "h-12 w-12",
-  lg: "h-16 w-16",
+  sm: "h-8 w-10",
+  md: "h-12 w-16",
+  lg: "h-16 w-24",
 } as const;
 
 export function SkinVisual({
@@ -63,7 +63,7 @@ export function SkinThumb({
 }) {
   return (
     <span
-      className={`inline-flex ${SKIN_THUMB_SIZE[size]} shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted`}
+      className={`inline-flex ${SKIN_THUMB_SIZE[size]} shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border`}
       aria-hidden={decorative || undefined}
     >
       <SkinVisual
