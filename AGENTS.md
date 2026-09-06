@@ -28,14 +28,48 @@ Work should generally follow this order:
 
 Do not add complexity merely to make the project look more sophisticated.
 
+## AI-Native Artifact Hierarchy
+
+For non-trivial work, the repository uses a persistent artifact chain:
+
+```text
+Intent → Specification → Plan → Task → Implementation → Verification → Evaluation → Memory
+```
+
+Authority by concern:
+
+- **Business requirement and acceptance:** Specification (`docs/specs/`)
+- **Architecture decision:** ADRs (`docs/adr/`)
+- **Invariant:** invariant catalog + schema + executable tests (`docs/invariants/` and tests)
+- **Current implementation:** source code
+- **Acceptance evidence:** tests, static checks, integration/runtime evidence
+- **Agent procedure:** this file + `.cursor/rules/`
+- **Operational/engineering learning:** Engineering Memory (`docs/memory/`)
+- **Issue tracking/intake:** GitHub Issues; an Issue is not a substitute for a material Specification
+
+Materiality rule: create a Specification before implementation when a change affects business behavior, public API contracts, database schema/state, security, payment semantics, concurrency, reliability guarantees, architecture boundaries, or a significant user-visible workflow. Small, reversible, convention-backed changes may remain Issue + Task driven.
+
+Traceability for material changes must be recoverable as:
+
+```text
+GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+```
+
+Do not invent missing requirements to make artifacts agree. When artifacts conflict, protect security, data integrity, and explicit invariants first; inspect code and tests; escalate material ambiguity to a human; then update the stale artifact after the decision is made.
+
+Templates live under `docs/templates/`. Canonical artifact IDs and file naming are defined by the factory authority document at `docs/architecture/ai-engineering-authority.md`.
+
 ## Before Changing Code
 
-1. Read the relevant existing module, service, repository, schema, migration, and tests.
-2. Understand the current domain rules before proposing an abstraction.
-3. Search the repository for existing implementations before creating new utilities, types, middleware, or patterns.
-4. Check whether the requested change affects transaction boundaries, authorization, money, inventory state, payments, or external integrations.
-5. Prefer the smallest coherent change that solves the problem.
-6. Do not silently change business behavior while performing refactors.
+1. Identify the Issue, Specification, Plan, or Task that authorizes the work.
+2. Read `docs/architecture/ai-engineering-authority.md` for material changes and artifact conflicts.
+3. Load only the relevant architecture, invariant, role, execution, and provider documentation required by the task. Do not read every agent document by default.
+4. Read the relevant existing module, service, repository, schema, migration, and tests.
+5. Understand the current domain rules before proposing an abstraction.
+6. Search the repository for existing implementations before creating new utilities, types, middleware, or patterns.
+7. Check whether the requested change affects transaction boundaries, authorization, money, inventory state, payments, or external integrations.
+8. Prefer the smallest coherent change that solves the problem.
+9. Do not silently change business behavior while performing refactors.
 
 ## Architecture
 
@@ -324,16 +358,16 @@ For every non-trivial task, follow this sequence:
 
 ### 1. Understand
 
-- Read the relevant code.
-- Identify business invariants.
-- Identify dependencies and side effects.
-- Identify failure modes.
+- Identify the authoritative artifact(s) for the change.
+- Read the minimum relevant context.
+- Identify business invariants, dependencies, side effects, and failure modes.
 
 ### 2. Plan
 
-Before editing, state a concise implementation plan internally or in the task context.
-
-For changes involving concurrency, payments, transactions, or infrastructure, explicitly identify the consistency and failure model.
+- For material changes, ensure a SPEC exists before implementation.
+- Create or follow a PLAN and TASK graph when the work spans multiple files, concerns, or agents.
+- State a concise implementation plan before broad edits.
+- For changes involving concurrency, payments, transactions, or infrastructure, explicitly identify the consistency and failure model.
 
 ### 3. Implement
 
@@ -353,6 +387,7 @@ Run the most relevant checks available:
 - integration tests
 - build
 - migration validation
+- artifact validation via `python3 scripts/ai-factory/validate.py`
 
 If a check cannot be run, say so instead of claiming success.
 
@@ -369,6 +404,17 @@ Before finishing, inspect the diff and ask:
 - Is the abstraction actually necessary?
 - Is documentation now inaccurate?
 - Does the change improve the evidence of Senior Backend engineering?
+- Does the implementation still trace back to the authoritative artifact?
+
+### 6. Close the loop
+
+For material work, completion means more than green tests:
+
+```text
+Implementation → Verification → Convergence → Evaluation → Memory
+```
+
+These later artifacts may be lightweight until their dedicated factory phases are implemented, but the agent must not claim completion without recording the evidence required by the current task.
 
 ## Rules for AI-Generated Code
 
@@ -384,6 +430,7 @@ AI agents must not:
 - use `any` to bypass TypeScript errors unless there is a documented, unavoidable boundary
 - add speculative abstractions for hypothetical future requirements
 - convert synchronous workflows to asynchronous ones without analyzing consistency and failure semantics
+- treat a GitHub Issue, chat prompt, or agent memory as more authoritative than a current Specification for material business behavior
 
 When uncertain, inspect the repository and existing documentation before making assumptions.
 
@@ -402,6 +449,7 @@ A significant change is complete only when the implementation and documentation 
 - testing strategy
 - scalability limits
 - alternatives and trade-offs
+- the artifact chain that authorized and verified the change
 
 The project should demonstrate engineering judgment, not technology collecting.
 
