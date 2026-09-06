@@ -4,6 +4,7 @@ import {
   mapPayPalHttpError,
   PAYPAL_CLIENT_AUTH_FAILED,
   PAYPAL_HTTP_POLICY,
+  isPayPalOrderAlreadyCapturedError,
 } from "../paypal.js";
 
 describe("PayPal OrdersCreate body", () => {
@@ -71,6 +72,14 @@ describe("mapPayPalHttpError", () => {
 
   it("leaves unrelated errors unchanged", () => {
     const err = new Error("PayPal OrdersCreate timed out");
+    expect(mapPayPalHttpError(err)).toBe(err);
+  });
+});
+
+describe("isPayPalOrderAlreadyCapturedError", () => {
+  it("detects PayPal ORDER_ALREADY_CAPTURED without treating it as auth failure", () => {
+    const err = new Error('{"name":"UNPROCESSABLE_ENTITY","details":[{"issue":"ORDER_ALREADY_CAPTURED"}]}');
+    expect(isPayPalOrderAlreadyCapturedError(err)).toBe(true);
     expect(mapPayPalHttpError(err)).toBe(err);
   });
 });

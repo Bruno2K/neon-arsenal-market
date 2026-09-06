@@ -29,7 +29,7 @@ This is a split-brain between PayPal and PostgreSQL. It is intentional: unique l
 
 ### What the code does (inspected)
 
-- `server/src/shared/utils/paypal.ts` exposes `OrdersCreate`, `OrdersCapture`, and `OrdersGet`. There is **no** refund, void, or capture-reversal helper. `capturePayPalOrder` is defined and unused; checkout `intent` is `CAPTURE`, so funds move when the buyer approves on PayPal, not via that helper.
+- `server/src/shared/utils/paypal.ts` exposes `OrdersCreate`, `OrdersCapture`, and `OrdersGet`. There is **no** refund, void, or capture-reversal helper. `intent` is `CAPTURE`, but funds move only after **OrdersCapture** (return page `POST /payments/capture` or GET reconciliation of a live `APPROVED` hold). Buyer approval alone leaves the PayPal order `APPROVED` and the local order `PENDING`.
 - `server/src/types/paypal.d.ts` declares only `OrdersCreateRequest` and `OrdersCaptureRequest`.
 - `confirmPayment` sells listings only when they are still `RESERVED`, `reservedByOrderId` matches the paying order, and `reservationExpiresAt` is in the future. Otherwise it throws HTTP 409 and rolls back the local payment claim.
 - On that 409, `handleWebhook` stores `PaymentWebhookEvent` as `FAILED` / `reservation_expired` and **returns**. The HTTP controller then responds **200**, so PayPal stops retrying.

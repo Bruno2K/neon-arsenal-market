@@ -17,6 +17,7 @@ import type { Role, User } from "@/types/api";
 
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
+const capturePayment = vi.fn();
 const createOrder = vi.fn();
 const redirectToExternal = vi.fn();
 const updateOrderStatus = vi.fn();
@@ -41,6 +42,7 @@ vi.mock("@/api/orders", () => ({
 
 vi.mock("@/api/payments", () => ({
   createPaymentLink: (...args: unknown[]) => createPaymentLink(...args),
+  capturePayment: (...args: unknown[]) => capturePayment(...args),
 }));
 
 vi.mock("@/lib/redirect", () => ({
@@ -103,6 +105,11 @@ describe("OrderStatusPage", () => {
   beforeEach(() => {
     getOrder.mockReset();
     createPaymentLink.mockReset();
+    capturePayment.mockReset();
+    capturePayment.mockResolvedValue({
+      orderId: "order-1",
+      paymentStatus: "PENDING",
+    });
     createOrder.mockReset();
     redirectToExternal.mockReset();
     updateOrderStatus.mockReset();
@@ -142,6 +149,9 @@ describe("OrderStatusPage", () => {
     expect(screen.getByText("Pagamento Pendente")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();
     expect(screen.getByText(/confirmação real vem do PayPal/i)).toBeTruthy();
+    await waitFor(() => {
+      expect(capturePayment).toHaveBeenCalledWith({ orderId: "order-1" });
+    });
     expect(screen.getAllByText(/Reservado para você/).length).toBeGreaterThan(
       0,
     );
@@ -158,6 +168,7 @@ describe("OrderStatusPage", () => {
       await screen.findByRole("heading", { name: "Pagamento confirmado." }),
     ).toBeTruthy();
     expect(screen.getByText("Pagamento Pago")).toBeTruthy();
+    expect(capturePayment).not.toHaveBeenCalled();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(
       screen.queryByRole("button", { name: "Pagar novamente" }),
@@ -249,6 +260,7 @@ describe("OrderStatusPage", () => {
       });
     });
     expect(createOrder).not.toHaveBeenCalled();
+    expect(capturePayment).not.toHaveBeenCalled();
     expect(redirectToExternal).toHaveBeenCalledWith(
       "https://www.paypal.com/checkoutnow?token=EC-retry",
     );

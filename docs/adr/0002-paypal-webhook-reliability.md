@@ -18,7 +18,7 @@ Official PayPal verification is RSA-SHA256 over `transmissionId|timestamp|webhoo
 4. Apply local payment only on `PAYMENT.CAPTURE.COMPLETED`. Store `CHECKOUT.ORDER.APPROVED` as `IGNORED` (intermediate). Other types are ignored.
 5. Keep payment confirmation in one PostgreSQL transaction: claim the unpaid order, sell listings that this order still holds (`RESERVED` + `reservedByOrderId` + unexpired TTL), insert `SellerTransaction` (ledger), increment `Seller.balance` (projection). Any failure rolls back. See ADR 0011.
 6. Bind the reservation to the order via `reservedByOrderId` so a stale capture cannot sell a listing later reserved by another buyer.
-7. Recover lost captures with an in-process GET of PayPal order status (interval 60s, min age 2 minutes, batch 20). GET may retry 5xx/429. `OrdersCreate` is never retried because it can create a second PayPal order.
+7. Recover lost captures with an in-process GET of PayPal order status (interval 60s, min age 2 minutes, batch 20). GET may retry 5xx/429. If GET returns `APPROVED` and the local hold is still live, the sweep calls `OrdersCapture` once (not retried). `OrdersCreate` is never retried because it can create a second PayPal order. `CHECKOUT.ORDER.APPROVED` webhooks remain `IGNORED` and do not capture.
 8. HTTP timeouts default to `PAYPAL_API_TIMEOUT_MS` (10s). Expired-reservation captures return HTTP 200 so PayPal stops retrying a business rule. Unresolved local orders return HTTP 503 so PayPal retries.
 
 Rejected alternatives: Redis/set for idempotency (not durable, not multi-instance); Kafka/SQS (no demonstrated throughput need); verifying via PayPal postback on every webhook (extra network dependency on the request path).

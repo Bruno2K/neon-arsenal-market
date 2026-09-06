@@ -592,6 +592,47 @@ export const openApiSpec = {
         },
       },
     },
+    "/payments/capture": {
+      post: {
+        tags: ["Payments"],
+        summary: "Capture an approved PayPal order",
+        description:
+          "Authenticated customer-only. Calls PayPal OrdersCapture when the remote order is APPROVED and the local reservation is still live. Local PAID is applied only if PayPal reports COMPLETED (same confirmPayment path as the capture webhook and GET reconciliation). The client cannot set paymentStatus. Expired holds are not captured (HTTP 409).",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["orderId"],
+                properties: {
+                  orderId: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "PayPal status after capture or lookup",
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    orderId: { type: "string" },
+                    paymentStatus: { type: "string", enum: ["PAID", "PENDING"] },
+                    paypalStatus: { type: "string" },
+                  },
+                },
+              },
+            },
+          },
+          403: { description: "Order is not the caller's" },
+          409: { description: "Reservation expired; PayPal was not captured" },
+        },
+      },
+    },
     "/payments/webhook": {
       post: {
         tags: ["Payments"],

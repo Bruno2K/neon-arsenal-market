@@ -1,8 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { getOrder } from "@/api/orders";
-import { createPaymentLink } from "@/api/payments";
+import { capturePayment, createPaymentLink } from "@/api/payments";
 import { useAuth } from "@/contexts/AuthContext";
 import { ErrorState, PageSkeleton } from "@/components/page-state";
 import { ReservationHold } from "@/components/ReservationHold";
@@ -88,8 +88,8 @@ function OrderHeadline({
         Pedido criado. Aguardando confirmação do PayPal.
       </h1>
       <p className="mt-1 text-sm text-muted-foreground">
-        A confirmação real vem do PayPal (webhook/reconciliação). Nada nesta
-        tela afirma que o pagamento já foi confirmado.
+        A confirmação real vem do PayPal depois da captura. Nada nesta tela
+        afirma que o pagamento já foi confirmado.
       </p>
     </>
   );
@@ -104,6 +104,7 @@ export default function OrderStatusPage() {
   const [now, setNow] = useState(() => Date.now());
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const captureAttemptedRef = useRef<string | null>(null);
 
   const {
     data: order,
@@ -126,6 +127,23 @@ export default function OrderStatusPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [expiresAt]);
+
+  useEffect(() => {
+    if (intent !== "return" || !order || !isCustomer) return;
+    if (isPaymentConfirmed(order) || order.status === "CANCELLED") return;
+    if (order.paymentStatus !== "PENDING") return;
+    if (isReservationExpired(order)) return;
+    if (captureAttemptedRef.current === order.id) return;
+    captureAttemptedRef.current = order.id;
+    void capturePayment({ orderId: order.id })
+      .then(() => {
+        void refetch();
+      })
+      .catch((error: unknown) => {
+        logTechnicalError(error);
+        setRetryError(userFacingApiError(error));
+      });
+  }, [intent, order, isCustomer, refetch]);
 
   if (!id) {
     return (
