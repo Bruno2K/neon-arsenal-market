@@ -1,21 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  adminApproveSeller,
-  getCs2ShImportStatus,
-  listAdminOrders,
-  startCs2ShImport,
-} from "@/api/admin";
+import { adminApproveSeller, listAdminOrders } from "@/api/admin";
 import { listProducts } from "@/api/products";
 import { listSellers } from "@/api/sellers";
+import { Cs2ShCatalogImportCard } from "@/components/admin/Cs2ShCatalogImportCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  orderStatusLabel,
-  paymentStatusLabel,
-  userFacingApiError,
-} from "@/lib/userFacingApiError";
+import { orderStatusLabel, paymentStatusLabel } from "@/lib/userFacingApiError";
 import {
   Table,
   TableBody,
@@ -35,35 +27,6 @@ function formatCommission(rate: Seller["commissionRate"]): string {
   return `${(Number(rate ?? 0.1) * 100).toFixed(0)}%`;
 }
 
-function cs2ShStatusCopy(
-  status:
-    | {
-        running: boolean;
-        lastResult: {
-          skipped: boolean;
-          productsUpserted: number;
-          listingsUpserted: number;
-        } | null;
-      }
-    | undefined,
-  isError: boolean,
-): string {
-  if (isError) {
-    return "Não foi possível ler o status da importação.";
-  }
-  if (status?.running) {
-    return "Importação em andamento neste processo da API.";
-  }
-  const last = status?.lastResult;
-  if (!last) {
-    return "Nenhuma importação neste processo. Defina CS2SH_API_KEY no Render e use o botão, ou CS2SH_IMPORT=true no próximo deploy.";
-  }
-  if (last.skipped) {
-    return "A última tentativa pulou o import: a chave da API cs2.sh não está configurada.";
-  }
-  return `Última importação neste processo: ${last.productsUpserted} produtos e ${last.listingsUpserted} listings demo.`;
-}
-
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -79,11 +42,6 @@ export default function AdminDashboard() {
   const productsQuery = useQuery({
     queryKey: ["admin-products"],
     queryFn: () => listProducts({ limit: 1 }),
-  });
-  const cs2shQuery = useQuery({
-    queryKey: ["admin-cs2sh-import"],
-    queryFn: getCs2ShImportStatus,
-    refetchInterval: (query) => (query.state.data?.running ? 3000 : false),
   });
 
   const orders = ordersQuery.data ?? [];
@@ -114,63 +72,11 @@ export default function AdminDashboard() {
     },
   });
 
-  const startCs2sh = useMutation({
-    mutationFn: startCs2ShImport,
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["admin-cs2sh-import"] });
-      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
-      toast({ title: "Importação do catálogo cs2.sh iniciada" });
-    },
-    onError: (error) => {
-      toast({
-        title: "Não foi possível importar o catálogo",
-        description: userFacingApiError(error),
-        variant: "destructive",
-      });
-    },
-  });
-
   const isLoading =
     ordersQuery.isLoading || sellersQuery.isLoading || productsQuery.isLoading;
   const isError =
     ordersQuery.isError || sellersQuery.isError || productsQuery.isError;
   const error = ordersQuery.error ?? sellersQuery.error ?? productsQuery.error;
-
-  if (isLoading) {
-    return (
-      <div className="space-y-6" role="status" aria-label="Carregando">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Erro ao carregar o painel"
-        error={error}
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void ordersQuery.refetch();
-              void sellersQuery.refetch();
-              void productsQuery.refetch();
-            }}
-          >
-            Tentar novamente
-          </Button>
-        }
-      />
-    );
-  }
 
   const stats = [
     { label: "Receita", value: formatMoney(totalRevenue) },
@@ -188,91 +94,102 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      <section className="space-y-3 rounded-md border border-border bg-card p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div>
+      <Cs2ShCatalogImportCard />
+
+      {isLoading ? (
+        <div className="space-y-6" role="status" aria-label="Carregando">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+          </div>
+        </div>
+      ) : isError ? (
+        <ErrorState
+          title="Erro ao carregar o painel"
+          error={error}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void ordersQuery.refetch();
+                void sellersQuery.refetch();
+                void productsQuery.refetch();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-md border border-border bg-card p-4"
+              >
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
+
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                Vendedores pendentes
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Aprove ou rejeite cadastros aguardando revisão.
+              </p>
+            </div>
+            {pendingSellers.length === 0 ? (
+              <EmptyState
+                title="Nenhum vendedor pendente de aprovação"
+                description="Todos os cadastros já foram revisados."
+              />
+            ) : (
+              <PendingSellersTable
+                sellers={pendingSellers}
+                busy={approveSeller.isPending}
+                onApprove={(id) =>
+                  approveSeller.mutate({ id, isApproved: true })
+                }
+                onReject={(id) =>
+                  approveSeller.mutate({ id, isApproved: false })
+                }
+              />
+            )}
+          </section>
+
+          <section className="space-y-3">
             <h2 className="text-lg font-semibold tracking-tight">
-              Catálogo cs2.sh
+              Todos os vendedores
             </h2>
-            <p className="text-sm text-muted-foreground">
-              No Render não há shell. Importe skins tradable pela API; o
-              PostgreSQL guarda o resultado.
-            </p>
-          </div>
-          <Button
-            type="button"
-            disabled={startCs2sh.isPending || cs2shQuery.data?.running === true}
-            onClick={() => startCs2sh.mutate()}
-          >
-            {cs2shQuery.data?.running || startCs2sh.isPending
-              ? "Importando…"
-              : "Importar catálogo"}
-          </Button>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          {cs2ShStatusCopy(cs2shQuery.data ?? undefined, cs2shQuery.isError)}
-        </p>
-      </section>
+            {sellers.length === 0 ? (
+              <EmptyState title="Nenhum vendedor cadastrado" />
+            ) : (
+              <SellersOverviewTable sellers={sellers} />
+            )}
+          </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-md border border-border bg-card p-4"
-          >
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
-              {stat.value}
-            </p>
-          </div>
-        ))}
-      </div>
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Vendedores pendentes
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Aprove ou rejeite cadastros aguardando revisão.
-          </p>
-        </div>
-        {pendingSellers.length === 0 ? (
-          <EmptyState
-            title="Nenhum vendedor pendente de aprovação"
-            description="Todos os cadastros já foram revisados."
-          />
-        ) : (
-          <PendingSellersTable
-            sellers={pendingSellers}
-            busy={approveSeller.isPending}
-            onApprove={(id) => approveSeller.mutate({ id, isApproved: true })}
-            onReject={(id) => approveSeller.mutate({ id, isApproved: false })}
-          />
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Todos os vendedores
-        </h2>
-        {sellers.length === 0 ? (
-          <EmptyState title="Nenhum vendedor cadastrado" />
-        ) : (
-          <SellersOverviewTable sellers={sellers} />
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Pedidos recentes
-        </h2>
-        {recentOrders.length === 0 ? (
-          <EmptyState title="Nenhum pedido encontrado" />
-        ) : (
-          <RecentOrdersTable orders={recentOrders} />
-        )}
-      </section>
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Pedidos recentes
+            </h2>
+            {recentOrders.length === 0 ? (
+              <EmptyState title="Nenhum pedido encontrado" />
+            ) : (
+              <RecentOrdersTable orders={recentOrders} />
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }

@@ -108,8 +108,8 @@ describe("AdminDashboard", () => {
 
     renderDashboard();
 
-    expect(await screen.findByText("Painel admin")).toBeTruthy();
-    expect(screen.getByText("Receita")).toBeTruthy();
+    expect(await screen.findByText("Receita")).toBeTruthy();
+    expect(screen.getByText("Painel admin")).toBeTruthy();
     expect(screen.getAllByText("$42.00").length).toBeGreaterThan(0);
     expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getAllByText("Loja Pendente").length).toBeGreaterThan(0);
@@ -129,5 +129,18 @@ describe("AdminDashboard", () => {
     await waitFor(() => {
       expect(startCs2ShImport).toHaveBeenCalledTimes(1);
     });
+  });
+
+  it("keeps Importar catálogo when other admin lists fail", async () => {
+    listAdminOrders.mockRejectedValue(new Error("boom"));
+    listSellers.mockRejectedValue(new Error("boom"));
+    listProducts.mockRejectedValue(new Error("boom"));
+
+    renderDashboard();
+
+    expect(
+      await screen.findByRole("button", { name: "Importar catálogo" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Painel admin")).toBeTruthy();
   });
 });

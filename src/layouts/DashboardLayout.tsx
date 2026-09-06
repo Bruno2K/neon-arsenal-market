@@ -29,6 +29,7 @@ const sellerItems = [
 
 const adminItems = [
   { icon: BarChart3, label: "Visão Geral", href: "/admin" },
+  { icon: Package, label: "Catálogo", href: "/admin/catalog" },
   { icon: Users, label: "Vendedores", href: "/admin/sellers" },
   { icon: ShoppingBag, label: "Pedidos", href: "/admin/orders" },
   { icon: Shield, label: "Usuários", href: "/admin/users" },

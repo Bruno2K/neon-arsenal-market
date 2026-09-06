@@ -27,6 +27,7 @@ import SellerOrders from "./pages/seller/SellerOrders";
 import AdminSellers from "./pages/admin/AdminSellers";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminUsers from "./pages/admin/AdminUsers";
+import AdminCatalog from "./pages/admin/AdminCatalog";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -133,6 +134,14 @@ const App = () => (
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <AdminDashboard />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/catalog"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <AdminCatalog />
                       </ProtectedRoute>
                     }
                   />

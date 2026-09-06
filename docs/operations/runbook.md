@@ -66,7 +66,7 @@ Render **web services have no SSH/shell**. Do not plan on `npm run import:cs2sh`
 
 1. Render Dashboard → `neon-arsenal-api` → Environment → set `CS2SH_API_KEY` (sync: false). Redeploy if the instance started without the key.
 2. Trigger import without a shell:
-   - Log in as **ADMIN** and click **Importar catálogo** on `/admin`, or `POST /admin/catalog/cs2sh-import` (202, runs in the background).
+   - Log in as **ADMIN** and open **Catálogo** (`/admin/catalog`), or click **Importar catálogo** on `/admin`, or `POST /admin/catalog/cs2sh-import` (202, runs in the background).
    - Or set `CS2SH_IMPORT=true` and redeploy. Boot schedules the same work **after listen** so `/ready` stays fast.
 3. Poll `GET /admin/catalog/cs2sh-import` (or the admin card) until `running` is false.
 
