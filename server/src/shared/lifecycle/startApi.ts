@@ -9,7 +9,12 @@ import { installProcessShutdownHandlers } from "./shutdown.js";
 
 export function startApiProcess(
   app: Express,
-  options?: { port?: number; host?: string; installSignals?: boolean }
+  options?: {
+    port?: number;
+    host?: string;
+    installSignals?: boolean;
+    onListening?: () => void | Promise<void>;
+  }
 ): Server {
   const port = options?.port ?? Number(process.env.PORT ?? 3001);
   const host = options?.host ?? "0.0.0.0";
@@ -24,6 +29,9 @@ export function startApiProcess(
       startSellerLedgerReconciliationJob(),
       startOutboxDispatcherJob()
     );
+    void Promise.resolve(options?.onListening?.()).catch((err: unknown) => {
+      logger.error({ err }, "onListening hook failed");
+    });
   });
 
   const stopJobs = () => {

@@ -30,6 +30,12 @@ export const USER_FACING_RATE_LIMIT =
 export const USER_FACING_SERVER =
   "O serviço está indisponível. Tente de novo em instantes.";
 
+export const USER_FACING_CS2SH_IMPORT_RUNNING =
+  "A importação do catálogo cs2.sh já está em andamento";
+
+export const USER_FACING_CS2SH_KEY_MISSING =
+  "A chave da API cs2.sh não está configurada";
+
 export const USER_FACING_VALIDATION =
   "Alguns dados estão inválidos. Confira os campos e tente de novo.";
 
@@ -195,6 +201,12 @@ export function userFacingApiError(error: unknown): string {
     copy = USER_FACING_VERIFICATION_CODE;
   } else if (/order is cancelled|order.*cancelled/i.test(message)) {
     copy = USER_FACING_ORDER_CANCELLED;
+  } else if (
+    /importação do catálogo cs2\.sh já está em andamento/i.test(message)
+  ) {
+    copy = USER_FACING_CS2SH_IMPORT_RUNNING;
+  } else if (/chave da API cs2\.sh não está configurada/i.test(message)) {
+    copy = USER_FACING_CS2SH_KEY_MISSING;
   } else if (isUnauthorizedApiError(error)) {
     copy = USER_FACING_UNAUTHORIZED;
   } else if (isForbiddenApiError(error)) {

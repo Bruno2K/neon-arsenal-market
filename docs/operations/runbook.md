@@ -9,7 +9,7 @@ API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`)
 1. Render builds the image, then starts the container.
 2. `server/entrypoint.sh` runs `prisma migrate deploy`.
 3. If `SEED_DEMO_DATA=true`, the entrypoint also runs `npm run db:seed`.
-4. `node dist/index.js` starts. It binds **`0.0.0.0:$PORT`** (`PORT` is `3001` in the Blueprint). If `SEED_DEMO_DATA=true`, `index.ts` seeds again. Both passes upsert; they do not overwrite existing rows. If `CS2SH_IMPORT=true`, `index.ts` then runs the cs2.sh catalog import **after** seed. Missing `CS2SH_API_KEY` logs and skips; a failed import does not prevent listen.
+4. `node dist/index.js` starts. It binds **`0.0.0.0:$PORT`** (`PORT` is `3001` in the Blueprint). If `SEED_DEMO_DATA=true`, `index.ts` seeds again. Both passes upsert; they do not overwrite existing rows. If `CS2SH_IMPORT=true` and `CS2SH_API_KEY` is set, `index.ts` schedules the cs2.sh catalog import **after** `app.listen` so Render `GET /ready` is not blocked. Missing key logs and skips; a failed import does not prevent listen.
 5. In-process jobs start after listen: reservation expiry (30s), PayPal GET reconciliation (60s), and seller ledger reconciliation (60s).
 
 The Blueprint also defines static `neon-arsenal-web`. The public demo often uses Vercel for the Vite client and Render only for the API; set `FRONTEND_URL` on the API and `API_URL` on the frontend. Do not invent env vars.
@@ -60,14 +60,24 @@ Re-running seed is idempotent. It still touches the database on every deploy whe
 
 ## cs2.sh catalog import (`CS2SH_IMPORT` / `CS2SH_API_KEY`)
 
-Optional. Populates `Product` from `GET https://api.cs2.sh/v1/schema` (tradable skins) and USD reference asks from `GET /v1/prices/latest`. State lives in PostgreSQL; the Render disk is irrelevant.
+Optional. Populates `Product` from `GET https://api.cs2.sh/v1/schema` (tradable skins) and USD reference asks from `GET /v1/prices/latest`. State lives in PostgreSQL; the Render disk is ephemeral and irrelevant.
+
+Render **web services have no SSH/shell**. Do not plan on `npm run import:cs2sh` in production. Use Dashboard env + HTTP:
+
+1. Render Dashboard → `neon-arsenal-api` → Environment → set `CS2SH_API_KEY` (sync: false). Redeploy if the instance started without the key.
+2. Trigger import without a shell:
+   - Log in as **ADMIN** and click **Importar catálogo** on `/admin`, or `POST /admin/catalog/cs2sh-import` (202, runs in the background).
+   - Or set `CS2SH_IMPORT=true` and redeploy. Boot schedules the same work **after listen** so `/ready` stays fast.
+3. Poll `GET /admin/catalog/cs2sh-import` (or the admin card) until `running` is false.
 
 | Env | Effect |
 |---|---|
 | `CS2SH_API_KEY` | Bearer token. Required for import. Never commit. |
-| `CS2SH_IMPORT=true` | `index.ts` imports after demo seed. Without a key, logs and skips. |
-| unset / not `true` | No boot import. Operators can run `cd server && npm run import:cs2sh`. |
+| `CS2SH_IMPORT=true` | After listen, start one in-process import. Without a key, logs and skips. Does not block `/ready`. |
+| unset / not `true` | No boot import. Use ADMIN POST (Render) or `cd server && npm run import:cs2sh` (local). |
 | `CS2SH_DEMO_LISTING_COUNT` | How many demo listings to upsert (default 24, max 100). |
+
+`POST` without a key is **503**. A second `POST` while this process is still importing is **409**. Restart loses in-process status; catalog rows in Postgres remain.
 
 `referencePriceUsd` is **not** a PayPal/ledger amount (ADR 0014). Re-running the import upserts products and refreshes demo listing prices without changing listing `status`.
 

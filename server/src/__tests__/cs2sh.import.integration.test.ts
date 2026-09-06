@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { Prisma } from "@prisma/client";
-import { importCs2ShCatalog } from "../modules/products/cs2shImport.service.js";
+import {
+  importCs2ShCatalog,
+  resetCs2ShImportStateForTests,
+} from "../modules/products/cs2shImport.service.js";
 import type { Cs2ShClient } from "../shared/integrations/cs2sh/cs2sh.client.js";
 import {
   CS2SH_PRICES_FIXTURE,
@@ -24,6 +27,7 @@ function fakeClient(
 }
 
 afterEach(() => {
+  resetCs2ShImportStateForTests();
   if (originalKey === undefined) delete process.env.CS2SH_API_KEY;
   else process.env.CS2SH_API_KEY = originalKey;
   if (originalCount === undefined) delete process.env.CS2SH_DEMO_LISTING_COUNT;

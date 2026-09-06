@@ -1,12 +1,21 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApproveSeller, listAdminOrders } from "@/api/admin";
+import {
+  adminApproveSeller,
+  getCs2ShImportStatus,
+  listAdminOrders,
+  startCs2ShImport,
+} from "@/api/admin";
 import { listProducts } from "@/api/products";
 import { listSellers } from "@/api/sellers";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { orderStatusLabel, paymentStatusLabel } from "@/lib/userFacingApiError";
+import {
+  orderStatusLabel,
+  paymentStatusLabel,
+  userFacingApiError,
+} from "@/lib/userFacingApiError";
 import {
   Table,
   TableBody,
@@ -26,6 +35,35 @@ function formatCommission(rate: Seller["commissionRate"]): string {
   return `${(Number(rate ?? 0.1) * 100).toFixed(0)}%`;
 }
 
+function cs2ShStatusCopy(
+  status:
+    | {
+        running: boolean;
+        lastResult: {
+          skipped: boolean;
+          productsUpserted: number;
+          listingsUpserted: number;
+        } | null;
+      }
+    | undefined,
+  isError: boolean,
+): string {
+  if (isError) {
+    return "Não foi possível ler o status da importação.";
+  }
+  if (status?.running) {
+    return "Importação em andamento neste processo da API.";
+  }
+  const last = status?.lastResult;
+  if (!last) {
+    return "Nenhuma importação neste processo. Defina CS2SH_API_KEY no Render e use o botão, ou CS2SH_IMPORT=true no próximo deploy.";
+  }
+  if (last.skipped) {
+    return "A última tentativa pulou o import: a chave da API cs2.sh não está configurada.";
+  }
+  return `Última importação neste processo: ${last.productsUpserted} produtos e ${last.listingsUpserted} listings demo.`;
+}
+
 export default function AdminDashboard() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -41,6 +79,11 @@ export default function AdminDashboard() {
   const productsQuery = useQuery({
     queryKey: ["admin-products"],
     queryFn: () => listProducts({ limit: 1 }),
+  });
+  const cs2shQuery = useQuery({
+    queryKey: ["admin-cs2sh-import"],
+    queryFn: getCs2ShImportStatus,
+    refetchInterval: (query) => (query.state.data?.running ? 3000 : false),
   });
 
   const orders = ordersQuery.data ?? [];
@@ -66,6 +109,22 @@ export default function AdminDashboard() {
     onError: () => {
       toast({
         title: "Não foi possível atualizar o vendedor",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const startCs2sh = useMutation({
+    mutationFn: startCs2ShImport,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["admin-cs2sh-import"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-products"] });
+      toast({ title: "Importação do catálogo cs2.sh iniciada" });
+    },
+    onError: (error) => {
+      toast({
+        title: "Não foi possível importar o catálogo",
+        description: userFacingApiError(error),
         variant: "destructive",
       });
     },
@@ -128,6 +187,32 @@ export default function AdminDashboard() {
           Catálogo, vendedores e pedidos da plataforma.
         </p>
       </div>
+
+      <section className="space-y-3 rounded-md border border-border bg-card p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <h2 className="text-lg font-semibold tracking-tight">
+              Catálogo cs2.sh
+            </h2>
+            <p className="text-sm text-muted-foreground">
+              No Render não há shell. Importe skins tradable pela API; o
+              PostgreSQL guarda o resultado.
+            </p>
+          </div>
+          <Button
+            type="button"
+            disabled={startCs2sh.isPending || cs2shQuery.data?.running === true}
+            onClick={() => startCs2sh.mutate()}
+          >
+            {cs2shQuery.data?.running || startCs2sh.isPending
+              ? "Importando…"
+              : "Importar catálogo"}
+          </Button>
+        </div>
+        <p className="text-sm text-muted-foreground">
+          {cs2ShStatusCopy(cs2shQuery.data ?? undefined, cs2shQuery.isError)}
+        </p>
+      </section>
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => (
