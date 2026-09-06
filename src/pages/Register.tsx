@@ -1,13 +1,20 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Eye, EyeOff } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { homePathForRole } from "@/lib/postLoginPath";
+import { userFacingApiError } from "@/lib/userFacingApiError";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
 type Role = "CUSTOMER" | "SELLER";
+
+/** Cooldown after each startRegistration call (30–60s, issue #121). */
+export const REGISTER_RESEND_COOLDOWN_SECONDS = 45;
+
+export const REGISTER_RESEND_SUCCESS =
+  "Enviamos um novo código. O código anterior pode expirar.";
 
 export default function Register() {
   const { startRegistration, confirmRegistration, error, clearError } =
@@ -15,6 +22,10 @@ export default function Register() {
   const navigate = useNavigate();
   const [step, setStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
+  const [resending, setResending] = useState(false);
+  const [resendSeconds, setResendSeconds] = useState(0);
+  const [resendNotice, setResendNotice] = useState<string | null>(null);
+  const [resendError, setResendError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,19 +35,33 @@ export default function Register() {
   const [code, setCode] = useState("");
   const [devCode, setDevCode] = useState<string | null>(null);
 
+  const cooldownActive = resendSeconds > 0;
+  useEffect(() => {
+    if (!cooldownActive) return;
+    const timer = window.setInterval(() => {
+      setResendSeconds((seconds) => (seconds <= 1 ? 0 : seconds - 1));
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [cooldownActive]);
+
+  const registrationPayload = {
+    name,
+    email,
+    password,
+    role,
+    ...(role === "SELLER" ? { storeName: storeName || undefined } : {}),
+  };
+
   const handleStep1 = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
     setLoading(true);
     try {
-      const result = await startRegistration({
-        name,
-        email,
-        password,
-        role,
-        ...(role === "SELLER" ? { storeName: storeName || undefined } : {}),
-      });
+      const result = await startRegistration(registrationPayload);
       setDevCode(result.code ?? null);
+      setResendNotice(null);
+      setResendError(null);
+      setResendSeconds(REGISTER_RESEND_COOLDOWN_SECONDS);
       setStep(2);
     } catch {
       // error shown via context
@@ -48,6 +73,7 @@ export default function Register() {
   const handleStep2 = async (e: React.FormEvent) => {
     e.preventDefault();
     clearError();
+    setResendError(null);
     setLoading(true);
     try {
       await confirmRegistration(email, code);
@@ -56,6 +82,29 @@ export default function Register() {
       setLoading(false);
     }
   };
+
+  const handleResend = async () => {
+    if (resending || resendSeconds > 0 || loading) return;
+    clearError();
+    setResendError(null);
+    setResendNotice(null);
+    setResending(true);
+    try {
+      const result = await startRegistration(registrationPayload);
+      if (result.code) {
+        setDevCode(result.code);
+      }
+      setResendNotice(REGISTER_RESEND_SUCCESS);
+      setResendSeconds(REGISTER_RESEND_COOLDOWN_SECONDS);
+    } catch (e) {
+      setResendError(userFacingApiError(e));
+    } finally {
+      setResending(false);
+    }
+  };
+
+  const step2Busy = loading || resending;
+  const step2Alert = error ?? resendError;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -233,17 +282,32 @@ export default function Register() {
                   maxLength={6}
                   required
                   autoComplete="one-time-code"
-                  aria-invalid={error ? true : undefined}
-                  aria-describedby={error ? "register-code-error" : undefined}
+                  aria-invalid={step2Alert ? true : undefined}
+                  aria-describedby={
+                    step2Alert
+                      ? "register-code-error"
+                      : resendNotice
+                        ? "register-resend-notice"
+                        : undefined
+                  }
                 />
               </div>
-              {error ? (
+              {resendNotice ? (
+                <p
+                  id="register-resend-notice"
+                  className="text-sm text-muted-foreground"
+                  role="status"
+                >
+                  {resendNotice}
+                </p>
+              ) : null}
+              {step2Alert ? (
                 <p
                   id="register-code-error"
                   className="text-sm text-destructive"
                   role="alert"
                 >
-                  {error}
+                  {step2Alert}
                 </p>
               ) : null}
               <div className="flex gap-2">
@@ -254,20 +318,41 @@ export default function Register() {
                   onClick={() => {
                     setStep(1);
                     setCode("");
+                    setResendNotice(null);
+                    setResendError(null);
                     clearError();
                   }}
-                  disabled={loading}
+                  disabled={step2Busy}
                 >
                   Voltar
                 </Button>
                 <Button
                   type="submit"
                   className="flex-1"
-                  disabled={loading || code.length !== 6}
+                  disabled={step2Busy || code.length !== 6}
                 >
                   {loading ? "Confirmando..." : "Confirmar"}
                 </Button>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => {
+                  void handleResend();
+                }}
+                disabled={step2Busy || resendSeconds > 0}
+              >
+                {resending
+                  ? "Reenviando..."
+                  : resendSeconds > 0
+                    ? `Reenviar em ${resendSeconds}s`
+                    : "Reenviar código"}
+              </Button>
+              <p className="text-xs text-muted-foreground">
+                Não chegou? Reenvie depois do intervalo. O código anterior pode
+                expirar.
+              </p>
             </form>
           )}
 

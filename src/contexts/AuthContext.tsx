@@ -129,9 +129,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    await authApi.logout();
-    setUser(null);
-    setError(null);
+    try {
+      await authApi.logout();
+    } catch {
+      // Revoke is best-effort; the UI must still return to guest.
+    } finally {
+      setUser(null);
+      setError(null);
+    }
   }, []);
 
   const clearError = useCallback(() => setError(null), []);

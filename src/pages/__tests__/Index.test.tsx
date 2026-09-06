@@ -184,6 +184,7 @@ describe("Index", () => {
     expect(screen.getByText(HOME_NEW_SORT_COPY)).toBeTruthy();
     expect(screen.getByText(HOME_SHORTCUTS_HEADING)).toBeTruthy();
     expect(screen.getByText(HOME_TRUST_HEADING)).toBeTruthy();
+    expect(document.getElementById("home-trust-heading")).toBeTruthy();
     for (const item of HOME_TRUST_ITEMS) {
       expect(screen.getByText(item)).toBeTruthy();
     }
