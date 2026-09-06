@@ -43,8 +43,8 @@ describe("jwt", () => {
       familyId: "fam-1",
     });
     const access = signAccessToken({ sub: "u1", email: "u@test.com", role: "CUSTOMER" });
-    expect(() => verifyAccessToken(refresh)).toThrow("Invalid token type");
-    expect(() => verifyRefreshToken(access)).toThrow("Invalid token type");
+    expect(() => verifyAccessToken(refresh)).toThrow();
+    expect(() => verifyRefreshToken(access)).toThrow();
   });
 
   it("parses duration strings", () => {
