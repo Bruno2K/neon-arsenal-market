@@ -4,8 +4,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import ListingDetail from "../ListingDetail";
 import { CartProvider, useCart } from "@/contexts/CartContext";
-import type { Listing, PriceHistory } from "@/types/api";
-import { USER_FACING_NOT_FOUND } from "@/lib/userFacingApiError";
+import type { Listing, PriceHistory, Review, User } from "@/types/api";
+import {
+  ApiClientError,
+  USER_FACING_NOT_FOUND,
+  USER_FACING_REVIEW_EXISTS,
+} from "@/lib/userFacingApiError";
 import {
   CART_ADDED_MESSAGE,
   CART_CTA_ADD,
@@ -14,12 +18,30 @@ import {
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
+import {
+  PRODUCT_REVIEWS_DELETE,
+  PRODUCT_REVIEWS_EMPTY,
+  PRODUCT_REVIEWS_HEADING,
+  PRODUCT_REVIEWS_LOGIN_CTA,
+  PRODUCT_REVIEWS_SCOPE,
+  PRODUCT_REVIEWS_SUBMIT,
+} from "@/components/ProductReviews";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
 const getPriceHistory = vi.fn();
 const reserveListing = vi.fn();
+const listProductReviews = vi.fn();
+const createReview = vi.fn();
+const updateReview = vi.fn();
+const deleteReview = vi.fn();
 const toast = vi.fn();
+
+const authState = {
+  user: null as User | null,
+  isAuthenticated: false,
+  isLoading: false,
+};
 
 vi.mock("@/api/listings", () => ({
   getListing: (...args: unknown[]) => getListing(...args),
@@ -33,6 +55,17 @@ vi.mock("@/api/price-history", () => ({
 
 vi.mock("@/hooks/use-toast", () => ({
   useToast: () => ({ toast }),
+}));
+
+vi.mock("@/contexts/AuthContext", () => ({
+  useAuth: () => authState,
+}));
+
+vi.mock("@/api/reviews", () => ({
+  listProductReviews: (...args: unknown[]) => listProductReviews(...args),
+  createReview: (...args: unknown[]) => createReview(...args),
+  updateReview: (...args: unknown[]) => updateReview(...args),
+  deleteReview: (...args: unknown[]) => deleteReview(...args),
 }));
 
 function makeListing(overrides: Partial<Listing> = {}): Listing {
@@ -85,6 +118,19 @@ function history(): PriceHistory[] {
   ];
 }
 
+function makeReview(overrides: Partial<Review> = {}): Review {
+  return {
+    id: "rev-1",
+    productId: "ak-redline-ft",
+    userId: "buyer-1",
+    rating: 4,
+    comment: "Float honesto, entrega rápida.",
+    createdAt: "2026-08-15T12:00:00.000Z",
+    user: { id: "buyer-1", name: "Ana" },
+    ...overrides,
+  };
+}
+
 function CartProbe() {
   const { totalItems } = useCart();
   return <span data-testid="cart-count">{totalItems}</span>;
@@ -114,10 +160,18 @@ describe("ListingDetail", () => {
     listListings.mockReset();
     getPriceHistory.mockReset();
     reserveListing.mockReset();
+    listProductReviews.mockReset();
+    createReview.mockReset();
+    updateReview.mockReset();
+    deleteReview.mockReset();
     toast.mockReset();
+    authState.user = null;
+    authState.isAuthenticated = false;
+    authState.isLoading = false;
     localStorage.removeItem(CART_STORAGE_KEY);
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
+    listProductReviews.mockResolvedValue([]);
   });
 
   it("keeps listing facts, history, related cards and add to cart", async () => {
@@ -237,5 +291,124 @@ describe("ListingDetail", () => {
     });
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
     expect(document.querySelector(".scan-lines")).toBeNull();
+  });
+
+  it("loads product reviews from GET /reviews/product/:productId and does not call seller.rating a review average", async () => {
+    getListing.mockResolvedValue(makeListing());
+    listProductReviews.mockResolvedValue([makeReview()]);
+
+    renderDetail();
+
+    expect(
+      await screen.findByRole("heading", { name: PRODUCT_REVIEWS_HEADING }),
+    ).toBeTruthy();
+    expect(screen.getByText(PRODUCT_REVIEWS_SCOPE)).toBeTruthy();
+    expect(screen.getByText("Ana")).toBeTruthy();
+    expect(screen.getByText("Float honesto, entrega rápida.")).toBeTruthy();
+    expect(screen.getByText("Nota da loja: 4.5")).toBeTruthy();
+    expect(screen.queryByText(/média das avaliações/i)).toBeNull();
+    expect(listProductReviews).toHaveBeenCalledWith("ak-redline-ft");
+  });
+
+  it("shows empty copy and a login invite for guests, without the review form", async () => {
+    getListing.mockResolvedValue(makeListing());
+    renderDetail();
+
+    expect(await screen.findByText(PRODUCT_REVIEWS_EMPTY)).toBeTruthy();
+    const login = screen.getByRole("link", { name: PRODUCT_REVIEWS_LOGIN_CTA });
+    expect(login).toHaveAttribute("href", "/login");
+    expect(
+      screen.queryByRole("button", { name: PRODUCT_REVIEWS_SUBMIT }),
+    ).toBeNull();
+    expect(screen.queryByLabelText("Comentário (opcional)")).toBeNull();
+  });
+
+  it("lets a CUSTOMER create a review and then switch to edit after success", async () => {
+    authState.user = {
+      id: "buyer-1",
+      name: "Ana",
+      email: "ana@test.com",
+      role: "CUSTOMER",
+    };
+    authState.isAuthenticated = true;
+    getListing.mockResolvedValue(makeListing());
+    listProductReviews
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([makeReview()]);
+    createReview.mockResolvedValue(makeReview());
+
+    renderDetail();
+
+    expect(await screen.findByText(PRODUCT_REVIEWS_EMPTY)).toBeTruthy();
+    expect(
+      screen.queryByRole("link", { name: PRODUCT_REVIEWS_LOGIN_CTA }),
+    ).toBeNull();
+    const submit = screen.getByRole("button", { name: PRODUCT_REVIEWS_SUBMIT });
+    expect(submit).toHaveProperty("disabled", true);
+
+    fireEvent.click(screen.getByRole("radio", { name: "4 estrelas" }));
+    fireEvent.change(screen.getByLabelText("Comentário (opcional)"), {
+      target: { value: "Float honesto, entrega rápida." },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: PRODUCT_REVIEWS_SUBMIT }),
+    );
+
+    await waitFor(() => {
+      expect(createReview).toHaveBeenCalledWith({
+        productId: "ak-redline-ft",
+        rating: 4,
+        comment: "Float honesto, entrega rápida.",
+      });
+    });
+    expect(
+      await screen.findByRole("button", { name: PRODUCT_REVIEWS_DELETE }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: PRODUCT_REVIEWS_SUBMIT }),
+    ).toBeNull();
+  });
+
+  it("maps POST 409 unique conflict to você já avaliou", async () => {
+    authState.user = {
+      id: "buyer-1",
+      name: "Ana",
+      email: "ana@test.com",
+      role: "CUSTOMER",
+    };
+    authState.isAuthenticated = true;
+    getListing.mockResolvedValue(makeListing());
+    createReview.mockRejectedValue(
+      new ApiClientError("You already reviewed this product", { status: 409 }),
+    );
+
+    renderDetail();
+
+    fireEvent.click(await screen.findByRole("radio", { name: "4 estrelas" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: PRODUCT_REVIEWS_SUBMIT }),
+    );
+
+    expect(await screen.findByText(USER_FACING_REVIEW_EXISTS)).toBeTruthy();
+    expect(USER_FACING_REVIEW_EXISTS.toLowerCase()).toContain(
+      "você já avaliou",
+    );
+  });
+
+  it("retries a failed reviews list without inventing seller review aggregation", async () => {
+    getListing.mockResolvedValue(makeListing());
+    listProductReviews.mockRejectedValue(
+      new ApiClientError("Internal server error.", { status: 500 }),
+    );
+
+    renderDetail();
+
+    expect(
+      await screen.findByRole("button", { name: "Tentar novamente" }),
+    ).toBeTruthy();
+    expect(screen.queryByText(/média das avaliações/i)).toBeNull();
+    listProductReviews.mockResolvedValue([makeReview()]);
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(await screen.findByText("Ana")).toBeTruthy();
   });
 });

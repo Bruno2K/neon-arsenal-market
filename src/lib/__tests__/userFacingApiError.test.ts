@@ -13,6 +13,7 @@ import {
   USER_FACING_NOT_FOUND,
   USER_FACING_PAYPAL_CLIENT_AUTH,
   USER_FACING_RATE_LIMIT,
+  USER_FACING_REVIEW_EXISTS,
   USER_FACING_SERVER,
   USER_FACING_UNAUTHORIZED,
   USER_FACING_VALIDATION,
@@ -125,6 +126,13 @@ describe("userFacingApiError", () => {
         }),
       ),
     ).toBe(USER_FACING_CONFLICT);
+    expect(
+      userFacingApiError(
+        new ApiClientError("You already reviewed this product", {
+          status: 409,
+        }),
+      ),
+    ).toBe(USER_FACING_REVIEW_EXISTS);
     expect(
       userFacingApiError(
         new ApiClientError("Email already registered", { status: 409 }),

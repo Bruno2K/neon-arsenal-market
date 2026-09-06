@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { ListingCard, SkinVisual } from "@/components/ProductCard";
 import { ListingCartCta } from "@/components/ListingCartCta";
+import { ProductReviews } from "@/components/ProductReviews";
 import { ErrorState } from "@/components/page-state";
 import { getListing, listListings } from "@/api/listings";
 import { getPriceHistory } from "@/api/price-history";
@@ -177,9 +178,9 @@ export default function ListingDetail() {
                 <p className="text-sm font-medium text-foreground">
                   {sellerName}
                 </p>
-                {listing.seller.rating ? (
+                {listing.seller.rating != null ? (
                   <p className="text-xs text-muted-foreground">
-                    Avaliação: {Number(listing.seller.rating).toFixed(1)}
+                    Nota da loja: {Number(listing.seller.rating).toFixed(1)}
                   </p>
                 ) : null}
               </div>
@@ -228,6 +229,8 @@ export default function ListingDetail() {
           ) : null}
         </div>
       </div>
+
+      <ProductReviews productId={listing.productId} />
 
       {related.length > 0 ? (
         <section className="mt-12 border-t border-border pt-10">
