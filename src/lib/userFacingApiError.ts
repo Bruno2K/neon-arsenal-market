@@ -48,6 +48,9 @@ export const USER_FACING_VERIFICATION_CODE =
 export const USER_FACING_GENERIC =
   "Algo deu errado. Tente de novo em instantes.";
 
+export const USER_FACING_PAYPAL_CLIENT_AUTH =
+  "Não foi possível autenticar no PayPal sandbox. Confira PAYPAL_CLIENT_ID e PAYPAL_SECRET no servidor — não use o login da sua conta PayPal pessoal.";
+
 export const USER_FACING_ORDER_CANCELLED =
   "Este pedido foi cancelado. Não é possível continuar o pagamento.";
 
@@ -207,6 +210,8 @@ export function userFacingApiError(error: unknown): string {
     copy = USER_FACING_CS2SH_IMPORT_RUNNING;
   } else if (/chave da API cs2\.sh não está configurada/i.test(message)) {
     copy = USER_FACING_CS2SH_KEY_MISSING;
+  } else if (/PayPal client authentication failed/i.test(message)) {
+    copy = USER_FACING_PAYPAL_CLIENT_AUTH;
   } else if (isUnauthorizedApiError(error)) {
     copy = USER_FACING_UNAUTHORIZED;
   } else if (isForbiddenApiError(error)) {

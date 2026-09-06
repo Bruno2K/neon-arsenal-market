@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { buildPayPalOrdersCreateBody, PAYPAL_HTTP_POLICY } from "../paypal.js";
+import {
+  buildPayPalOrdersCreateBody,
+  mapPayPalHttpError,
+  PAYPAL_CLIENT_AUTH_FAILED,
+  PAYPAL_HTTP_POLICY,
+} from "../paypal.js";
 
 describe("PayPal OrdersCreate body", () => {
   it("includes application_context URLs when the client supplies both", () => {
@@ -50,5 +55,22 @@ describe("PayPal OrdersCreate body", () => {
 
   it("still does not retry OrdersCreate", () => {
     expect(PAYPAL_HTTP_POLICY.orders_create.retry).toBe(false);
+  });
+});
+
+describe("mapPayPalHttpError", () => {
+  it("maps invalid_client 401 to a stable 503 without echoing PayPal JSON", () => {
+    const err = Object.assign(
+      new Error('{"error":"invalid_client","error_description":"Client Authentication failed"}'),
+      { statusCode: 401 }
+    );
+    const mapped = mapPayPalHttpError(err);
+    expect(mapped).toMatchObject({ statusCode: 503, message: PAYPAL_CLIENT_AUTH_FAILED });
+    expect(mapped.message).not.toMatch(/invalid_client/);
+  });
+
+  it("leaves unrelated errors unchanged", () => {
+    const err = new Error("PayPal OrdersCreate timed out");
+    expect(mapPayPalHttpError(err)).toBe(err);
   });
 });

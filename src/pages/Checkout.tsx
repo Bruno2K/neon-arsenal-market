@@ -19,6 +19,7 @@ import {
 import {
   earliestReservationExpiresAt,
   isReservationExpired,
+  PAYPAL_SANDBOX_LOGIN_COPY,
 } from "@/lib/orderPaymentView";
 import { paypalCheckoutUrls } from "@/lib/paypalCheckoutUrls";
 import { redirectToExternal } from "@/lib/redirect";
@@ -235,6 +236,9 @@ export default function Checkout() {
             Você será redirecionado ao PayPal. O pagamento só é confirmado
             depois que o provedor retornar o resultado — esta página não marca o
             pedido como pago.
+          </p>
+          <p className="text-sm text-muted-foreground">
+            {PAYPAL_SANDBOX_LOGIN_COPY}
           </p>
           {error ? (
             <p className="text-sm text-destructive" role="alert">

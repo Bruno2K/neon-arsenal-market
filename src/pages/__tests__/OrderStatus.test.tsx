@@ -6,6 +6,7 @@ import OrderStatusPage from "../OrderStatus";
 import type { Order } from "@/types/api";
 import {
   EXPIRED_HOLD_COPY,
+  PAYPAL_SANDBOX_LOGIN_COPY,
   VERIFYING_RESERVATION_COPY,
 } from "@/lib/orderPaymentView";
 import {
@@ -182,6 +183,7 @@ describe("OrderStatusPage", () => {
     expect(
       screen.getByRole("button", { name: "Pagar novamente" }),
     ).toBeTruthy();
+    expect(screen.getByText(PAYPAL_SANDBOX_LOGIN_COPY)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Ir ao Market" })).toHaveAttribute(
       "href",
       "/products",

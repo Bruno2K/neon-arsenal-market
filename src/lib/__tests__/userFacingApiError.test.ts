@@ -11,6 +11,7 @@ import {
   USER_FACING_LISTING_CONFLICT,
   USER_FACING_NETWORK,
   USER_FACING_NOT_FOUND,
+  USER_FACING_PAYPAL_CLIENT_AUTH,
   USER_FACING_RATE_LIMIT,
   USER_FACING_SERVER,
   USER_FACING_UNAUTHORIZED,
@@ -110,6 +111,13 @@ describe("userFacingApiError", () => {
         }),
       ),
     ).toBe(USER_FACING_CS2SH_KEY_MISSING);
+    expect(
+      userFacingApiError(
+        new ApiClientError("PayPal client authentication failed", {
+          status: 503,
+        }),
+      ),
+    ).toBe(USER_FACING_PAYPAL_CLIENT_AUTH);
     expect(
       userFacingApiError(
         new ApiClientError("Order status changed concurrently", {
