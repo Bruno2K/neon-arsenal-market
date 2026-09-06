@@ -1,6 +1,8 @@
+import type { ReactElement } from "react";
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SellerListings from "../SellerListings";
 import { createListing } from "@/api";
 import type { Listing, Product, Seller, User } from "@/types/api";
@@ -94,6 +96,15 @@ function listing(overrides: Partial<Listing> = {}): Listing {
 const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
   [];
 
+function renderListings(ui: ReactElement) {
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
+  return render(
+    <QueryClientProvider client={client}>{ui}</QueryClientProvider>,
+  );
+}
+
 describe("SellerListings", () => {
   beforeEach(() => {
     analyticsEvents.length = 0;
@@ -127,7 +138,7 @@ describe("SellerListings", () => {
   it("disables Novo Listing when getSellerMe reports a pending store", async () => {
     getSellerMe.mockResolvedValue(seller({ isApproved: false }));
 
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -143,16 +154,16 @@ describe("SellerListings", () => {
   });
 
   it("keeps unique-item listing CRUD on /seller/listings", async () => {
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
     );
 
     expect(
-      await screen.findByRole("button", { name: "Novo Listing" }),
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
     ).toBeTruthy();
-    expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Novo Listing" })).toBeTruthy();
     expect(screen.getByTitle("Editar")).toBeTruthy();
     expect(screen.getByTitle("Atualizar preço")).toBeTruthy();
     expect(screen.getByTitle("Cancelar listing")).toBeTruthy();
@@ -163,7 +174,7 @@ describe("SellerListings", () => {
   it("shows an empty state when the seller has no listings", async () => {
     getSellerListings.mockResolvedValue({ items: [], total: 0 });
 
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -178,7 +189,7 @@ describe("SellerListings", () => {
   it("shows an error state that can be retried", async () => {
     getSellerMe.mockRejectedValue(new Error("sessão expirada"));
 
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -200,7 +211,7 @@ describe("SellerListings", () => {
     };
     getSellerMe.mockRejectedValue(new Error("Seller not found"));
 
-    render(
+    renderListings(
       <MemoryRouter initialEntries={["/seller/listings"]}>
         <Routes>
           <Route path="/seller/listings" element={<SellerListings />} />
@@ -217,7 +228,7 @@ describe("SellerListings", () => {
   });
 
   it("shows a catalog thumbnail in each listing row", async () => {
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -233,7 +244,7 @@ describe("SellerListings", () => {
   });
 
   it("shows a product preview in the edit listing dialog", async () => {
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -260,7 +271,7 @@ describe("SellerListings", () => {
       limit: 20,
     });
 
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,
@@ -303,7 +314,7 @@ describe("SellerListings", () => {
     const created = listing({ id: "listing-new", price: 18.5 });
     vi.mocked(createListing).mockResolvedValue(created);
 
-    render(
+    renderListings(
       <MemoryRouter>
         <SellerListings />
       </MemoryRouter>,

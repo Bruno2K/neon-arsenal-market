@@ -1,309 +1,70 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Navigate } from "react-router-dom";
-import {
-  Package,
-  Pencil,
-  Trash2,
-  EyeOff,
-  Loader2,
-  DollarSign,
-} from "lucide-react";
-import {
-  getSellerMe,
-  getSellerListings,
-  createListing,
-  updateListing,
-  updateListingPrice,
-  cancelListing,
-} from "@/api";
-import type { Seller, Listing, Product } from "@/types/api";
-import { ProductCatalogPicker } from "@/components/seller/ProductCatalogPicker";
-import { Button } from "@/components/ui/button";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Loader2, Package } from "lucide-react";
+import { ListingCancelDialog } from "@/components/seller/ListingCancelDialog";
+import { ListingFormDialog } from "@/components/seller/ListingFormDialog";
+import { ListingPriceDialog } from "@/components/seller/ListingPriceDialog";
+import { SellerListingsTable } from "@/components/seller/SellerListingsTable";
 import { EmptyState, ErrorState } from "@/components/page-state";
-import {
-  productDisplayName,
-  SkinThumb,
-  SkinVisual,
-} from "@/components/ProductCard";
-import { analyticsPrice, track } from "@/lib/analytics";
+import { Button } from "@/components/ui/button";
 import { useAuth } from "@/contexts/AuthContext";
-import { useToast } from "@/hooks/use-toast";
-import {
-  listingStatusLabel,
-  logTechnicalError,
-  userFacingApiError,
-} from "@/lib/userFacingApiError";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useSellerListings } from "@/hooks/useSellerListings";
+import type { Listing } from "@/types/api";
 
-const emptyForm = {
-  productId: "",
-  floatValue: "",
-  pattern: "",
-  price: "",
-  currency: "USD",
-  tradeLockUntil: "",
-  steamAssetId: "",
-};
+function CreateListingButton({
+  canCreateListing,
+  pendingApproval,
+  onClick,
+}: {
+  canCreateListing: boolean;
+  pendingApproval: boolean;
+  onClick: () => void;
+}) {
+  const label = pendingApproval ? "Disponível após aprovação" : "Novo Listing";
+  return (
+    <Button
+      onClick={onClick}
+      disabled={!canCreateListing}
+      title={pendingApproval ? "Disponível após aprovação" : undefined}
+    >
+      {canCreateListing ? <Package className="mr-2 h-4 w-4" /> : null}
+      {label}
+    </Button>
+  );
+}
 
 export default function SellerListings() {
   const { user } = useAuth();
   const isAdmin = user?.role === "ADMIN";
-  const [seller, setSeller] = useState<Seller | null>(null);
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [selectedProduct, setSelectedProduct] = useState<Product | undefined>();
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    listings,
+    loading,
+    error,
+    reload,
+    canCreateListing,
+    pendingApproval,
+    create,
+    update,
+    updatePrice,
+    cancel,
+    isSaving,
+    isCanceling,
+  } = useSellerListings({ enabled: !isAdmin });
+
   const [formOpen, setFormOpen] = useState(false);
-  const [priceFormOpen, setPriceFormOpen] = useState(false);
   const [editingListing, setEditingListing] = useState<Listing | null>(null);
   const [priceListing, setPriceListing] = useState<Listing | null>(null);
-  const [form, setForm] = useState(emptyForm);
-  const [newPrice, setNewPrice] = useState("");
-  const [saving, setSaving] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Listing | null>(null);
-  const [deleting, setDeleting] = useState(false);
-  const { toast } = useToast();
-
-  const loadSeller = async () => {
-    try {
-      const s = await getSellerMe();
-      setSeller(s);
-      return s.id;
-    } catch (e) {
-      logTechnicalError(e);
-      setError(userFacingApiError(e));
-      return null;
-    }
-  };
-
-  const loadListings = async () => {
-    try {
-      const res = await getSellerListings();
-      setListings(res.items);
-      setTotal(res.total);
-    } catch (e) {
-      logTechnicalError(e);
-      setError(userFacingApiError(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const reload = async () => {
-    setLoading(true);
-    setError(null);
-    const sellerId = await loadSeller();
-    if (!sellerId) {
-      setLoading(false);
-      return;
-    }
-    await loadListings();
-  };
-
-  useEffect(() => {
-    if (isAdmin) return;
-    void reload();
-    // Mount + explicit retry via reload(); load helpers close over setters only.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAdmin]);
 
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
   }
 
-  const canCreateListing = seller?.isApproved === true;
-  const pendingApproval = seller?.isApproved === false;
-  const createListingLabel = pendingApproval
-    ? "Disponível após aprovação"
-    : "Novo Listing";
-
   const openCreate = () => {
     if (!canCreateListing) return;
     setEditingListing(null);
-    setSelectedProduct(undefined);
-    setForm(emptyForm);
     setFormOpen(true);
   };
-
-  const openEdit = (l: Listing) => {
-    setEditingListing(l);
-    setSelectedProduct(l.product);
-    setForm({
-      productId: l.productId,
-      floatValue: String(l.floatValue),
-      pattern: l.pattern ? String(l.pattern) : "",
-      price: String(l.price),
-      currency: l.currency,
-      tradeLockUntil: l.tradeLockUntil
-        ? new Date(l.tradeLockUntil).toISOString().slice(0, 16)
-        : "",
-      steamAssetId: l.steamAssetId || "",
-    });
-    setFormOpen(true);
-  };
-
-  const openPriceEdit = (l: Listing) => {
-    setPriceListing(l);
-    setNewPrice(String(l.price));
-    setPriceFormOpen(true);
-  };
-
-  const handleSave = async () => {
-    const floatValue = parseFloat(form.floatValue);
-    const price = parseFloat(form.price);
-    const pattern = form.pattern ? parseInt(form.pattern, 10) : undefined;
-
-    if (!form.productId) {
-      toast({ title: "Produto é obrigatório", variant: "destructive" });
-      return;
-    }
-    if (isNaN(floatValue) || floatValue < 0 || floatValue > 1) {
-      toast({ title: "Float deve estar entre 0 e 1", variant: "destructive" });
-      return;
-    }
-    if (isNaN(price) || price <= 0) {
-      toast({ title: "Preço inválido", variant: "destructive" });
-      return;
-    }
-    if (pattern !== undefined && (isNaN(pattern) || pattern < 0)) {
-      toast({ title: "Pattern inválido", variant: "destructive" });
-      return;
-    }
-
-    setSaving(true);
-    try {
-      if (editingListing) {
-        await updateListing(editingListing.id, {
-          price,
-          tradeLockUntil: form.tradeLockUntil ? form.tradeLockUntil : null,
-        });
-        toast({ title: "Listing atualizado" });
-      } else {
-        const created = await createListing({
-          productId: form.productId,
-          floatValue,
-          pattern,
-          price,
-          currency: form.currency,
-          tradeLockUntil: form.tradeLockUntil || undefined,
-          steamAssetId: form.steamAssetId || undefined,
-        });
-        track("seller_listing_created", {
-          listingId: created.id,
-          productId: created.productId,
-          price: analyticsPrice(created.price),
-          source: "seller",
-        });
-        toast({ title: "Listing criado" });
-      }
-      setFormOpen(false);
-      await loadListings();
-    } catch (e) {
-      logTechnicalError(e);
-      toast({
-        title: editingListing ? "Erro ao atualizar" : "Erro ao criar",
-        description: userFacingApiError(e),
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handlePriceUpdate = async () => {
-    const price = parseFloat(newPrice);
-    if (!priceListing) return;
-    if (isNaN(price) || price <= 0) {
-      toast({ title: "Preço inválido", variant: "destructive" });
-      return;
-    }
-    setSaving(true);
-    try {
-      await updateListingPrice(priceListing.id, { newPrice: price });
-      toast({ title: "Preço atualizado" });
-      setPriceFormOpen(false);
-      await loadListings();
-    } catch (e) {
-      logTechnicalError(e);
-      toast({
-        title: "Erro ao atualizar preço",
-        description: userFacingApiError(e),
-        variant: "destructive",
-      });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCancel = async (l: Listing) => {
-    try {
-      await cancelListing(l.id);
-      toast({ title: "Listing cancelado" });
-      await loadListings();
-    } catch (e) {
-      toast({
-        title: "Erro ao cancelar",
-        description: userFacingApiError(e),
-        variant: "destructive",
-      });
-    }
-  };
-
-  const confirmDelete = async () => {
-    if (!deleteTarget) return;
-    setDeleting(true);
-    try {
-      await cancelListing(deleteTarget.id);
-      toast({ title: "Listing cancelado" });
-      setDeleteTarget(null);
-      await loadListings();
-    } catch (e) {
-      toast({
-        title: "Erro ao cancelar",
-        description: userFacingApiError(e),
-        variant: "destructive",
-      });
-    } finally {
-      setDeleting(false);
-    }
-  };
-
-  const selectedFormProduct = selectedProduct;
 
   if (error) {
     return (
@@ -330,14 +91,11 @@ export default function SellerListings() {
             CRUD de itens únicos. O catálogo de produtos é somente leitura.
           </p>
         </div>
-        <Button
+        <CreateListingButton
+          canCreateListing={canCreateListing}
+          pendingApproval={pendingApproval}
           onClick={openCreate}
-          disabled={!canCreateListing}
-          title={pendingApproval ? "Disponível após aprovação" : undefined}
-        >
-          {canCreateListing ? <Package className="mr-2 h-4 w-4" /> : null}
-          {createListingLabel}
-        </Button>
+        />
       </div>
 
       {loading ? (
@@ -357,330 +115,89 @@ export default function SellerListings() {
               : "Crie um item único a partir do catálogo de produtos."
           }
           action={
-            <Button
+            <CreateListingButton
+              canCreateListing={canCreateListing}
+              pendingApproval={pendingApproval}
               onClick={openCreate}
-              disabled={!canCreateListing}
-              title={pendingApproval ? "Disponível após aprovação" : undefined}
-            >
-              {createListingLabel}
-            </Button>
+            />
           }
         />
       ) : (
-        <div className="overflow-hidden rounded-lg border border-border">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Skin</TableHead>
-                <TableHead className="hidden md:table-cell">Float</TableHead>
-                <TableHead>Preço</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {listings.map((l) => {
-                const productName = productDisplayName(l.product);
-                return (
-                  <TableRow key={l.id}>
-                    <TableCell>
-                      <div className="flex items-center gap-3">
-                        <SkinThumb product={l.product} size="md" decorative />
-                        <span className="font-medium">{productName}</span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell text-muted-foreground">
-                      {Number(l.floatValue).toFixed(8)}
-                    </TableCell>
-                    <TableCell className="tabular-nums font-medium">
-                      ${Number(l.price).toFixed(2)}
-                    </TableCell>
-                    <TableCell>
-                      <span
-                        className={`text-xs font-medium px-2 py-1 rounded ${
-                          l.status === "ACTIVE"
-                            ? "bg-primary/10 text-primary"
-                            : l.status === "SOLD"
-                              ? "bg-green-500/10 text-green-500"
-                              : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        {listingStatusLabel(l.status)}
-                      </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        {l.status === "ACTIVE" && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openPriceEdit(l)}
-                              title="Atualizar preço"
-                              aria-label="Atualizar preço"
-                            >
-                              <DollarSign className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEdit(l)}
-                              title="Editar"
-                              aria-label="Editar"
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </>
-                        )}
-                        {l.status === "ACTIVE" && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleCancel(l)}
-                            title="Cancelar listing"
-                            aria-label="Cancelar listing"
-                          >
-                            <EyeOff className="h-4 w-4" />
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteTarget(l)}
-                          title="Excluir"
-                          aria-label="Excluir"
-                          className="text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
-        </div>
+        <SellerListingsTable
+          listings={listings}
+          onEditPrice={setPriceListing}
+          onEdit={(listing) => {
+            setEditingListing(listing);
+            setFormOpen(true);
+          }}
+          onCancel={(listing) => {
+            void cancel.mutateAsync(listing).catch(() => undefined);
+          }}
+          onDelete={setDeleteTarget}
+        />
       )}
 
-      <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>
-              {editingListing ? "Editar listing" : "Novo listing"}
-            </DialogTitle>
-            <DialogDescription>
-              {editingListing
-                ? "Atualize os dados deste item único."
-                : "Cadastre um item único a partir do catálogo."}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label id="productId-label">Produto</Label>
-              {editingListing ? null : (
-                <ProductCatalogPicker
-                  selectedProduct={selectedProduct}
-                  enabled={formOpen}
-                  onSelect={(product) => {
-                    setSelectedProduct(product);
-                    setForm((f) => ({ ...f, productId: product.id }));
-                  }}
-                />
-              )}
-              {selectedFormProduct ? (
-                <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
-                  <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border">
-                    <SkinVisual
-                      product={selectedFormProduct}
-                      className="text-sm"
-                      padded={false}
-                    />
-                  </div>
-                  <p className="text-sm font-medium">
-                    {productDisplayName(selectedFormProduct)}
-                  </p>
-                </div>
-              ) : null}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="floatValue">Float (0-1)</Label>
-                <Input
-                  id="floatValue"
-                  type="number"
-                  min="0"
-                  max="1"
-                  step="0.00000001"
-                  value={form.floatValue}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, floatValue: e.target.value }))
-                  }
-                  placeholder="0.00000000"
-                  disabled={!!editingListing}
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="pattern">Pattern (opcional)</Label>
-                <Input
-                  id="pattern"
-                  type="number"
-                  min="0"
-                  value={form.pattern}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, pattern: e.target.value }))
-                  }
-                  placeholder="Opcional"
-                  disabled={!!editingListing}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="price">Preço</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={form.price}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, price: e.target.value }))
-                  }
-                  placeholder="0.00"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="currency" id="currency-label">
-                  Moeda
-                </Label>
-                <Select
-                  value={form.currency}
-                  onValueChange={(value) =>
-                    setForm((f) => ({ ...f, currency: value }))
-                  }
-                >
-                  <SelectTrigger id="currency" aria-labelledby="currency-label">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="USD">USD</SelectItem>
-                    <SelectItem value="BRL">BRL</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="tradeLockUntil">
-                  Trade Lock Até (opcional)
-                </Label>
-                <Input
-                  id="tradeLockUntil"
-                  type="datetime-local"
-                  value={form.tradeLockUntil}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, tradeLockUntil: e.target.value }))
-                  }
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="steamAssetId">Steam Asset ID (opcional)</Label>
-                <Input
-                  id="steamAssetId"
-                  value={form.steamAssetId}
-                  onChange={(e) =>
-                    setForm((f) => ({ ...f, steamAssetId: e.target.value }))
-                  }
-                  placeholder="Opcional"
-                />
-              </div>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setFormOpen(false)}
-              disabled={saving}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handleSave} disabled={saving}>
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              {editingListing ? "Salvar" : "Criar"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ListingFormDialog
+        open={formOpen}
+        listing={editingListing}
+        saving={isSaving}
+        onOpenChange={(open) => {
+          setFormOpen(open);
+          if (!open) setEditingListing(null);
+        }}
+        onSubmit={async (payload) => {
+          try {
+            if (payload.mode === "update") {
+              if (!editingListing) return;
+              await update.mutateAsync({
+                id: editingListing.id,
+                body: payload.input,
+              });
+            } else {
+              await create.mutateAsync(payload.input);
+            }
+            setFormOpen(false);
+            setEditingListing(null);
+          } catch {
+            // Toast is owned by the mutation.
+          }
+        }}
+      />
 
-      <Dialog open={priceFormOpen} onOpenChange={setPriceFormOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Atualizar Preço</DialogTitle>
-            <DialogDescription>
-              Informe o novo preço deste listing.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="newPrice">Novo Preço</Label>
-              <Input
-                id="newPrice"
-                type="number"
-                min="0"
-                step="0.01"
-                value={newPrice}
-                onChange={(e) => setNewPrice(e.target.value)}
-                placeholder="0.00"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setPriceFormOpen(false)}
-              disabled={saving}
-            >
-              Cancelar
-            </Button>
-            <Button onClick={handlePriceUpdate} disabled={saving}>
-              {saving ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Atualizar
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <ListingPriceDialog
+        open={!!priceListing}
+        listing={priceListing}
+        saving={isSaving}
+        onOpenChange={(open) => {
+          if (!open) setPriceListing(null);
+        }}
+        onSubmit={async (newPrice) => {
+          if (!priceListing) return;
+          try {
+            await updatePrice.mutateAsync({ id: priceListing.id, newPrice });
+            setPriceListing(null);
+          } catch {
+            // Toast is owned by the mutation.
+          }
+        }}
+      />
 
-      <AlertDialog
-        open={!!deleteTarget}
-        onOpenChange={(open) => !open && setDeleteTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Cancelar listing?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Esta ação cancelará o listing permanentemente.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmDelete}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              {deleting ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : null}
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ListingCancelDialog
+        listing={deleteTarget}
+        deleting={isCanceling}
+        onOpenChange={(open) => {
+          if (!open) setDeleteTarget(null);
+        }}
+        onConfirm={() => {
+          if (!deleteTarget) return;
+          void cancel
+            .mutateAsync(deleteTarget)
+            .then(() => {
+              setDeleteTarget(null);
+            })
+            .catch(() => undefined);
+        }}
+      />
     </div>
   );
 }
