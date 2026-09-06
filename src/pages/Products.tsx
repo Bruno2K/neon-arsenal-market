@@ -198,9 +198,7 @@ export default function Products() {
 
   const focusOtherWeaponsSearch = () => {
     writeQuery({ weapon: "", page: 1 }, { replace: true });
-    window.requestAnimationFrame(() => {
-      searchInputRef.current?.focus();
-    });
+    searchInputRef.current?.focus();
   };
 
   return (

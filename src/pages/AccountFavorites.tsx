@@ -1,10 +1,6 @@
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import {
-  favoriteListing,
-  favoriteListingId,
-  listFavorites,
-} from "@/api/favorites";
+import { listFavorites } from "@/api/favorites";
 import { ListingCard } from "@/components/ProductCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
@@ -73,8 +69,8 @@ export default function AccountFavoritesPage() {
       ) : (
         <ul className="mt-8 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((favorite) => {
-            const listing = favoriteListing(favorite);
-            const id = favoriteListingId(favorite);
+            const listing = favorite.listing;
+            const id = favorite.listingId ?? favorite.listing?.id ?? "";
             if (!listing) {
               return (
                 <li
