@@ -67,6 +67,14 @@ services:
     depends_on:
       db:
         condition: service_healthy
+    # #68: local stand-in for Render instance limits + read-only root.
+    # Production Render does not expose read_only in the Blueprint; /tmp stays
+    # the only required writable path (Prisma/Node scratch).
+    read_only: true
+    tmpfs:
+      - /tmp:mode=1777
+    mem_limit: 512m
+    cpus: "1.0"
     ports:
       - "3001:3001"
     environment:

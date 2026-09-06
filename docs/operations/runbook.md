@@ -4,7 +4,7 @@ PostgreSQL is the source of truth for listings, orders, and seller balances. Pay
 
 ## Deploy
 
-API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`).
+API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`). Container hardening (non-root, HEALTHCHECK, Trivy, read-only limits): [`container-hardening.md`](./container-hardening.md).
 
 1. Render builds the image, then starts the container.
 2. `server/entrypoint.sh` runs `prisma migrate deploy`.
