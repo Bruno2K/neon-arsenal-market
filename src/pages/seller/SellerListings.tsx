@@ -53,6 +53,7 @@ import {
   SkinThumb,
   SkinVisual,
 } from "@/components/ProductCard";
+import { analyticsPrice, track } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -206,7 +207,7 @@ export default function SellerListings() {
         });
         toast({ title: "Listing atualizado" });
       } else {
-        await createListing({
+        const created = await createListing({
           productId: form.productId,
           floatValue,
           pattern,
@@ -214,6 +215,12 @@ export default function SellerListings() {
           currency: form.currency,
           tradeLockUntil: form.tradeLockUntil || undefined,
           steamAssetId: form.steamAssetId || undefined,
+        });
+        track("seller_listing_created", {
+          listingId: created.id,
+          productId: created.productId,
+          price: analyticsPrice(created.price),
+          source: "seller",
         });
         toast({ title: "Listing criado" });
       }

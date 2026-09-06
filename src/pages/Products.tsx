@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { Filter } from "lucide-react";
@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { marketSearchQuery, track } from "@/lib/analytics";
 
 const EXTERIORS = [
   "",
@@ -86,6 +87,23 @@ export default function Products() {
 
   const items = data?.items ?? [];
   const total = data?.total ?? 0;
+  const searchQuery = marketSearchQuery({
+    productId,
+    exterior,
+    isStattrak,
+    minPrice,
+    maxPrice,
+  });
+
+  useEffect(() => {
+    if (!searchQuery || isLoading || isError) return;
+    track("search", {
+      query: searchQuery,
+      productId,
+      source: "market",
+      resultCount: total,
+    });
+  }, [searchQuery, productId, isLoading, isError, total]);
 
   const sortedItems =
     sort === "price-asc"
@@ -131,6 +149,12 @@ export default function Products() {
                 onClick={() => {
                   setExterior(ext);
                   setPage(1);
+                  if (ext) {
+                    track("category_view", {
+                      category: ext,
+                      source: "market",
+                    });
+                  }
                 }}
               >
                 {ext || "Todos"}
@@ -264,7 +288,7 @@ export default function Products() {
         <>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {sortedItems.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard key={listing.id} listing={listing} source="market" />
             ))}
           </div>
           {total > PAGE_SIZE && (

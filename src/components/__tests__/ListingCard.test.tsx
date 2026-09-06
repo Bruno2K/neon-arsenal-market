@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { ListingCard, SkinThumb } from "../ProductCard";
@@ -12,6 +12,11 @@ import {
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 
 const toast = vi.fn();
 
@@ -61,11 +66,14 @@ function CartProbe() {
   return <span data-testid="cart-count">{totalItems}</span>;
 }
 
-function renderCard(listing: Listing) {
+function renderCard(
+  listing: Listing,
+  source?: "home" | "market" | "related" | "seller",
+) {
   return render(
     <MemoryRouter>
       <CartProvider>
-        <ListingCard listing={listing} />
+        <ListingCard listing={listing} source={source} />
         <CartProbe />
       </CartProvider>
     </MemoryRouter>,
@@ -78,10 +86,21 @@ function addButton() {
   });
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("ListingCard", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     toast.mockReset();
     localStorage.removeItem(CART_STORAGE_KEY);
+  });
+
+  afterEach(() => {
+    setAnalyticsCollector(null);
   });
   it("renders weapon | skin (exterior) as the display name", () => {
     renderCard(makeListing());
@@ -279,6 +298,24 @@ describe("ListingCard", () => {
     renderCard(makeListing());
     expect(screen.queryByText(/SKINMARKET/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/CS2 Skin Marketplace/i)).not.toBeInTheDocument();
+  });
+
+  it("tracks search_result_click only from the market source", () => {
+    renderCard(makeListing(), "market");
+    fireEvent.click(
+      screen.getAllByRole("link", {
+        name: "AK-47 | Redline (Field-Tested)",
+      })[0],
+    );
+    expect(analyticsEvents).toContainEqual({
+      event: "search_result_click",
+      props: {
+        listingId: "listing-1",
+        productId: "prod-1",
+        price: "299.5",
+        source: "market",
+      },
+    });
   });
 });
 

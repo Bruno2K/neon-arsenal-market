@@ -1,4 +1,5 @@
-import { useParams, Link, useNavigate } from "react-router-dom";
+import { useEffect } from "react";
+import { useParams, Link, useNavigate, useLocation } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { ArrowLeft } from "lucide-react";
 import { ListingCard, SkinVisual } from "@/components/ProductCard";
@@ -9,6 +10,7 @@ import { getListing, listListings } from "@/api/listings";
 import { getPriceHistory } from "@/api/price-history";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { analyticsPrice, readAnalyticsSource, track } from "@/lib/analytics";
 import {
   isNotFoundApiError,
   isRetryableReadError,
@@ -18,6 +20,8 @@ import {
 export default function ListingDetail() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const source = readAnalyticsSource(location.state);
 
   const {
     data: listing,
@@ -51,6 +55,16 @@ export default function ListingDetail() {
   const related = (relatedData?.items ?? [])
     .filter((item) => item.id !== id)
     .slice(0, 4);
+
+  useEffect(() => {
+    if (!listing) return;
+    track("product_view", {
+      listingId: listing.id,
+      productId: listing.productId,
+      price: analyticsPrice(listing.price),
+      source,
+    });
+  }, [listing, source]);
   const productName = listing
     ? `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`
     : "";
@@ -204,7 +218,11 @@ export default function ListingDetail() {
                 Última alteração: ${Number(latestHistory.newPrice).toFixed(2)}
               </p>
             ) : null}
-            <ListingCartCta listing={listing} variant="detail" />
+            <ListingCartCta
+              listing={listing}
+              variant="detail"
+              source={source}
+            />
           </div>
 
           {priceHistory && priceHistory.length > 0 ? (
@@ -239,7 +257,7 @@ export default function ListingDetail() {
           </h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {related.map((item) => (
-              <ListingCard key={item.id} listing={item} />
+              <ListingCard key={item.id} listing={item} source="related" />
             ))}
           </div>
         </section>

@@ -15,6 +15,7 @@ import {
   CART_REMOVED_MESSAGE,
 } from "@/lib/listingCartCta";
 import { useToast } from "@/hooks/use-toast";
+import { analyticsPrice, track, type AnalyticsSource } from "@/lib/analytics";
 
 export type AddItemResult = "added" | "duplicate" | "unavailable";
 
@@ -25,7 +26,10 @@ export interface CartItem {
 
 interface CartContextType {
   items: CartItem[];
-  addItem: (listing: Listing) => AddItemResult;
+  addItem: (
+    listing: Listing,
+    meta?: { source?: AnalyticsSource },
+  ) => AddItemResult;
   updateListing: (listing: Listing) => void;
   removeItem: (listingId: string) => void;
   removeItems: (listingIds: string[]) => void;
@@ -49,7 +53,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
     saveCartToStorage(items);
   }, [items]);
 
-  const addItem = (listing: Listing): AddItemResult => {
+  const addItem = (
+    listing: Listing,
+    meta?: { source?: AnalyticsSource },
+  ): AddItemResult => {
     if (listing.status !== "ACTIVE") {
       return "unavailable";
     }
@@ -62,6 +69,12 @@ export function CartProvider({ children }: { children: ReactNode }) {
         return prev;
       }
       return [...prev, { listing, priceWhenAdded: listing.price }];
+    });
+    track("cart_add", {
+      listingId: listing.id,
+      productId: listing.productId,
+      price: analyticsPrice(listing.price),
+      source: meta?.source,
     });
     toast({ title: CART_ADDED_MESSAGE });
     return "added";
@@ -80,10 +93,16 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeItem = (listingId: string) => {
-    if (!items.some((item) => item.listing.id === listingId)) {
+    const existing = items.find((item) => item.listing.id === listingId);
+    if (!existing) {
       return;
     }
     setItems((prev) => prev.filter((item) => item.listing.id !== listingId));
+    track("cart_remove", {
+      listingId: existing.listing.id,
+      productId: existing.listing.productId,
+      price: analyticsPrice(existing.priceWhenAdded ?? existing.listing.price),
+    });
     toast({ title: CART_REMOVED_MESSAGE });
   };
 

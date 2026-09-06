@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CartProvider, useCart } from "../CartContext";
 import type { Listing } from "@/types/api";
@@ -183,13 +188,21 @@ function renderCart() {
   );
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("CartContext", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     toast.mockReset();
     localStorage.removeItem(CART_STORAGE_KEY);
   });
 
   afterEach(() => {
+    setAnalyticsCollector(null);
     vi.restoreAllMocks();
     localStorage.removeItem(CART_STORAGE_KEY);
   });
@@ -209,6 +222,14 @@ describe("CartContext", () => {
 
       expect(screen.getByTestId("count").textContent).toBe("1");
       expect(screen.getByTestId("item-listing-ak")).toBeTruthy();
+      expect(analyticsEvents).toContainEqual({
+        event: "cart_add",
+        props: {
+          listingId: "listing-ak",
+          productId: "prod-1",
+          price: "150",
+        },
+      });
     });
 
     it("does not add duplicate items (same listing ID)", () => {
@@ -264,6 +285,14 @@ describe("CartContext", () => {
       expect(screen.getByTestId("count").textContent).toBe("0");
       expect(screen.queryByTestId("item-listing-ak")).toBeNull();
       expect(toast).toHaveBeenCalledWith({ title: CART_REMOVED_MESSAGE });
+      expect(analyticsEvents).toContainEqual({
+        event: "cart_remove",
+        props: {
+          listingId: "listing-ak",
+          productId: "prod-1",
+          price: "150",
+        },
+      });
     });
 
     it("does nothing when removing non-existent item", () => {

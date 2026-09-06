@@ -9,6 +9,11 @@ import {
   PAYPAL_SANDBOX_LOGIN_COPY,
 } from "@/lib/orderPaymentView";
 import { USER_FACING_NETWORK } from "@/lib/userFacingApiError";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 
 const createOrder = vi.fn();
 const createPaymentLink = vi.fn();
@@ -169,6 +174,9 @@ function idempotencyKeyOf(call: unknown[]): string {
   return options.idempotencyKey;
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("Checkout", () => {
   const uuidKeys = [
     "11111111-1111-4111-8111-111111111111",
@@ -177,6 +185,10 @@ describe("Checkout", () => {
   ];
 
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false } },
     });
@@ -205,6 +217,7 @@ describe("Checkout", () => {
   });
 
   afterEach(() => {
+    setAnalyticsCollector(null);
     vi.restoreAllMocks();
   });
 
@@ -299,6 +312,17 @@ describe("Checkout", () => {
     expect(urls.cancelUrl.startsWith("http")).toBe(true);
     expect(cartState.removeItems).toHaveBeenCalledWith(["listing-ak"]);
     expect(cartState.clearCart).not.toHaveBeenCalled();
+    expect(analyticsEvents).toContainEqual({
+      event: "checkout_started",
+      props: { itemCount: 1 },
+    });
+    expect(analyticsEvents).toContainEqual({
+      event: "payment_started",
+      props: { orderId: "order-1" },
+    });
+    expect(JSON.stringify(analyticsEvents)).not.toMatch(
+      /buyer@|token=EC-1|paypal.com/i,
+    );
     expect(redirectToExternal).toHaveBeenCalledWith(
       "https://www.paypal.com/checkoutnow?token=EC-1",
     );

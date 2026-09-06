@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { ShoppingCart } from "lucide-react";
 import type { Listing } from "@/types/api";
 import { useCart } from "@/contexts/CartContext";
+import type { AnalyticsSource } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 import {
   CART_ADDED_MESSAGE,
@@ -17,9 +18,11 @@ import { cn } from "@/lib/utils";
 export function ListingCartCta({
   listing,
   variant,
+  source,
 }: {
   listing: Listing;
   variant: "detail" | "card";
+  source?: AnalyticsSource;
 }) {
   const { addItem, items } = useCart();
   const [liveMessage, setLiveMessage] = useState("");
@@ -27,7 +30,7 @@ export function ListingCartCta({
   const cta = resolveListingCartCta(listing, inCart);
 
   const onAdd = () => {
-    const result = addItem(listing);
+    const result = addItem(listing, source ? { source } : undefined);
     if (result === "added") {
       setLiveMessage(CART_ADDED_MESSAGE);
     }

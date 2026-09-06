@@ -2,6 +2,8 @@
 
 Neon Arsenal Market uses OpenTelemetry for traces and metrics, and Pino for logs. The goal is to diagnose latency, errors and business failures on the checkout path without running an observability platform locally.
 
+Storefront funnel events (`page_view` → PayPal → `order_viewed`) live in the frontend wrapper documented in [`docs/product-analytics.md`](./product-analytics.md). They are not OTel spans and do not use `OTEL_*`.
+
 ## Defaults
 
 Telemetry is **off** unless `OTEL_ENABLED=true`.

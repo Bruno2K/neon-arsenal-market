@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import type { Listing, Product } from "@/types/api";
 import { ListingCartCta } from "@/components/ListingCartCta";
+import { analyticsPrice, track, type AnalyticsSource } from "@/lib/analytics";
 
 export function productDisplayName(
   product: Pick<Product, "weapon" | "skinName" | "exterior">,
@@ -76,17 +77,36 @@ export function SkinThumb({
   );
 }
 
-export function ListingCard({ listing }: { listing: Listing }) {
+export function ListingCard({
+  listing,
+  source,
+}: {
+  listing: Listing;
+  source?: AnalyticsSource;
+}) {
   const price =
     typeof listing.price === "number" ? listing.price : Number(listing.price);
   const sellerName =
     listing.seller?.user?.name ?? listing.seller?.storeName ?? "";
   const productName = productDisplayName(listing.product);
+  const listingState = source ? { source } : undefined;
+
+  const onListingNavigate = () => {
+    if (source !== "market") return;
+    track("search_result_click", {
+      listingId: listing.id,
+      productId: listing.productId,
+      price: analyticsPrice(listing.price),
+      source,
+    });
+  };
 
   return (
     <article className="group flex flex-col overflow-hidden rounded-md border border-border bg-card">
       <Link
         to={`/listing/${listing.id}`}
+        state={listingState}
+        onClick={onListingNavigate}
         className="relative block aspect-[4/3] bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <div className="flex h-full items-center justify-center">
@@ -102,6 +122,8 @@ export function ListingCard({ listing }: { listing: Listing }) {
       <div className="flex flex-1 flex-col gap-2 p-3">
         <Link
           to={`/listing/${listing.id}`}
+          state={listingState}
+          onClick={onListingNavigate}
           className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <h3 className="line-clamp-2 text-sm font-medium leading-snug text-foreground transition-colors hover:text-primary">
@@ -123,7 +145,7 @@ export function ListingCard({ listing }: { listing: Listing }) {
           <span className="tabular-nums text-base font-semibold text-foreground">
             ${price.toFixed(2)}
           </span>
-          <ListingCartCta listing={listing} variant="card" />
+          <ListingCartCta listing={listing} variant="card" source={source} />
         </div>
       </div>
     </article>

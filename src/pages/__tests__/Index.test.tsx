@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -21,6 +21,11 @@ import {
   listingsCountLabel,
 } from "@/lib/homeDiscovery";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 
 const listListings = vi.fn();
 const listProducts = vi.fn();
@@ -115,8 +120,15 @@ function renderHome() {
   );
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("Index", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     localStorage.removeItem(CART_STORAGE_KEY);
     listListings.mockReset();
     listProducts.mockReset();
@@ -138,6 +150,10 @@ describe("Index", () => {
       makeSeller(),
       makeSeller({ id: "seller-2", userId: "user-2" }),
     ]);
+  });
+
+  afterEach(() => {
+    setAnalyticsCollector(null);
   });
 
   it("renders discovery home instead of only eight cards and one button", async () => {
@@ -265,6 +281,25 @@ describe("Index", () => {
 
     await waitFor(() => {
       expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
+    });
+  });
+
+  it("tracks category_view when a home catalog chip is used", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 8,
+    });
+
+    renderHome();
+    fireEvent.click(
+      await screen.findByRole("link", { name: "AK-47 | Redline" }),
+    );
+
+    expect(analyticsEvents).toContainEqual({
+      event: "category_view",
+      props: { productId: "ak-redline-ft", source: "home" },
     });
   });
 });
