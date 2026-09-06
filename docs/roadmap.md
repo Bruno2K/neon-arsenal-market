@@ -135,7 +135,9 @@ Maintain:
 - `docs/domain/invariants.md`
 - `docs/architecture/domain-invariants.md`
 - `docs/architecture/c4.md`
+- `docs/architecture/sequences.md`
 - `docs/architecture/scaling-path.md`
+- `docs/architecture/capacity.md`
 - `docs/architecture/failure-modes.md`
 - `docs/architecture/threat-model.md`
 - `docs/adr/`

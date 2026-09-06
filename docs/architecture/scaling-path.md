@@ -1,6 +1,6 @@
 # Scaling path
 
-Neon Arsenal stays a modular monolith on PostgreSQL until a **measured** trigger says otherwise. See `docs/performance.md` for the current numbers.
+Neon Arsenal stays a modular monolith on PostgreSQL until a **measured** trigger says otherwise. See `docs/performance.md` for the current numbers. Planning hypotheses (users/RPS/catalog/connections, **not** k6): `docs/architecture/capacity.md`.
 
 ## Current shape
 
@@ -34,3 +34,7 @@ At ~2.5k `ACTIVE` listings, market page index scans are ~0.02 ms; `listingsSer
 - Splitting payments or listings into their own deployable
 
 When a trigger fires, record the measurement, the EXPLAIN, and the mitigation in `docs/performance.md` and a new ADR.
+
+## Scale-out (Render)
+
+Horizontal scale is **more `neon-arsenal-api` instances** on Render plus the PostgreSQL connection ceiling on `neon-arsenal-db`. It is not Redis, Kafka, SQS, or a worker split (ADR 0018, ADR 0019). Connection budget: `docs/architecture/capacity.md`.
