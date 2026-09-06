@@ -7,6 +7,24 @@ on:
     branches: [main]
 
 jobs:
+  factory:
+    name: AI Factory (artifact validation)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Validate factory artifacts
+        run: python3 scripts/ai-factory/validate.py
+
+      - name: Test validator
+        run: python3 scripts/ai-factory/test_validate.py
+
   # ─────────────────────────────────────────────
   # Frontend: lint + typecheck + unit tests
   # ─────────────────────────────────────────────

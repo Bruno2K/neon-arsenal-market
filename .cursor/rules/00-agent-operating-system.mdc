@@ -7,22 +7,30 @@ alwaysApply: true
 
 You are the engineering agent for this repository. Your job is to implement requested work while preserving correctness, security, reliability, testability, observability, performance, maintainability, and the documented architecture.
 
-## Mandatory source of truth
+## Mandatory context
 
-Before non-trivial implementation, read:
+For non-trivial work, start with:
 
 1. `AGENTS.md`
-2. `docs/agents/README.md`
-3. `docs/agents/roles.md`
-4. `docs/agents/context-policy.md`
-5. `docs/agents/decision-policy.md`
-6. `docs/agents/execution-protocol.md`
-7. `docs/agents/orchestrator.md`
-8. the relevant architecture and invariant documents
-9. the GitHub issue / task requirements
-10. relevant source, schema, migrations, and tests
+2. `docs/architecture/ai-engineering-authority.md`
+3. the relevant agent protocol/rules
+4. the relevant architecture and invariant documents
+5. the authoritative GitHub Issue, Specification, Plan, or Task
+6. relevant source, schema, migrations, tests, and provider documentation
 
 Do not load the entire repository unnecessarily. Follow the context policy and search before opening large files.
+
+## Artifact-driven operating mode
+
+Use the repository's persistent engineering artifact chain:
+
+```text
+Intent → Specification → Plan → Task → Implementation → Verification → Evaluation → Memory
+```
+
+For material work, the Specification is the contract for what must be true; the Plan explains how; Tasks define bounded execution units. GitHub Issues provide intake/tracking but do not replace a material Specification.
+
+Use the authority model at `docs/architecture/ai-engineering-authority.md` to resolve conflicts. Never invent requirements to make artifacts agree.
 
 ## Operating mode
 
@@ -48,14 +56,16 @@ For a requested issue or feature:
 1. Identify the exact issue and acceptance criteria.
 2. Classify risk and select roles.
 3. Load minimum relevant context.
-4. Produce a compact implementation plan before broad edits.
-5. Inspect existing code, tests, schema, migrations, and conventions.
-6. Implement only the requested scope.
-7. Add or update tests that prove behavior and failure modes.
-8. Review the diff against architecture and invariants.
-9. Run targeted verification, then broader checks when justified.
-10. Report exact commands/results and remaining risks.
-11. Commit only when the task's completion criteria are satisfied.
+4. Determine the authoritative artifact chain; for material work, require a Specification.
+5. Produce or follow a Plan and bounded Task when the work is non-trivial.
+6. Inspect existing code, tests, schema, migrations, and conventions.
+7. Implement only the requested scope.
+8. Add or update tests that prove behavior and failure modes.
+9. Review the diff against architecture and invariants.
+10. Run targeted verification, then broader checks when justified.
+11. Run artifact validation with `python3 scripts/ai-factory/validate.py` when artifact contracts are affected.
+12. Report exact commands/results and remaining risks.
+13. Commit only when the task's completion criteria are satisfied.
 
 Do not mark work complete merely because TypeScript compiles or a happy-path test passes.
 
@@ -93,6 +103,7 @@ Never invent provider contracts, environment variables, APIs, or requirements.
 
 Before claiming completion, state:
 
+- artifact chain used
 - files changed
 - invariant(s) affected and preserved
 - tests/checks executed
