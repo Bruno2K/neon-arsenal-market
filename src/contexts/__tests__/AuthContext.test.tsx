@@ -83,6 +83,24 @@ describe("AuthContext profile and logout", () => {
     });
   });
 
+  it("still returns to guest when revoke fails", async () => {
+    logoutApi.mockRejectedValueOnce(new Error("network"));
+
+    render(
+      <AuthProvider>
+        <Probe />
+      </AuthProvider>,
+    );
+
+    expect(await screen.findByTestId("name")).toHaveTextContent("Buyer");
+    fireEvent.click(screen.getByRole("button", { name: "sair" }));
+
+    await waitFor(() => {
+      expect(logoutApi).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId("name")).toHaveTextContent("anon");
+    });
+  });
+
   it("logout calls the revoke helper then drops the user", async () => {
     render(
       <AuthProvider>
