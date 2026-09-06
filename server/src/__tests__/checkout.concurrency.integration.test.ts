@@ -56,13 +56,12 @@ describe("checkout concurrency (postgres)", () => {
 
     const winnerId = fulfilled[0].value.id;
     const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-    const orders = await prisma.order.findMany({
-      where: { items: { some: { listingId } } },
-    });
+    const orders = await prisma.order.findMany();
     const orderItems = await prisma.orderItem.findMany({ where: { listingId } });
     const reservedListings = await prisma.listing.findMany({
       where: { id: listingId, status: "RESERVED" },
     });
+    const keys = await prisma.orderIdempotencyKey.findMany();
     const txns = await prisma.sellerTransaction.findMany();
 
     expect(listing?.status).toBe("RESERVED");
@@ -72,6 +71,9 @@ describe("checkout concurrency (postgres)", () => {
     expect(orders[0]?.id).toBe(winnerId);
     expect(orderItems).toHaveLength(1);
     expect(orderItems[0]?.orderId).toBe(winnerId);
+    expect(keys).toHaveLength(1);
+    expect(keys[0]?.orderId).toBe(winnerId);
+    expect(keys[0]?.status).toBe("COMPLETED");
     expect(txns).toHaveLength(0);
   });
 
