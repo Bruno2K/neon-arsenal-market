@@ -88,9 +88,10 @@ Webhook handling:
 1. Capture the raw body and verify RSA-SHA256 using `PAYPAL_WEBHOOK_ID` and the certificate at `paypal-cert-url`. `paypal-transmission-time` must be within 5 minutes of the server clock.
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
-4. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012).
+4. After the buyer approves, PayPal leaves the order `APPROVED` until `OrdersCapture`. `POST /payments/capture` (return page) and GET reconciliation of a live hold perform that capture. `confirmPayment` still requires PayPal `COMPLETED`.
+5. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012).
 
-A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20) and reuses `confirmPayment`.
+A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20), captures live `APPROVED` holds, and reuses `confirmPayment`.
 
 Critical workflows emit explicit spans (`orders.create`, `listings.reserve`, `payments.confirm`, `paypal.webhook.*`, `payments.reconcile`, `seller.ledger.reconcile`, `outbox.dispatch`) and low-cardinality business counters. Expected 4xx results use `app.outcome` and are not marked span `ERROR`. Prisma calls get `db.prisma` spans without SQL text or parameters. PayPal HTTP uses stable operation names such as `paypal.orders_create`.
 

@@ -16,7 +16,7 @@ PostgreSQL is the source of truth. These invariants are not enforced by Redis, K
 | `INV-LISTING-EXCLUSIVE-RESERVE` | Two buyers cannot both reserve the same listing. |
 | `INV-LISTING-SOLD-IRREVERSIBLE` | `SOLD` has no outgoing transition. |
 | `INV-ORDER-TOTAL-COMPOSITION` | `Order.totalAmount` equals the sum of item `priceSnapshot` values. |
-| `INV-PAYMENT-TRUSTED-CONFIRM` | `PAID` comes from webhook/reconciliation, not a client assertion. |
+| `INV-PAYMENT-TRUSTED-CONFIRM` | `PAID` comes from PayPal COMPLETED (webhook, capture, or GET), not a client assertion. |
 | `INV-AUTH-OWNERSHIP` | Customers and sellers only act on resources they own. |
 | `INV-SELLER-COMMISSION-DECIMAL` | Commission and balance use `Decimal`, not JavaScript `number`. |
 
@@ -74,15 +74,15 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 ## INV-PAYMENT-TRUSTED-CONFIRM
 
-**Statement:** Local `Order.paymentStatus = PAID` (and the matching listing `SOLD` + seller payout) is applied only by `paymentsService.confirmPayment`, which is called from a verified PayPal webhook (`PAYMENT.CAPTURE.COMPLETED`) or GET reconciliation. A client cannot set `PAID`. Buyer return/cancel at PayPal does not mark the order paid. `CHECKOUT.ORDER.APPROVED` is stored and ignored.
+**Statement:** Local `Order.paymentStatus = PAID` (and the matching listing `SOLD` + seller payout) is applied only by `paymentsService.confirmPayment`, which is called from a verified PayPal webhook (`PAYMENT.CAPTURE.COMPLETED`), merchant `OrdersCapture`/`OrdersGet` when PayPal reports `COMPLETED`, or GET reconciliation of that same COMPLETED state. A client cannot set `PAID`. Hitting the PayPal return URL does not mark the order paid by itself; `POST /payments/capture` talks to PayPal first. `CHECKOUT.ORDER.APPROVED` is stored and ignored and does not sell listings.
 
-**Why it matters:** The client is untrusted. Treating a browser callback as payment would sell listings without funds.
+**Why it matters:** The client is untrusted. Treating a browser callback as payment would sell listings without funds. PayPal Standard Checkout also stays `APPROVED` until the merchant captures.
 
 **Enforced:**
 
 - Schema: `Order.paymentStatus` is `PaymentStatus`. `PaymentWebhookEvent` unique `(provider, externalEventId)`.
-- HTTP: `POST /payments/create` (authenticated customer) opens a PayPal order; `POST /payments/webhook` verifies PayPal headers then confirms. There is no `POST /payments/confirm`. `PATCH /orders/:id/status` accepts only fulfillment `status`; unknown `paymentStatus` on that body is stripped. CUSTOMER cannot `PENDING → CONFIRMED`.
-- Service: `confirmPayment` claims `paymentStatus = PENDING AND status = PENDING`. Duplicate claims are no-ops. Expired/mismatched reservations roll back the claim (HTTP 409). The same transaction inserts `PAYMENT_CONFIRMED` and `ORDER_CONFIRMED` outbox rows (ADR 0012).
+- HTTP: `POST /payments/create` (authenticated customer) opens a PayPal order; `POST /payments/capture` (authenticated owner) captures an `APPROVED` order only while the local hold is live; `POST /payments/webhook` verifies PayPal headers then confirms. There is no `POST /payments/confirm`. `PATCH /orders/:id/status` accepts only fulfillment `status`; unknown `paymentStatus` on that body is stripped. CUSTOMER cannot `PENDING → CONFIRMED`.
+- Service: `confirmPayment` claims `paymentStatus = PENDING AND status = PENDING`. Duplicate claims are no-ops. Expired/mismatched reservations roll back the claim (HTTP 409). Capture is skipped when the hold is dead so funds are not taken after expiry. The same transaction inserts `PAYMENT_CONFIRMED` and `ORDER_CONFIRMED` outbox rows (ADR 0012).
 - Tests: `server/src/__tests__/paypal.webhook.integration.test.ts`; `server/src/modules/payments/__tests__/payments.controller.test.ts` (signature required); `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/order.status.integration.test.ts` (CUSTOMER cannot skip payment; cancel leaves `paymentStatus` PENDING); `server/src/shared/types/__tests__/roles.test.ts` (status DTO strips `paymentStatus`); `server/src/__tests__/outbox.integration.test.ts`.
 
 **Related:** `INV-PAYMENT-WEBHOOK-AUTHENTIC`, `INV-PAYMENT-WEBHOOK-IDEMPOTENT`, `INV-PAYMENT-LINK-IDEMPOTENT`.

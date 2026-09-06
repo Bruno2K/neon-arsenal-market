@@ -111,8 +111,13 @@ export async function capturePayPalOrder(orderId: string) {
   const request = new paypal.orders.OrdersCaptureRequest(orderId);
   request.requestBody({});
   return withPaypalOperation("orders_capture", async () => {
-    const response = await withTimeout(client.execute(request), "PayPal OrdersCapture");
-    return response.result;
+    // OrdersCapture is not retried: a retry can capture funds more than once.
+    try {
+      const response = await withTimeout(client.execute(request), "PayPal OrdersCapture");
+      return response.result as { id?: string; status?: string };
+    } catch (err) {
+      throw mapPayPalHttpError(err);
+    }
   });
 }
 
@@ -200,6 +205,11 @@ export async function getPayPalAccessToken(): Promise<string> {
 }
 
 export const PAYPAL_CLIENT_AUTH_FAILED = "PayPal client authentication failed";
+
+export function isPayPalOrderAlreadyCapturedError(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return /ORDER_ALREADY_CAPTURED|ORDER_ALREADY_COMPLETED/i.test(message);
+}
 
 export function isPayPalClientAuthError(err: unknown): boolean {
   const status =

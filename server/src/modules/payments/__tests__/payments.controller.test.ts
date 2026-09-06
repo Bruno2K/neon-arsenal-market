@@ -5,6 +5,7 @@ vi.mock("../payments.service.js", () => ({
   paymentsService: {
     handleWebhook: vi.fn(),
     createPaymentLink: vi.fn(),
+    capturePayment: vi.fn(),
   },
 }));
 
@@ -82,6 +83,36 @@ describe("paymentsController.webhook", () => {
 
     expect(paymentsService.handleWebhook).toHaveBeenCalledWith(body);
     expect(res.status).toHaveBeenCalledWith(200);
+    expect(next).not.toHaveBeenCalled();
+  });
+});
+
+describe("paymentsController.capture", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("captures as the authenticated customer", async () => {
+    vi.mocked(paymentsService.capturePayment).mockResolvedValue({
+      orderId: "order-1",
+      paymentStatus: "PAID",
+      paypalStatus: "COMPLETED",
+    });
+    const req = {
+      user: { id: "user-1", role: "CUSTOMER" },
+      body: { orderId: "order-1" },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await paymentsController.capture(req, res, next);
+
+    expect(paymentsService.capturePayment).toHaveBeenCalledWith("user-1", "order-1");
+    expect(res.json).toHaveBeenCalledWith({
+      orderId: "order-1",
+      paymentStatus: "PAID",
+      paypalStatus: "COMPLETED",
+    });
     expect(next).not.toHaveBeenCalled();
   });
 });

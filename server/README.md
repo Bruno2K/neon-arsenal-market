@@ -96,6 +96,7 @@ Variáveis: `OTEL_ENABLED`, `OTEL_EXPORTER` (`none` | `console` | `otlp`), `OTEL
 | `GET /orders`, `GET /orders/:id` | Listar/detalhe (auth)        |
 | `PATCH /orders/:id/status` | Transição explícita (CUSTOMER: cancelar PENDING/CONFIRMED ou SHIPPED→DELIVERED; ADMIN: grafo completo; SELLER: 403). Terminais: DELIVERED, CANCELLED |
 | `POST /payments/create` | Link PayPal (body: orderId) (auth)  |
+| `POST /payments/capture` | Captura PayPal após aprovação (auth, dono do pedido) |
 | `POST /payments/webhook` | Webhook PayPal (sem auth)        |
 | `GET /commissions/transactions` | Transações (SELLER/ADMIN)   |
 | `GET /commissions/balance` | Saldo (SELLER)                 |

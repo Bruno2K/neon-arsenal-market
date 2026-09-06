@@ -18,6 +18,16 @@ export const paymentsController = {
     }
   },
 
+  async capture(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const user = getAuthUser(req);
+      const result = await paymentsService.capturePayment(user.id, req.body.orderId);
+      res.json(result);
+    } catch (e) {
+      next(e);
+    }
+  },
+
   async webhook(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const accepted = await withSpan("paypal.webhook.verify", {}, async (span) => {

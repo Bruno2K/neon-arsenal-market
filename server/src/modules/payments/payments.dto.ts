@@ -7,3 +7,9 @@ export const createPaymentDto = z.object({
 });
 
 export type CreatePaymentInput = z.infer<typeof createPaymentDto>;
+
+export const capturePaymentDto = z.object({
+  orderId: z.string().min(1, "Order ID is required"),
+});
+
+export type CapturePaymentInput = z.infer<typeof capturePaymentDto>;

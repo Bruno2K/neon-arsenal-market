@@ -29,6 +29,21 @@ Do not set `PAYPAL_MODE=production` to “make login work.” That is a live-mon
 
 If checkout creates a local order but PayPal does not open, check API logs for `PAYPAL_CLIENT_AUTH_FAILED` (HTTP 503, no PayPal JSON in the body). The storefront maps that message to Portuguese copy when the buyer retries payment.
 
+## PayPal webhook and capture
+
+Buyer approval on PayPal is **not** local `PAID`. Standard Checkout stays `APPROVED` until the API calls `OrdersCapture`. The return page (`POST /payments/capture`) and the GET reconciliation sweep (APPROVED + live hold) perform that capture. `confirmPayment` still runs only when PayPal reports `COMPLETED`.
+
+Register a **Sandbox** webhook on the same REST app as `PAYPAL_CLIENT_ID`:
+
+1. Developer Dashboard → Apps → the sandbox app → Webhooks.
+2. URL: `https://<api-host>/payments/webhook` (production API is `https://neon-arsenal-market-api.onrender.com/payments/webhook`). Do not point PayPal at the Vite/Vercel origin.
+3. Subscribe at least to `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is stored as `IGNORED` and does not sell listings.
+4. Copy the webhook **ID** into Render env `PAYPAL_WEBHOOK_ID` on `neon-arsenal-market-api`, then restart. Production (`NODE_ENV=production`) rejects unsigned events when this is missing.
+
+Webhook delivery is still required for lost return-page captures. The in-process GET sweep (60s, min age 2 minutes) recovers `COMPLETED` orders and will capture live `APPROVED` holds. A sleeping free Render instance cannot sweep until the next request wakes it.
+
+Never paste webhook secrets or PayPal JSON into git.
+
 ## Health vs ready
 
 The API exposes two GET routes. Render has **one** probe (`healthCheckPath`).
@@ -131,7 +146,7 @@ PayPal can capture funds after the local reservation TTL has elapsed. The market
 
 Inspected:
 
-- `server/src/shared/utils/paypal.ts` — `createPayPalOrder`, `capturePayPalOrder` (unused), `getPayPalOrder`. No refund/void function.
+- `server/src/shared/utils/paypal.ts` — `createPayPalOrder`, `capturePayPalOrder`, `getPayPalOrder`. No refund/void function.
 - `server/src/types/paypal.d.ts` — only OrdersCreate and OrdersCapture types.
 - `server/src/modules/payments/payments.service.ts` — expired capture → webhook event `FAILED` / `reservation_expired`; reconciliation skips the same 409.
 - No `PAYPAL_*` refund environment variable exists.

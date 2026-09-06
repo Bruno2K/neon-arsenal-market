@@ -2,9 +2,11 @@ import { prisma } from "../../shared/database/index.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { logger } from "../../shared/logger.js";
 import {
+  capturePayPalOrder,
   createPayPalOrder,
   getPayPalApprovalLink,
   getPayPalOrder,
+  isPayPalOrderAlreadyCapturedError,
 } from "../../shared/utils/paypal.js";
 import {
   PAYPAL_EVENT_CAPTURE_COMPLETED,
@@ -104,6 +106,39 @@ export const paymentsService = {
         }
         throw err;
       }
+    });
+  },
+
+  /**
+   * Merchant OrdersCapture after the buyer approved on PayPal.
+   * Does not set PAID from the client: confirmPayment runs only when PayPal
+   * reports COMPLETED. Does not capture when the local hold has expired.
+   */
+  async capturePayment(userId: string, orderId: string) {
+    return withSpan("payments.capture", {}, async (span) => {
+      const order = await prisma.order.findUnique({
+        where: { id: orderId },
+        include: { items: { include: { listing: true } } },
+      });
+      if (!order) throw new AppError(404, "Order not found");
+      if (order.customerId !== userId) throw new AppError(403, "Not your order");
+      if (order.paymentStatus === "PAID") {
+        markSpanOutcome(span, "already_confirmed");
+        return { orderId: order.id, paymentStatus: "PAID" as const };
+      }
+      if (order.status === "CANCELLED") throw new AppError(400, "Order is cancelled");
+      if (!order.paypalOrderId) throw new AppError(400, "PayPal order has not been created");
+
+      const outcome = await syncRemotePaypalPayment(order, { captureIfApproved: true });
+      span.setAttribute("paypal.order_status", outcome.paypalStatus ?? "unknown");
+      if (outcome.paymentStatus === "PAID") {
+        markSpanOutcome(span, "confirmed");
+      }
+      return {
+        orderId: order.id,
+        paymentStatus: outcome.paymentStatus,
+        paypalStatus: outcome.paypalStatus,
+      };
     });
   },
 
@@ -218,7 +253,8 @@ export const paymentsService = {
     );
   },
 
-  // INV-PAYMENT-TRUSTED-CONFIRM: webhook/reconciliation only. Clients have no confirm route.
+  // INV-PAYMENT-TRUSTED-CONFIRM: confirmPayment is not a client flag.
+  // Callers are webhook CAPTURE.COMPLETED, OrdersCapture COMPLETED, or OrdersGet COMPLETED.
   async confirmPayment(orderId: string) {
     return withSpan("payments.confirm", {}, async (span) => {
     let claimedCount = 0;
@@ -362,6 +398,7 @@ export const paymentsService = {
         paypalOrderId: { not: null },
         updatedAt: { lte: cutoff },
       },
+      include: { items: { include: { listing: true } } },
       take: PAYPAL_RECONCILE_BATCH_SIZE,
       orderBy: { updatedAt: "asc" },
     });
@@ -370,9 +407,8 @@ export const paymentsService = {
     for (const order of pending) {
       if (!order.paypalOrderId) continue;
       try {
-        const remote = await getPayPalOrder(order.paypalOrderId);
-        if (remote.status === "COMPLETED") {
-          await this.confirmPayment(order.id);
+        const outcome = await syncRemotePaypalPayment(order, { captureIfApproved: true });
+        if (outcome.paymentStatus === "PAID") {
           confirmed += 1;
           logger.info({ orderId: order.id }, "paypal reconciliation confirmed captured order");
         }
@@ -396,6 +432,80 @@ type PaymentLinkResult = {
   paypalOrderId: string;
   approvalUrl: string;
 };
+
+type OrderForPaypalSync = {
+  id: string;
+  paypalOrderId: string | null;
+  items: Array<{
+    listing?: {
+      status: string;
+      reservedByOrderId: string | null;
+      reservationExpiresAt: Date | null;
+    } | null;
+  }>;
+};
+
+type RemotePaypalSyncOutcome = {
+  paymentStatus: "PAID" | "PENDING";
+  paypalStatus?: string;
+};
+
+function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): boolean {
+  if (!order.items.length) return false;
+  return order.items.every((item) => {
+    const listing = item.listing;
+    return Boolean(
+      listing &&
+        listing.status === "RESERVED" &&
+        listing.reservedByOrderId === order.id &&
+        listing.reservationExpiresAt &&
+        listing.reservationExpiresAt > now
+    );
+  });
+}
+
+async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<string | undefined> {
+  try {
+    const captured = await capturePayPalOrder(paypalOrderId);
+    return captured.status;
+  } catch (err) {
+    if (isPayPalOrderAlreadyCapturedError(err)) {
+      const remote = await getPayPalOrder(paypalOrderId);
+      return remote.status;
+    }
+    throw err;
+  }
+}
+
+/**
+ * Trusted PayPal REST only. APPROVED does not sell listings. Capture is skipped
+ * when the local hold is dead so we do not take funds after expiry.
+ */
+async function syncRemotePaypalPayment(
+  order: OrderForPaypalSync,
+  options: { captureIfApproved: boolean }
+): Promise<RemotePaypalSyncOutcome> {
+  if (!order.paypalOrderId) {
+    return { paymentStatus: "PENDING" };
+  }
+
+  let status = (await getPayPalOrder(order.paypalOrderId)).status;
+
+  if (status === "APPROVED" && options.captureIfApproved) {
+    if (!orderHoldAllowsCapture(order)) {
+      logger.warn({ orderId: order.id }, "paypal capture skipped: reservation expired");
+      throw new AppError(409, "Reservation expired or listing is no longer reserved");
+    }
+    status = await captureApprovedPaypalOrder(order.paypalOrderId);
+  }
+
+  if (status === "COMPLETED") {
+    await paymentsService.confirmPayment(order.id);
+    return { paymentStatus: "PAID", paypalStatus: status };
+  }
+
+  return { paymentStatus: "PENDING", paypalStatus: status };
+}
 
 function replayablePaymentLink(order: {
   id: string;
