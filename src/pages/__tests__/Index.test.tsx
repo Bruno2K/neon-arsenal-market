@@ -20,6 +20,7 @@ import {
   approvedSellersCountLabel,
   listingsCountLabel,
 } from "@/lib/homeDiscovery";
+import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 
 const listListings = vi.fn();
 const listProducts = vi.fn();
@@ -116,6 +117,7 @@ function renderHome() {
 
 describe("Index", () => {
   beforeEach(() => {
+    localStorage.removeItem(CART_STORAGE_KEY);
     listListings.mockReset();
     listProducts.mockReset();
     listSellers.mockReset();

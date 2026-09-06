@@ -34,7 +34,7 @@ Brand/visual/seller locks in this file still apply. The **executable queue is Gi
 | Surface | Routes | Behavior to preserve |
 |---|---|---|
 | Storefront | `/`, `/products`, `/listing/:id` | Home: 8 ACTIVE listings. Market: exterior / StatTrak / price / client-side sort / pagination. Detail: float, pattern, trade lock, price history, related, cart. |
-| Purchase | `/cart`, `/checkout` | Local cart. Checkout only `CUSTOMER`. `createOrder` + PayPal. 5% display total stays unless a later issue says otherwise. |
+| Purchase | `/cart`, `/checkout` | Device-local cart (`localStorage` schema v1 in `src/lib/cartStorage.ts`). Not multi-device and not account-bound; logout keeps the guest cart. Checkout only `CUSTOMER`. `createOrder` + PayPal. 5% display total stays unless a later issue says otherwise. |
 | Auth | `/login`, `/register` | Login. Register 2-step email code. `CUSTOMER` or `SELLER` + `storeName`. |
 | Seller | `/seller`, `/seller/products`, `/seller/listings`, `/seller/orders` | Stats, listing CRUD on listings, orders. Products page must stop being a second listing CRUD. |
 | Admin | `/admin`, `/admin/sellers`, `/admin/orders`, `/admin/users` | Stats, approve seller, orders, users, commission display. |

@@ -2,11 +2,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   ReactNode,
 } from "react";
 import type { Listing } from "@/types/api";
 import { cartSnapshotNeedsUpdate } from "@/lib/cartListingStatus";
+import { loadCartFromStorage, saveCartToStorage } from "@/lib/cartStorage";
+import {
+  CART_ADDED_MESSAGE,
+  CART_DUPLICATE_MESSAGE,
+  CART_REMOVED_MESSAGE,
+} from "@/lib/listingCartCta";
+import { useToast } from "@/hooks/use-toast";
 
 export type AddItemResult = "added" | "duplicate" | "unavailable";
 
@@ -29,21 +37,34 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() =>
+    loadCartFromStorage().map((item) => ({
+      listing: item.listing,
+      priceWhenAdded: item.priceWhenAdded ?? item.listing.price,
+    })),
+  );
+  const { toast } = useToast();
+
+  useEffect(() => {
+    saveCartToStorage(items);
+  }, [items]);
 
   const addItem = (listing: Listing): AddItemResult => {
     if (listing.status !== "ACTIVE") {
       return "unavailable";
     }
-    let result: AddItemResult = "added";
+    if (items.some((item) => item.listing.id === listing.id)) {
+      toast({ title: CART_DUPLICATE_MESSAGE });
+      return "duplicate";
+    }
     setItems((prev) => {
       if (prev.some((item) => item.listing.id === listing.id)) {
-        result = "duplicate";
         return prev;
       }
       return [...prev, { listing, priceWhenAdded: listing.price }];
     });
-    return result;
+    toast({ title: CART_ADDED_MESSAGE });
+    return "added";
   };
 
   const updateListing = useCallback((listing: Listing) => {
@@ -58,8 +79,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const removeItem = (listingId: string) =>
-    setItems((prev) => prev.filter((i) => i.listing.id !== listingId));
+  const removeItem = (listingId: string) => {
+    if (!items.some((item) => item.listing.id === listingId)) {
+      return;
+    }
+    setItems((prev) => prev.filter((item) => item.listing.id !== listingId));
+    toast({ title: CART_REMOVED_MESSAGE });
+  };
 
   const removeItems = (listingIds: string[]) => {
     const ids = new Set(listingIds);

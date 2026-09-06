@@ -13,6 +13,7 @@ import {
   CART_CTA_SIMILAR,
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
+import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 
 const getListing = vi.fn();
 const listListings = vi.fn();
@@ -114,6 +115,7 @@ describe("ListingDetail", () => {
     getPriceHistory.mockReset();
     reserveListing.mockReset();
     toast.mockReset();
+    localStorage.removeItem(CART_STORAGE_KEY);
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
   });

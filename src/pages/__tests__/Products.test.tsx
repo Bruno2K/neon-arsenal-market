@@ -10,6 +10,7 @@ import {
   MARKET_SIMILAR_EMPTY_TITLE,
   MARKET_VIEW_CTA,
 } from "@/lib/listingCartCta";
+import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 
 const listListings = vi.fn();
 
@@ -79,6 +80,7 @@ function renderMarket(path = "/products") {
 describe("Products", () => {
   beforeEach(() => {
     listListings.mockReset();
+    localStorage.removeItem(CART_STORAGE_KEY);
   });
 
   it("lists ACTIVE listings without a productId filter by default", async () => {
