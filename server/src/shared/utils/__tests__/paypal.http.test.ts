@@ -98,4 +98,34 @@ describe("PayPal HTTP policy", () => {
     await expect(getPayPalOrder("paypal-1")).resolves.toEqual({ id: "paypal-1", status: "COMPLETED" });
     expect(tokenCalls).toBe(2);
   });
+
+  it("does not promote an unknown OrdersGet status to COMPLETED", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/v1/oauth2/token")) {
+        return new Response(JSON.stringify({ access_token: "token", expires_in: 300 }), { status: 200 });
+      }
+      return new Response(JSON.stringify({ id: "paypal-1", status: "PAID" }), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getPayPalOrder, isPayPalCompletedStatus } = await import("../paypal.js");
+    const remote = await getPayPalOrder("paypal-1");
+    expect(remote).toEqual({ id: "paypal-1" });
+    expect(isPayPalCompletedStatus(remote.status)).toBe(false);
+  });
+
+  it("rejects a non-object OrdersGet body", async () => {
+    const fetchMock = vi.fn(async (input: string | URL) => {
+      const url = String(input);
+      if (url.includes("/v1/oauth2/token")) {
+        return new Response(JSON.stringify({ access_token: "token", expires_in: 300 }), { status: 200 });
+      }
+      return new Response(JSON.stringify("COMPLETED"), { status: 200 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const { getPayPalOrder } = await import("../paypal.js");
+    await expect(getPayPalOrder("paypal-1")).rejects.toMatchObject({ statusCode: 502 });
+  });
 });

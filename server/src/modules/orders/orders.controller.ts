@@ -2,7 +2,8 @@ import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 import { auditActorFromRequest } from "../audit/audit.service.js";
-import type { ListOrdersQuery } from "./orders.dto.js";
+import { AppError } from "../../shared/errors/AppError.js";
+import { listOrdersQueryDto, type ListOrdersQuery } from "./orders.dto.js";
 
 export const ordersController = {
   async create(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -31,7 +32,7 @@ export const ordersController = {
       const user = getAuthUser(req);
       let list;
       if (user.role === "ADMIN") {
-        list = await ordersService.listAdmin(req.query as ListOrdersQuery);
+        list = await ordersService.listAdmin(parseListOrdersQuery(req.query));
       } else if (user.role === "SELLER") {
         list = await ordersService.listBySeller(user.id);
       } else {
@@ -74,3 +75,12 @@ export const ordersController = {
     }
   },
 };
+
+function parseListOrdersQuery(query: unknown): ListOrdersQuery {
+  const parsed = listOrdersQueryDto.safeParse(query);
+  if (!parsed.success) {
+    const message = parsed.error.errors.map((e) => `${e.path.join(".")}: ${e.message}`).join("; ");
+    throw new AppError(400, message);
+  }
+  return parsed.data;
+}

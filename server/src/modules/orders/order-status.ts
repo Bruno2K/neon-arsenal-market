@@ -1,5 +1,13 @@
 import { AppError } from "../../shared/errors/AppError.js";
-import { ORDER_STATUSES, ROLES, type OrderStatus, type Role } from "../../shared/types/roles.js";
+import { isOneOf } from "../../shared/types/guards.js";
+import {
+  isOrderStatus,
+  isRole,
+  type OrderStatus,
+  type Role,
+} from "../../shared/types/roles.js";
+
+export { isOrderStatus };
 
 /**
  * Fulfillment graph for Order.status.
@@ -48,21 +56,17 @@ export const ORDER_STATUS_TRANSITIONS_BY_ROLE: Record<Role, Record<OrderStatus, 
   },
 };
 
-export function isOrderStatus(value: string): value is OrderStatus {
-  return (ORDER_STATUSES as readonly string[]).includes(value);
-}
-
 export function isTerminalOrderStatus(status: OrderStatus): boolean {
-  return (TERMINAL_ORDER_STATUSES as readonly string[]).includes(status);
+  return isOneOf(status, TERMINAL_ORDER_STATUSES);
 }
 
 export function isAllowedOrderStatusTransition(from: OrderStatus, to: OrderStatus): boolean {
   return ORDER_STATUS_TRANSITIONS[from].includes(to);
 }
 
-export function parseOrderStatus(value: string): OrderStatus {
+export function parseOrderStatus(value: unknown): OrderStatus {
   if (!isOrderStatus(value)) {
-    throw new AppError(400, `Unknown order status: ${value}`);
+    throw new AppError(400, `Unknown order status: ${String(value)}`);
   }
   return value;
 }
@@ -76,11 +80,11 @@ export function assertOrderStatusTransition(from: OrderStatus, to: OrderStatus, 
     throw new AppError(403, "Sellers cannot edit orders");
   }
 
-  if (!(ROLES as readonly string[]).includes(role)) {
+  if (!isRole(role)) {
     throw new AppError(403, "Forbidden");
   }
 
-  const allowedForRole = ORDER_STATUS_TRANSITIONS_BY_ROLE[role as Role][from];
+  const allowedForRole = ORDER_STATUS_TRANSITIONS_BY_ROLE[role][from];
   if (!allowedForRole.includes(to)) {
     throw new AppError(403, `Role ${role} cannot transition order from ${from} to ${to}`);
   }

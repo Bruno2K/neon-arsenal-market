@@ -3,6 +3,7 @@ import { crc32 as zlibCrc32 } from "node:zlib";
 import { logger } from "../logger.js";
 import { getPayPalApiTimeoutMs, PAYPAL_IDEMPOTENT_RETRY, PAYPAL_WEBHOOK_MAX_SKEW_MS } from "../config/paypal.js";
 import { classifyHttpStatus, isTimeoutError, withRetry } from "../resilience/retry.js";
+import { isRecord } from "../types/guards.js";
 
 const PAYPAL_CERT_HOSTS = new Set([
   "api.paypal.com",
@@ -242,32 +243,29 @@ export type ParsedPayPalWebhookEvent = {
 };
 
 export function parsePayPalWebhookEvent(body: unknown): ParsedPayPalWebhookEvent | null {
-  if (!body || typeof body !== "object") return null;
-  const event = body as {
-    id?: unknown;
-    event_type?: unknown;
-    resource?: {
-      id?: unknown;
-      purchase_units?: Array<{ reference_id?: unknown }>;
-      supplementary_data?: { related_ids?: { order_id?: unknown } };
-    };
-  };
-  if (typeof event.id !== "string" || event.id.length === 0) return null;
-  if (typeof event.event_type !== "string" || event.event_type.length === 0) return null;
+  if (!isRecord(body)) return null;
+  if (typeof body.id !== "string" || body.id.length === 0) return null;
+  if (typeof body.event_type !== "string" || body.event_type.length === 0) return null;
 
-  const reference = event.resource?.purchase_units?.[0]?.reference_id;
-  const relatedOrderId = event.resource?.supplementary_data?.related_ids?.order_id;
-  const resourceId = typeof event.resource?.id === "string" ? event.resource.id : undefined;
+  const resource = isRecord(body.resource) ? body.resource : undefined;
+  const purchaseUnits = Array.isArray(resource?.purchase_units) ? resource.purchase_units : [];
+  const firstUnit = isRecord(purchaseUnits[0]) ? purchaseUnits[0] : undefined;
+  const supplementary = isRecord(resource?.supplementary_data) ? resource.supplementary_data : undefined;
+  const relatedIds = isRecord(supplementary?.related_ids) ? supplementary.related_ids : undefined;
+
+  const reference = firstUnit?.reference_id;
+  const relatedOrderId = relatedIds?.order_id;
+  const resourceId = typeof resource?.id === "string" ? resource.id : undefined;
 
   return {
-    eventId: event.id,
-    eventType: event.event_type,
+    eventId: body.id,
+    eventType: body.event_type,
     resourceId,
     referenceOrderId: typeof reference === "string" ? reference : undefined,
     paypalOrderId:
       typeof relatedOrderId === "string"
         ? relatedOrderId
-        : event.event_type === PAYPAL_EVENT_ORDER_APPROVED
+        : body.event_type === PAYPAL_EVENT_ORDER_APPROVED
           ? resourceId
           : undefined,
   };

@@ -213,6 +213,12 @@ describe("parsePayPalWebhookEvent", () => {
       referenceOrderId: "local-order",
     });
   });
+
+  it("rejects arrays and missing identifiers instead of casting them", () => {
+    expect(parsePayPalWebhookEvent([{ id: "WH-1", event_type: "PAYMENT.CAPTURE.COMPLETED" }])).toBeNull();
+    expect(parsePayPalWebhookEvent({ event_type: "PAYMENT.CAPTURE.COMPLETED" })).toBeNull();
+    expect(parsePayPalWebhookEvent({ id: "", event_type: "PAYMENT.CAPTURE.COMPLETED" })).toBeNull();
+  });
 });
 
 describe("downloadPayPalCertificate", () => {

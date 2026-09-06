@@ -22,6 +22,11 @@ import {
   REGISTRATION_ROLES,
   ROLES,
   WEBHOOK_EVENT_STATUSES,
+  isListingStatus,
+  isOrderStatus,
+  isPaymentStatus,
+  isRole,
+  parseOptionalRole,
 } from "../roles.js";
 
 function labelsOf(enumObject: Record<string, string>) {
@@ -65,5 +70,18 @@ describe("Prisma domain enums", () => {
     expect(updateOrderStatusDto.parse({ status: "CANCELLED", paymentStatus: "PAID" })).toEqual({
       status: "CANCELLED",
     });
+  });
+
+  it("narrows roles and lifecycle labels without casts", () => {
+    expect(isRole("ADMIN")).toBe(true);
+    expect(isRole("HACKER")).toBe(false);
+    expect(parseOptionalRole("CUSTOMER")).toBe("CUSTOMER");
+    expect(parseOptionalRole("HACKER")).toBeNull();
+    expect(isOrderStatus("PENDING")).toBe(true);
+    expect(isOrderStatus("PAID")).toBe(false);
+    expect(isPaymentStatus("PAID")).toBe(true);
+    expect(isPaymentStatus("COMPLETED")).toBe(false);
+    expect(isListingStatus("RESERVED")).toBe(true);
+    expect(isListingStatus("CANCELLED")).toBe(false);
   });
 });

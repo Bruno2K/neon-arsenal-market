@@ -116,4 +116,13 @@ describe("order status machine", () => {
       expect(err).toMatchObject({ statusCode: 400, message: "Unknown order status: REFUNDED" });
     }
   });
+
+  it("does not treat an unknown role as ADMIN via a cast", () => {
+    try {
+      assertOrderStatusTransition("PENDING", "CONFIRMED", "HACKER");
+      throw new Error("expected unknown role to throw");
+    } catch (err) {
+      expect(err).toMatchObject({ statusCode: 403, message: "Forbidden" });
+    }
+  });
 });
