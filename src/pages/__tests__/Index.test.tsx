@@ -22,17 +22,24 @@ import {
 } from "@/lib/homeDiscovery";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 import {
+  RECENTLY_VIEWED_HEADING,
+  RECENTLY_VIEWED_STORAGE_KEY,
+  saveRecentlyViewedIds,
+} from "@/lib/recentlyViewed";
+import {
   setAnalyticsCollector,
   type AnalyticsEventName,
   type AnalyticsProps,
 } from "@/lib/analytics";
 
 const listListings = vi.fn();
+const getListing = vi.fn();
 const listProducts = vi.fn();
 const listSellers = vi.fn();
 
 vi.mock("@/api/listings", () => ({
   listListings: (...args: unknown[]) => listListings(...args),
+  getListing: (...args: unknown[]) => getListing(...args),
 }));
 
 vi.mock("@/api/products", () => ({
@@ -130,9 +137,12 @@ describe("Index", () => {
       analyticsEvents.push({ event, props });
     });
     localStorage.removeItem(CART_STORAGE_KEY);
+    localStorage.removeItem(RECENTLY_VIEWED_STORAGE_KEY);
     listListings.mockReset();
+    getListing.mockReset();
     listProducts.mockReset();
     listSellers.mockReset();
+    getListing.mockRejectedValue(new Error("unused recently viewed id"));
     listProducts.mockResolvedValue({
       items: [
         makeProduct(),
@@ -198,6 +208,9 @@ describe("Index", () => {
 
     expect(screen.queryByText("Em destaque")).toBeNull();
     expect(screen.queryByText("Continue de onde parou")).toBeNull();
+    expect(screen.queryByText(RECENTLY_VIEWED_HEADING)).toBeNull();
+    expect(screen.queryByText(/recomendado para você/i)).toBeNull();
+    expect(getListing).not.toHaveBeenCalled();
     expect(screen.queryByText(/Oito em destaque/i)).toBeNull();
     expect(document.querySelector(".scan-lines")).toBeNull();
     expect(document.querySelector(".neon-text")).toBeNull();
@@ -301,5 +314,73 @@ describe("Index", () => {
       event: "category_view",
       props: { productId: "ak-redline-ft", source: "home" },
     });
+  });
+
+  it("shows a recently viewed rail after reload when stored ids are still ACTIVE", async () => {
+    saveRecentlyViewedIds(["listing-seen", "listing-dead", "listing-sold"]);
+    getListing.mockImplementation(async (id: unknown) => {
+      if (id === "listing-seen") {
+        return makeListing({
+          id: "listing-seen",
+          product: makeProduct({
+            id: "awp-asiimov-ft",
+            weapon: "AWP",
+            skinName: "Asiimov",
+          }),
+        });
+      }
+      if (id === "listing-sold") {
+        return makeListing({
+          id: "listing-sold",
+          status: "SOLD",
+          product: makeProduct({
+            id: "m4-howl",
+            weapon: "M4A4",
+            skinName: "Howl",
+          }),
+        });
+      }
+      throw new Error("gone");
+    });
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 8,
+    });
+
+    renderHome();
+
+    expect(await screen.findByText(RECENTLY_VIEWED_HEADING)).toBeTruthy();
+    expect(screen.getByText("AWP | Asiimov (Field-Tested)")).toBeTruthy();
+    expect(screen.queryByText("M4A4 | Howl (Field-Tested)")).toBeNull();
+    expect(screen.queryByText(/nenhum visto/i)).toBeNull();
+    expect(screen.queryByText(/recomendado para você/i)).toBeNull();
+    expect(screen.queryByText(/outros compradores/i)).toBeNull();
+    expect(getListing).toHaveBeenCalledWith("listing-seen");
+    expect(getListing).toHaveBeenCalledWith("listing-dead");
+    expect(getListing).toHaveBeenCalledWith("listing-sold");
+  });
+
+  it("keeps Home without history identical for this rail after a failed stored id", async () => {
+    saveRecentlyViewedIds(["listing-dead"]);
+    getListing.mockRejectedValue(new Error("gone"));
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 8,
+    });
+
+    renderHome();
+
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(getListing).toHaveBeenCalledWith("listing-dead");
+    });
+    expect(screen.queryByText(RECENTLY_VIEWED_HEADING)).toBeNull();
+    expect(screen.queryByText(/nenhum visto/i)).toBeNull();
   });
 });

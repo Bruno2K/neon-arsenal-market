@@ -5,11 +5,14 @@ import { ArrowLeft } from "lucide-react";
 import { ListingCard, SkinVisual } from "@/components/ProductCard";
 import { ListingCartCta } from "@/components/ListingCartCta";
 import { ProductReviews } from "@/components/ProductReviews";
+import { RecentlyViewedRail } from "@/components/RecentlyViewedRail";
 import { ErrorState } from "@/components/page-state";
 import { getListing, listListings } from "@/api/listings";
 import { getPriceHistory } from "@/api/price-history";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useRecentlyViewedListings } from "@/hooks/useRecentlyViewedListings";
+import { recordRecentlyViewedId } from "@/lib/recentlyViewed";
 import { analyticsPrice, readAnalyticsSource, track } from "@/lib/analytics";
 import {
   isNotFoundApiError,
@@ -55,9 +58,11 @@ export default function ListingDetail() {
   const related = (relatedData?.items ?? [])
     .filter((item) => item.id !== id)
     .slice(0, 4);
+  const recentlyViewed = useRecentlyViewedListings(id);
 
   useEffect(() => {
     if (!listing) return;
+    recordRecentlyViewedId(listing.id);
     track("product_view", {
       listingId: listing.id,
       productId: listing.productId,
@@ -261,6 +266,15 @@ export default function ListingDetail() {
             ))}
           </div>
         </section>
+      ) : null}
+
+      {recentlyViewed.length > 0 ? (
+        <div className="mt-12 border-t border-border pt-10">
+          <RecentlyViewedRail
+            listings={recentlyViewed}
+            headingId="pdp-recently-viewed-heading"
+          />
+        </div>
       ) : null}
     </div>
   );
