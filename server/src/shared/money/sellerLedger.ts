@@ -1,18 +1,12 @@
 import { Prisma } from "@prisma/client";
+import { MONEY_CURRENCY, MONEY_PRICE_SCALE } from "./policy.js";
 
 /**
- * Payout currency for SellerTransaction amounts. PayPal OrdersCreate uses BRL.
- * `Listing.currency` is catalog metadata (default USD) and is not the ledger currency.
+ * Ledger aliases for the canonical policy in `policy.ts`.
+ * Do not define a second currency, scale, or rounding mode here.
  */
-export const SELLER_LEDGER_CURRENCY = "BRL" as const;
-
-/**
- * Marketplace listing prices and PayPal capture amounts use 2 decimal places
- * (`toFixed(2)` at the PayPal boundary). Commission is `gross × rate` with
- * Prisma Decimal (exact Decimal.js). That product may have extra fractional
- * digits; there is no second rounding step and no JavaScript `number` math.
- */
-export const SELLER_LEDGER_PRICE_SCALE = 2;
+export const SELLER_LEDGER_CURRENCY = MONEY_CURRENCY;
+export const SELLER_LEDGER_PRICE_SCALE = MONEY_PRICE_SCALE;
 
 export type SellerLedgerAmounts = {
   grossAmount: Prisma.Decimal;

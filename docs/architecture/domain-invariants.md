@@ -88,7 +88,7 @@ gross amount
 Rules:
 
 1. Commission uses the applicable seller commission rate. Arithmetic is Prisma `Decimal`, never JavaScript `number`.
-2. `SellerTransaction` is the authoritative ledger. One row per `(sellerId, orderId)`. Currency is BRL (PayPal capture). Listing prices and PayPal amounts use 2 decimal places; commission is exact `gross × rate` with no extra rounding step. See `docs/adr/0011-seller-ledger.md`.
+2. `SellerTransaction` is the authoritative ledger. One row per `(sellerId, orderId)`. Currency is BRL (PayPal capture). Listing prices and PayPal amounts use 2 decimal places; commission is exact `gross × rate` with no extra rounding step. Shared helpers live in `server/src/shared/money/`. See `docs/architecture/money-policy.md` and `docs/adr/0011-seller-ledger.md`.
 3. Confirmation writes `status = PAID`. `REFUNDED` is not an application path.
 4. `Seller.balance` is a materialized projection of PAID net amounts, updated in the same local database transaction as the ledger insert. If they disagree, the ledger wins. An in-process job SETs a drifted projection to PAID `SUM(netAmount)` (no ledger-row rewrite) and records `SELLER_BALANCE_RECONCILED`.
 5. Duplicate confirm, webhook replay, and concurrent confirmation must not insert a second row or double-credit the projection.

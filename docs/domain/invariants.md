@@ -65,8 +65,8 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 **Enforced:**
 
 - Schema: `Order.totalAmount` and `OrderItem.priceSnapshot` are `Decimal`. There is no DB generated column; the service writes both in one transaction.
-- Service: `ordersService.create` accumulates `totalAmount.plus(listing.price)` and stores `priceSnapshot: listing.price`. Duplicate listing IDs in the request are rejected before the transaction.
-- Tests: `server/src/modules/orders/__tests__/orders.service.test.ts` (snapshot + multi-item Decimal sum + duplicate listing IDs); `server/src/__tests__/postgres.transactions.integration.test.ts` (committed total equals item snapshots).
+- Service: `ordersService.create` copies `priceSnapshot: listing.price` and writes `totalAmount` via `sumMoney` (`server/src/shared/money/policy.ts`). Duplicate listing IDs in the request are rejected before the transaction.
+- Tests: `server/src/modules/orders/__tests__/orders.service.test.ts` (snapshot + multi-item Decimal sum + duplicate listing IDs); `server/src/shared/money/__tests__/policy.test.ts`; `server/src/__tests__/postgres.transactions.integration.test.ts` (committed total equals item snapshots).
 
 **Related:** `INV-ORDER-PRICE-SNAPSHOT`, `INV-ORDER-ITEM-UNIQUE`, `INV-SELLER-COMMISSION-DECIMAL`.
 
@@ -114,8 +114,8 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 **Enforced:**
 
 - Schema: `Seller.commissionRate`, `Seller.balance`, `SellerTransaction.grossAmount` / `commissionAmount` / `netAmount` are `Decimal`. `@@unique([sellerId, orderId])`. CHECK `netAmount = grossAmount - commissionAmount`.
-- Service: `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction.
-- Tests: `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`.
+- Service: `aggregateGrossBySeller` + `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction. Currency, scale, and rounding mode are `server/src/shared/money/policy.ts`.
+- Tests: `server/src/shared/money/__tests__/policy.test.ts`; `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`.
 
 **Related:** `INV-SELLER-TXN-UNIQUE`, `INV-SELLER-LEDGER-SOURCE`, `INV-PAYMENT-TRUSTED-CONFIRM`.
 

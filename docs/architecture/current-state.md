@@ -89,7 +89,7 @@ Webhook handling:
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
 4. After the buyer approves, PayPal leaves the order `APPROVED` until `OrdersCapture`. `POST /payments/capture` (return page) and GET reconciliation of a live hold perform that capture. `confirmPayment` still requires PayPal `COMPLETED`.
-5. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012).
+5. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012). Price, commission, and net use the shared money policy (`docs/architecture/money-policy.md`); there is no refund path.
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20), captures live `APPROVED` holds, and reuses `confirmPayment`.
 

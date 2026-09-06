@@ -34,6 +34,11 @@ import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType } from "../audit/audit.types.js";
 import { computeSellerLedgerAmounts } from "../../shared/money/sellerLedger.js";
+import {
+  aggregateGrossBySeller,
+  formatPayPalAmount,
+  MONEY_CURRENCY,
+} from "../../shared/money/policy.js";
 import { outboxRepository } from "../../shared/outbox/outbox.repository.js";
 import { OutboxEventType } from "../../shared/outbox/outbox.types.js";
 
@@ -68,14 +73,14 @@ export const paymentsService = {
 
       let openedPaypalOrderId: string | undefined;
       try {
-        const amount = order.totalAmount.toFixed(2);
+        const amount = formatPayPalAmount(order.totalAmount);
         // OrdersCreate is not retried by the PayPal client. This call happens
         // only after a durable PaymentLink claim is inserted.
         const checkoutUrls =
           input.returnUrl || input.cancelUrl
             ? { returnUrl: input.returnUrl, cancelUrl: input.cancelUrl }
             : undefined;
-        const paypalOrder = await createPayPalOrder(amount, "BRL", order.id, checkoutUrls);
+        const paypalOrder = await createPayPalOrder(amount, MONEY_CURRENCY, order.id, checkoutUrls);
         openedPaypalOrderId = paypalOrder.id;
         if (!openedPaypalOrderId) {
           throw new AppError(500, "Failed to create PayPal order");
@@ -321,32 +326,21 @@ export const paymentsService = {
         tx
       );
 
-      const bySeller = new Map<string, { grossAmount: Prisma.Decimal; commissionRate: Prisma.Decimal }>();
-      for (const item of order.items) {
-        const seller = await tx.seller.findUnique({
-          where: { id: item.sellerId },
-          select: { commissionRate: true },
-        });
-        if (!seller) throw new AppError(404, `Seller not found: ${item.sellerId}`);
-
-        const existing = bySeller.get(item.sellerId);
-        if (existing) {
-          existing.grossAmount = existing.grossAmount.plus(item.priceSnapshot);
-        } else {
-          bySeller.set(item.sellerId, {
-            grossAmount: item.priceSnapshot,
-            commissionRate: seller.commissionRate,
-          });
-        }
-      }
+      const grossBySeller = aggregateGrossBySeller(order.items);
 
       // INV-SELLER-LEDGER-SOURCE / INV-SELLER-COMMISSION-DECIMAL:
       // SellerTransaction is the ledger. Seller.balance is incremented in this
       // same local transaction as a projection of PAID net amounts.
-      for (const [sellerId, data] of bySeller) {
+      for (const [sellerId, sellerGross] of grossBySeller) {
+        const seller = await tx.seller.findUnique({
+          where: { id: sellerId },
+          select: { commissionRate: true },
+        });
+        if (!seller) throw new AppError(404, `Seller not found: ${sellerId}`);
+
         const { grossAmount, commissionAmount, netAmount } = computeSellerLedgerAmounts(
-          data.grossAmount,
-          data.commissionRate
+          sellerGross,
+          seller.commissionRate
         );
 
         await tx.sellerTransaction.create({

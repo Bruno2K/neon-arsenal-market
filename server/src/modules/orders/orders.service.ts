@@ -15,6 +15,7 @@ import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 import { parseOptionalRole } from "../../shared/types/roles.js";
+import { sumMoney } from "../../shared/money/policy.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
@@ -49,13 +50,12 @@ export const ordersService = {
           sellerId: string;
           priceSnapshot: Prisma.Decimal;
         }> = [];
-        let totalAmount = new Prisma.Decimal(0);
         const reservation = buildReservationWindow();
 
         const order = await tx.order.create({
           data: {
             customerId,
-            totalAmount,
+            totalAmount: sumMoney([]),
             status: "PENDING",
             paymentStatus: "PENDING",
           },
@@ -107,8 +107,7 @@ export const ordersService = {
             throw new AppError(404, `Listing not found: ${listingId}`);
           }
 
-          // INV-ORDER-TOTAL-COMPOSITION / INV-ORDER-PRICE-SNAPSHOT: Decimal sum of snapshots.
-          totalAmount = totalAmount.plus(listing.price);
+          // INV-ORDER-PRICE-SNAPSHOT: copy listing price at reservation time.
           orderItems.push({
             listingId: listing.id,
             sellerId: listing.sellerId,
@@ -118,6 +117,8 @@ export const ordersService = {
           }
         );
 
+        // INV-ORDER-TOTAL-COMPOSITION: Decimal sum via shared money policy.
+        const totalAmount = sumMoney(orderItems.map((item) => item.priceSnapshot));
         await tx.order.update({
           where: { id: order.id },
           data: { totalAmount },
