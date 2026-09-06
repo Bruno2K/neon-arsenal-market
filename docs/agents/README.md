@@ -72,6 +72,10 @@ Done
 
 A task must have one clear owner at a time. Reviewers do not rewrite the implementation unless explicitly assigned to do so.
 
+## Planning artifacts
+
+Material work follows the repository-native Plan contract in [`plan-contract.md`](plan-contract.md) and the canonical template in [`../templates/plan.md`](../templates/plan.md). A `Ready` Plan is bound to one accepted Specification version; executors stop and replan when that source changes materially.
+
 ## Token-efficiency rules
 
 1. Start with the smallest relevant context. Do not load the whole repository.

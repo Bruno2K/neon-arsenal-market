@@ -1,63 +1,109 @@
-# [PLAN-ID] — Title
+---
+id: PLAN-EXAMPLE-001
+status: Draft
+version: 1
+source_spec: SPEC-EXAMPLE-001
+source_spec_version: 1
+baseline_revision: 0000000000000000000000000000000000000000
+owner: "team"
+created: YYYY-MM-DD
+updated: YYYY-MM-DD
+---
+
+# [PLAN-EXAMPLE-001] — Title
+
+## Status
+
+`Draft` | `Ready` | `Superseded`
+
+A Plan becomes executable only when it is `Ready`, its source Specification is `Accepted`, and `source_spec_version` still matches that Specification.
 
 ## Source
 
-- Specification: [SPEC-ID]
-- Issue: #...
+- Specification: `SPEC-EXAMPLE-001` v1
+- Issue: `#...`
+- Planning task: `...`
+
+The Plan derives implementation work from the Specification. It may narrow implementation choices but must not add, remove, or reinterpret acceptance criteria.
 
 ## Current State
 
-Relevant existing behavior and constraints.
+Describe relevant executable behavior, tests, constraints, gaps, and evidence inspected. Distinguish observed facts from assumptions.
 
 ## Goal
 
-Implementation outcome, without redefining the Spec.
+State the implementation outcome this Plan will deliver without redefining the Specification.
 
 ## Affected Areas
 
-Modules, files, schema, API contracts and infrastructure.
+List candidate modules, files, schema, migrations, API contracts, documentation, infrastructure, and ownership boundaries. Mark uncertain paths as candidates.
 
 ## Architecture
 
-How the change fits the existing architecture and dependency direction.
+Explain how the change fits existing dependency direction, repository boundaries, ADRs, and invariants. State whether a new ADR is required.
 
 ## Database
 
-Schema/migration/transaction implications when applicable.
+Describe schema, migration, transaction, locking, constraint, rollback, and reconciliation implications. Use `None` with evidence when the Plan has no database impact.
 
 ## Implementation Sequence
 
-1. ...
-2. ...
-3. ...
+1. Describe the smallest reviewable unit and its output.
+2. Make dependencies and verification points explicit.
+3. Stop at the Specification boundary.
 
 ## Task Graph
+
+Use stable node labels and explicit directed edges. F3.1 defines only the Plan-side graph. F3.2 will define canonical Task identity and dependency representation; do not preempt that contract here.
 
 ```text
 Task A → Task B → Task D
        ↘ Task C ↗
 ```
 
+State which nodes may run in parallel and why their files and invariants do not overlap. Default to sequential execution.
+
 ## Testing Strategy
 
-Unit, integration, concurrency, security, contract, browser and operational checks as applicable.
+Map the source Specification's acceptance criteria to unit, integration, concurrency, security, contract, browser, and operational tests as applicable. Existing tests are evidence only when they prove the criterion.
 
 ## Verification Strategy
 
-Exact commands and acceptance evidence.
+List exact commands, required environment, evidence outputs, and the independent verifier. Separate checks that can run locally from checks that require CI, PostgreSQL, credentials, or manual review.
 
 ## Risks
 
-Material technical risks and mitigations.
+For each material risk, record impact, mitigation, detection evidence, and residual risk. Include consistency, failure, security, compatibility, and scope risks as applicable.
 
 ## Dependencies
 
-Tasks, decisions or external capabilities that must exist first.
+List accepted decisions, upstream artifacts, external capabilities, task predecessors, and environment requirements. A missing hard dependency keeps the Plan in `Draft`.
 
 ## Stop Conditions
 
-Conditions requiring HUMAN escalation.
+List conditions that require HUMAN escalation, replanning, or a new Specification version. Include source-Spec changes, conflicting authoritative artifacts, destructive operations without rollback, and material scope expansion.
 
 ## Definition of Done
 
-Observable conditions proving that the Plan has been executed without silently expanding scope.
+Define observable conditions proving all planned work and verification are complete. Include traceability, review, documentation, and evidence requirements; do not equate compilation with completion.
+
+## Traceability
+
+```text
+GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+```
+
+- Issue: `#...`
+- Specification: `SPEC-EXAMPLE-001` v1
+- Plan: `PLAN-EXAMPLE-001` v1
+- Tasks: pending F3.2
+- PR: pending
+- Verification/Convergence: pending
+- Evaluation: pending
+- Memory: pending
+
+## Change History
+
+Draft revisions update this file and increment `version`. Once a Plan becomes `Ready`, its content and version are immutable except for transition to `Superseded`. Material replacement uses a new `PLAN-*` ID, preserving uniqueness and history.
+
+- `v1` — Initial draft — YYYY-MM-DD
