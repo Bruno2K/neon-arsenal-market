@@ -20,19 +20,40 @@ export async function verifyEmail(body: {
   email: string;
   code: string;
 }): Promise<AuthResponse> {
-  const data = await api.post<AuthResponse>("/auth/verify-email", body, { skipAuth: true });
+  const data = await api.post<AuthResponse>("/auth/verify-email", body, {
+    skipAuth: true,
+  });
   tokenStorage.setTokens(data.accessToken, data.refreshToken);
   return data;
 }
 
-export async function login(body: { email: string; password: string }): Promise<AuthResponse> {
-  const data = await api.post<AuthResponse>("/auth/login", body, { skipAuth: true });
+export async function login(body: {
+  email: string;
+  password: string;
+}): Promise<AuthResponse> {
+  const data = await api.post<AuthResponse>("/auth/login", body, {
+    skipAuth: true,
+  });
   tokenStorage.setTokens(data.accessToken, data.refreshToken);
   return data;
 }
 
-export function logout(): void {
-  tokenStorage.clear();
+/**
+ * Revoke the refresh token on the server when one is stored, then clear local
+ * tokens. Always clears local state — a failed revoke must not leave the
+ * client signed in. Uses skipAuth so logout does not trigger /auth/refresh.
+ */
+export async function logout(): Promise<void> {
+  const refreshToken = tokenStorage.getRefreshToken();
+  try {
+    if (refreshToken) {
+      await api.post("/auth/logout", { refreshToken }, { skipAuth: true });
+    }
+  } catch {
+    // Local session still ends; revoke is best-effort.
+  } finally {
+    tokenStorage.clear();
+  }
 }
 
 export async function me(): Promise<User> {
