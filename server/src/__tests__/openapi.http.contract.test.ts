@@ -97,6 +97,7 @@ describe("OpenAPI document (single spec)", () => {
       "/auth/me",
       "/listings",
       "/products",
+      "/favorites",
       "/orders",
       "/payments/webhook",
       "/admin/audit-logs",
@@ -373,6 +374,10 @@ describe("HTTP handlers vs OpenAPI", () => {
     const overLimit = await fetch(`${baseUrl}${API_V1_PREFIX}/listings?limit=101`);
     expect(overLimit.status).toBe(400);
     assertErrorBody(await jsonOf(overLimit), spec);
+
+    const invalidSort = await fetch(`${baseUrl}${API_V1_PREFIX}/listings?sort=newest`);
+    expect(invalidSort.status).toBe(400);
+    assertErrorBody(await jsonOf(invalidSort), spec);
   });
 
   it("keeps unversioned /listings as a v1 compatibility alias of the same pagination contract", async () => {

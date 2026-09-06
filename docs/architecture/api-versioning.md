@@ -21,7 +21,7 @@ The storefront may keep calling unversioned paths. New integrations should call 
 
 Domain module routes mounted from `server/src/app.ts`:
 
-`/auth`, `/users`, `/sellers`, `/products`, `/listings`, `/orders`, `/payments`, `/commissions`, `/reviews`, `/admin`
+`/auth`, `/users`, `/sellers`, `/products`, `/listings`, `/orders`, `/payments`, `/commissions`, `/reviews`, `/favorites`, `/admin`
 
 That includes authenticated and admin routes. “Public” here means the HTTP API exposed to clients, not “unauthenticated only”.
 

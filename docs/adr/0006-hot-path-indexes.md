@@ -27,3 +27,7 @@ Existing single-column `Listing(status)` and `Order(paymentStatus)` indexes do n
 ## Later change (issue #49)
 
 `GET /listings` now orders by `createdAt DESC, id DESC`. `Listing(status, createdAt)` was replaced by `Listing(status, createdAt, id)` so the market keyset uses the same index. `Listing(createdAt, id)` covers unfiltered lists. See ADR 0013.
+
+## Later change (issue #93)
+
+Offset `GET /listings` accepts `sort=price_asc|price_desc|float_asc|float_desc` in addition to default `createdAt_desc`. `Listing(status, price, id)` and `Listing(status, floatValue, id)` cover those orderings. Cursor mode is unchanged.
