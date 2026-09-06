@@ -9,10 +9,14 @@ const listAdminOrders = vi.fn();
 const adminApproveSeller = vi.fn();
 const listSellers = vi.fn();
 const listProducts = vi.fn();
+const getCs2ShImportStatus = vi.fn();
+const startCs2ShImport = vi.fn();
 
 vi.mock("@/api/admin", () => ({
   listAdminOrders: (...args: unknown[]) => listAdminOrders(...args),
   adminApproveSeller: (...args: unknown[]) => adminApproveSeller(...args),
+  getCs2ShImportStatus: (...args: unknown[]) => getCs2ShImportStatus(...args),
+  startCs2ShImport: (...args: unknown[]) => startCs2ShImport(...args),
 }));
 
 vi.mock("@/api/sellers", () => ({
@@ -75,7 +79,18 @@ describe("AdminDashboard", () => {
     adminApproveSeller.mockReset();
     listSellers.mockReset();
     listProducts.mockReset();
+    getCs2ShImportStatus.mockReset();
+    startCs2ShImport.mockReset();
     adminApproveSeller.mockResolvedValue(seller({ isApproved: true }));
+    getCs2ShImportStatus.mockResolvedValue({
+      running: false,
+      lastResult: null,
+    });
+    startCs2ShImport.mockResolvedValue({
+      status: "started",
+      running: true,
+      lastResult: null,
+    });
   });
 
   it("uses current admin lists and approve contract without leftover marketplace chrome", async () => {
@@ -93,8 +108,8 @@ describe("AdminDashboard", () => {
 
     renderDashboard();
 
-    expect(await screen.findByText("Painel admin")).toBeTruthy();
-    expect(screen.getByText("Receita")).toBeTruthy();
+    expect(await screen.findByText("Receita")).toBeTruthy();
+    expect(screen.getByText("Painel admin")).toBeTruthy();
     expect(screen.getAllByText("$42.00").length).toBeGreaterThan(0);
     expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getAllByText("Loja Pendente").length).toBeGreaterThan(0);
@@ -109,5 +124,23 @@ describe("AdminDashboard", () => {
     await waitFor(() => {
       expect(adminApproveSeller).toHaveBeenCalledWith("seller-pending", true);
     });
+
+    fireEvent.click(screen.getByRole("button", { name: "Importar catálogo" }));
+    await waitFor(() => {
+      expect(startCs2ShImport).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it("keeps Importar catálogo when other admin lists fail", async () => {
+    listAdminOrders.mockRejectedValue(new Error("boom"));
+    listSellers.mockRejectedValue(new Error("boom"));
+    listProducts.mockRejectedValue(new Error("boom"));
+
+    renderDashboard();
+
+    expect(
+      await screen.findByRole("button", { name: "Importar catálogo" }),
+    ).toBeTruthy();
+    expect(screen.getByText("Painel admin")).toBeTruthy();
   });
 });

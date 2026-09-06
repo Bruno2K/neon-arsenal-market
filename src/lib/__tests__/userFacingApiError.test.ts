@@ -3,6 +3,8 @@ import {
   ApiClientError,
   USER_FACING_CONFLICT,
   USER_FACING_CREDENTIALS,
+  USER_FACING_CS2SH_IMPORT_RUNNING,
+  USER_FACING_CS2SH_KEY_MISSING,
   USER_FACING_EMAIL_TAKEN,
   USER_FACING_FORBIDDEN,
   USER_FACING_GENERIC,
@@ -91,6 +93,23 @@ describe("userFacingApiError", () => {
   });
 
   it("maps other 409s, 429, 5xx and validation", () => {
+    expect(
+      userFacingApiError(
+        new ApiClientError(
+          "A importação do catálogo cs2.sh já está em andamento",
+          {
+            status: 409,
+          },
+        ),
+      ),
+    ).toBe(USER_FACING_CS2SH_IMPORT_RUNNING);
+    expect(
+      userFacingApiError(
+        new ApiClientError("A chave da API cs2.sh não está configurada", {
+          status: 503,
+        }),
+      ),
+    ).toBe(USER_FACING_CS2SH_KEY_MISSING);
     expect(
       userFacingApiError(
         new ApiClientError("Order status changed concurrently", {

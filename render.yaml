@@ -48,6 +48,16 @@ services:
         value: "10000"
       - key: FRONTEND_URL
         sync: false
+      - key: CS2SH_API_KEY
+        # Bearer token from https://cs2.sh. Set in the Render Dashboard.
+        # Never commit. Without it, POST /admin/catalog/cs2sh-import returns 503.
+        sync: false
+      - key: CS2SH_IMPORT
+        # "true" schedules catalog import after listen (does not block /ready).
+        # Prefer the ADMIN POST on a running instance — Render has no SSH/shell.
+        value: "false"
+      - key: CS2SH_DEMO_LISTING_COUNT
+        value: "24"
     # Render has a single probe. Use readiness: Postgres reachable and not draining.
     # Docker HEALTHCHECK in server/Dockerfile stays on /health (liveness) so a
     # SIGTERM drain does not look like a dead container.

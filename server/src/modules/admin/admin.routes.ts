@@ -14,6 +14,8 @@ router.use(requireRole("ADMIN"));
 router.get("/users", adminController.listUsers);
 router.get("/orders", validateQuery(listOrdersQueryDto), adminController.listOrders);
 router.get("/audit-logs", validateQuery(listAuditLogsQueryDto), adminController.listAuditLogs);
+router.get("/catalog/cs2sh-import", adminController.getCs2ShImport);
+router.post("/catalog/cs2sh-import", adminController.startCs2ShImport);
 router.patch(
   "/sellers/:id/approve",
   validateBody(approveSellerDto),

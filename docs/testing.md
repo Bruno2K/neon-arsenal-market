@@ -16,7 +16,7 @@ From `server/`:
 | `npm run test:all` | Unit tests, then integration tests. |
 | `npm run test:db:prepare` | `prisma migrate deploy` against `DATABASE_URL`. |
 | `npm run perf:evidence` | Seed a disposable catalog, print `EXPLAIN ANALYZE` + `listingsService.list` timings. |
-| `npm run import:cs2sh` | Upsert Product catalog from cs2.sh. Needs `CS2SH_API_KEY`. Live API is not used in CI. |
+| `npm run import:cs2sh` | Local upsert of Product catalog from cs2.sh. Needs `CS2SH_API_KEY`. Not available on Render (no shell); use ADMIN `POST /admin/catalog/cs2sh-import`. Live API is not used in CI. |
 
 Frontend unit tests remain `npm test` at the repository root.
 

@@ -171,6 +171,27 @@ export const openApiSpec = {
           createdAt: { type: "string", format: "date-time" },
         },
       },
+      Cs2ShImportSummary: {
+        type: "object",
+        properties: {
+          skipped: { type: "boolean" },
+          skipReason: { type: "string", enum: ["missing_api_key"] },
+          generationId: { type: "string", nullable: true },
+          productsUpserted: { type: "integer" },
+          schemaSkipped: { type: "integer" },
+          listingsUpserted: { type: "integer" },
+        },
+      },
+      Cs2ShImportStatus: {
+        type: "object",
+        properties: {
+          running: { type: "boolean" },
+          lastResult: {
+            allOf: [{ $ref: "#/components/schemas/Cs2ShImportSummary" }],
+            nullable: true,
+          },
+        },
+      },
     },
   },
   security: [{ bearerAuth: [] }],
@@ -683,6 +704,54 @@ export const openApiSpec = {
           },
           401: { description: "Missing or invalid access token" },
           403: { description: "Caller is not ADMIN" },
+        },
+      },
+    },
+    "/admin/catalog/cs2sh-import": {
+      get: {
+        tags: ["Admin"],
+        summary: "cs2.sh catalog import status",
+        description:
+          "ADMIN-only in-process status. Render has no SSH; use this or POST to import without a shell. running is true while GET /v1/schema + /v1/prices/latest and the DB upsert are in flight. lastResult is the last completed summary on this process (lost on restart).",
+        responses: {
+          200: {
+            description: "Import status for this API process",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/Cs2ShImportStatus" },
+              },
+            },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+        },
+      },
+      post: {
+        tags: ["Admin"],
+        summary: "Start cs2.sh catalog import",
+        description:
+          "ADMIN-only. Starts the cs2.sh catalog upsert in the background and returns 202 before database writes finish. Requires CS2SH_API_KEY. Concurrent starts on the same process return 409. Does not block GET /ready. Alternative: set CS2SH_IMPORT=true so boot schedules the same work after listen.",
+        responses: {
+          202: {
+            description: "Import started on this process",
+            content: {
+              "application/json": {
+                schema: {
+                  allOf: [
+                    { $ref: "#/components/schemas/Cs2ShImportStatus" },
+                    {
+                      type: "object",
+                      properties: { status: { type: "string", example: "started" } },
+                    },
+                  ],
+                },
+              },
+            },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          409: { description: "An import is already running on this process" },
+          503: { description: "CS2SH_API_KEY is not configured" },
         },
       },
     },

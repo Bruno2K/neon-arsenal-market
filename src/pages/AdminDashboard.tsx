@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApproveSeller, listAdminOrders } from "@/api/admin";
 import { listProducts } from "@/api/products";
 import { listSellers } from "@/api/sellers";
+import { Cs2ShCatalogImportCard } from "@/components/admin/Cs2ShCatalogImportCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -77,42 +78,6 @@ export default function AdminDashboard() {
     ordersQuery.isError || sellersQuery.isError || productsQuery.isError;
   const error = ordersQuery.error ?? sellersQuery.error ?? productsQuery.error;
 
-  if (isLoading) {
-    return (
-      <div className="space-y-6" role="status" aria-label="Carregando">
-        <Skeleton className="h-8 w-48" />
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-          <Skeleton className="h-24 w-full" />
-        </div>
-      </div>
-    );
-  }
-
-  if (isError) {
-    return (
-      <ErrorState
-        title="Erro ao carregar o painel"
-        error={error}
-        action={
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              void ordersQuery.refetch();
-              void sellersQuery.refetch();
-              void productsQuery.refetch();
-            }}
-          >
-            Tentar novamente
-          </Button>
-        }
-      />
-    );
-  }
-
   const stats = [
     { label: "Receita", value: formatMoney(totalRevenue) },
     { label: "Produtos", value: String(productsQuery.data?.total ?? 0) },
@@ -129,65 +94,102 @@ export default function AdminDashboard() {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        {stats.map((stat) => (
-          <div
-            key={stat.label}
-            className="rounded-md border border-border bg-card p-4"
-          >
-            <p className="text-xs text-muted-foreground">{stat.label}</p>
-            <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
-              {stat.value}
-            </p>
+      <Cs2ShCatalogImportCard />
+
+      {isLoading ? (
+        <div className="space-y-6" role="status" aria-label="Carregando">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
+            <Skeleton className="h-24 w-full" />
           </div>
-        ))}
-      </div>
-
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold tracking-tight">
-            Vendedores pendentes
-          </h2>
-          <p className="text-sm text-muted-foreground">
-            Aprove ou rejeite cadastros aguardando revisão.
-          </p>
         </div>
-        {pendingSellers.length === 0 ? (
-          <EmptyState
-            title="Nenhum vendedor pendente de aprovação"
-            description="Todos os cadastros já foram revisados."
-          />
-        ) : (
-          <PendingSellersTable
-            sellers={pendingSellers}
-            busy={approveSeller.isPending}
-            onApprove={(id) => approveSeller.mutate({ id, isApproved: true })}
-            onReject={(id) => approveSeller.mutate({ id, isApproved: false })}
-          />
-        )}
-      </section>
+      ) : isError ? (
+        <ErrorState
+          title="Erro ao carregar o painel"
+          error={error}
+          action={
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                void ordersQuery.refetch();
+                void sellersQuery.refetch();
+                void productsQuery.refetch();
+              }}
+            >
+              Tentar novamente
+            </Button>
+          }
+        />
+      ) : (
+        <>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {stats.map((stat) => (
+              <div
+                key={stat.label}
+                className="rounded-md border border-border bg-card p-4"
+              >
+                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                <p className="mt-2 tabular-nums text-2xl font-semibold tracking-tight">
+                  {stat.value}
+                </p>
+              </div>
+            ))}
+          </div>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Todos os vendedores
-        </h2>
-        {sellers.length === 0 ? (
-          <EmptyState title="Nenhum vendedor cadastrado" />
-        ) : (
-          <SellersOverviewTable sellers={sellers} />
-        )}
-      </section>
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                Vendedores pendentes
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Aprove ou rejeite cadastros aguardando revisão.
+              </p>
+            </div>
+            {pendingSellers.length === 0 ? (
+              <EmptyState
+                title="Nenhum vendedor pendente de aprovação"
+                description="Todos os cadastros já foram revisados."
+              />
+            ) : (
+              <PendingSellersTable
+                sellers={pendingSellers}
+                busy={approveSeller.isPending}
+                onApprove={(id) =>
+                  approveSeller.mutate({ id, isApproved: true })
+                }
+                onReject={(id) =>
+                  approveSeller.mutate({ id, isApproved: false })
+                }
+              />
+            )}
+          </section>
 
-      <section className="space-y-3">
-        <h2 className="text-lg font-semibold tracking-tight">
-          Pedidos recentes
-        </h2>
-        {recentOrders.length === 0 ? (
-          <EmptyState title="Nenhum pedido encontrado" />
-        ) : (
-          <RecentOrdersTable orders={recentOrders} />
-        )}
-      </section>
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Todos os vendedores
+            </h2>
+            {sellers.length === 0 ? (
+              <EmptyState title="Nenhum vendedor cadastrado" />
+            ) : (
+              <SellersOverviewTable sellers={sellers} />
+            )}
+          </section>
+
+          <section className="space-y-3">
+            <h2 className="text-lg font-semibold tracking-tight">
+              Pedidos recentes
+            </h2>
+            {recentOrders.length === 0 ? (
+              <EmptyState title="Nenhum pedido encontrado" />
+            ) : (
+              <RecentOrdersTable orders={recentOrders} />
+            )}
+          </section>
+        </>
+      )}
     </div>
   );
 }
