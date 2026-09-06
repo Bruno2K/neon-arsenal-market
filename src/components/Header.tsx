@@ -1,9 +1,16 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, ShoppingCart, X } from "lucide-react";
-import { useState } from "react";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
+import { Menu, Search, ShoppingCart, X } from "lucide-react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { marketPath, parseMarketQuery } from "@/lib/marketQuery";
 
 function brandMark() {
   return (
@@ -17,6 +24,57 @@ function brandMark() {
         Neon Arsenal
       </span>
     </Link>
+  );
+}
+
+function HeaderSearch({
+  id,
+  className,
+  onSubmitted,
+}: {
+  id: string;
+  className?: string;
+  onSubmitted?: () => void;
+}) {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const urlQ =
+    location.pathname === "/products" ? parseMarketQuery(searchParams).q : "";
+  const [draft, setDraft] = useState(urlQ);
+
+  useEffect(() => {
+    setDraft(urlQ);
+  }, [urlQ]);
+
+  const submit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = draft.trim();
+    navigate(term ? marketPath({ q: term }) : "/products");
+    onSubmitted?.();
+  };
+
+  return (
+    <form role="search" onSubmit={submit} className={className}>
+      <label htmlFor={id} className="sr-only">
+        Buscar no Market
+      </label>
+      <div className="relative">
+        <Search
+          className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground"
+          aria-hidden
+        />
+        <Input
+          id={id}
+          type="search"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+          placeholder="Buscar skins"
+          autoComplete="off"
+          className="h-9 min-h-9 pl-8"
+        />
+      </div>
+    </form>
   );
 }
 
@@ -73,6 +131,11 @@ export function Header() {
             </Link>
           ))}
         </nav>
+
+        <HeaderSearch
+          id="header-search"
+          className="mx-2 min-w-0 max-w-[14rem] flex-1 sm:max-w-[16rem] md:mx-3"
+        />
 
         <div className="flex items-center gap-1.5">
           <Link
@@ -142,6 +205,11 @@ export function Header() {
           className="space-y-1 border-t border-border bg-background p-3 md:hidden"
           aria-label="Principal"
         >
+          <HeaderSearch
+            id="header-search-mobile"
+            className="mb-2"
+            onSubmitted={() => setMenuOpen(false)}
+          />
           {navLinks.map((item) => (
             <Link
               key={item.to}

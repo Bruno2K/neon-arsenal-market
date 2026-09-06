@@ -177,6 +177,7 @@ describe("analytics helpers", () => {
   it("serializes market filters without PII", () => {
     expect(
       marketSearchQuery({
+        q: "talon",
         productId: "ak-redline-ft",
         exterior: "Factory New",
         isStattrak: true,
@@ -184,7 +185,7 @@ describe("analytics helpers", () => {
         maxPrice: "40",
       }),
     ).toBe(
-      "productId=ak-redline-ft&exterior=Factory+New&isStattrak=true&minPrice=10&maxPrice=40",
+      "q=talon&productId=ak-redline-ft&exterior=Factory+New&isStattrak=true&minPrice=10&maxPrice=40",
     );
     expect(marketSearchQuery({})).toBeUndefined();
   });

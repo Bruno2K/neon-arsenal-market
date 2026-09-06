@@ -1,6 +1,6 @@
 import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useSearchParams } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Products from "../Products";
 import { CartProvider } from "@/contexts/CartContext";
@@ -18,9 +18,14 @@ import {
 } from "@/lib/analytics";
 
 const listListings = vi.fn();
+const listProducts = vi.fn();
 
 vi.mock("@/api/listings", () => ({
   listListings: (...args: unknown[]) => listListings(...args),
+}));
+
+vi.mock("@/api/products", () => ({
+  listProducts: (...args: unknown[]) => listProducts(...args),
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -65,6 +70,11 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
   };
 }
 
+function LocationEcho() {
+  const [params] = useSearchParams();
+  return <div data-testid="market-query">{params.toString()}</div>;
+}
+
 function renderMarket(path = "/products") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -74,7 +84,15 @@ function renderMarket(path = "/products") {
       <MemoryRouter initialEntries={[path]}>
         <CartProvider>
           <Routes>
-            <Route path="/products" element={<Products />} />
+            <Route
+              path="/products"
+              element={
+                <>
+                  <LocationEcho />
+                  <Products />
+                </>
+              }
+            />
           </Routes>
         </CartProvider>
       </MemoryRouter>
@@ -92,6 +110,13 @@ describe("Products", () => {
       analyticsEvents.push({ event, props });
     });
     listListings.mockReset();
+    listProducts.mockReset();
+    listProducts.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 100,
+    });
     localStorage.removeItem(CART_STORAGE_KEY);
   });
 
@@ -245,5 +270,194 @@ describe("Products", () => {
       event: "category_view",
       props: { category: "Factory New", source: "market" },
     });
+    expect(screen.getByTestId("market-query").textContent).toBe(
+      "exterior=Factory+New",
+    );
+  });
+
+  it("restores chips and page from the Market URL", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 40,
+      page: 2,
+      limit: 20,
+    });
+
+    renderMarket("/products?exterior=Minimal+Wear&page=2&sort=price-asc");
+
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Minimal Wear" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Menor Preço" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Página 2")).toBeTruthy();
+    expect(listListings).toHaveBeenCalledWith({
+      page: 2,
+      limit: 20,
+      status: "ACTIVE",
+      exterior: "Minimal Wear",
+    });
+    expect(listProducts).not.toHaveBeenCalled();
+  });
+
+  it("ignores invalid query params without crashing", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket(
+      "/products?page=nope&sort=newest&exterior=Glossy&stattrak=maybe",
+    );
+
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    expect(listListings).toHaveBeenCalledWith({
+      page: 1,
+      limit: 20,
+      status: "ACTIVE",
+    });
+    expect(screen.getAllByRole("button", { name: "Todos" })[0]).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+  });
+
+  it("resolves textual search via GET /products and ACTIVE listings", async () => {
+    listProducts.mockResolvedValue({
+      items: [
+        {
+          id: "talon-fade-fn",
+          game: "CS2",
+          weapon: "Talon Knife",
+          skinName: "Fade",
+          rarity: "Covert",
+          exterior: "Factory New",
+          collection: null,
+          imageUrl: null,
+          isStattrak: false,
+          isSouvenir: false,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ],
+      total: 1,
+      page: 1,
+      limit: 100,
+    });
+    listListings.mockResolvedValue({
+      items: [
+        makeListing({
+          id: "listing-talon",
+          productId: "talon-fade-fn",
+          product: {
+            id: "talon-fade-fn",
+            game: "CS2",
+            weapon: "Talon Knife",
+            skinName: "Fade",
+            rarity: "Covert",
+            exterior: "Factory New",
+            collection: null,
+            imageUrl: null,
+            isStattrak: false,
+            isSouvenir: false,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          },
+        }),
+      ],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?q=talon");
+
+    expect(
+      await screen.findByText("Talon Knife | Fade (Factory New)"),
+    ).toBeTruthy();
+    expect(screen.getByText("1 resultado para talon")).toBeTruthy();
+    expect(screen.getByLabelText("Buscar no Market")).toHaveValue("talon");
+    expect(listProducts).toHaveBeenCalledWith({ search: "talon", limit: 100 });
+    expect(listListings).toHaveBeenCalledWith({
+      page: 1,
+      limit: 20,
+      status: "ACTIVE",
+      productId: "talon-fade-fn",
+    });
+  });
+
+  it("shows a search empty state with clear and exterior shortcuts", async () => {
+    listProducts.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 100,
+    });
+
+    renderMarket("/products?q=zzzz");
+
+    expect(await screen.findByText("Nenhum listing para ‘zzzz’")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Limpar busca" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Explorar Market" }),
+    ).toHaveAttribute("href", "/products");
+    expect(screen.getByRole("link", { name: "Factory New" })).toHaveAttribute(
+      "href",
+      "/products?exterior=Factory+New",
+    );
+    expect(listListings).not.toHaveBeenCalled();
+  });
+
+  it("debounces the Market search field into the q param", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket();
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText("Buscar no Market"), {
+      target: { value: "huntsman" },
+    });
+
+    await waitFor(
+      () => {
+        expect(screen.getByTestId("market-query").textContent).toBe(
+          "q=huntsman",
+        );
+      },
+      { timeout: 1500 },
+    );
+  });
+
+  it("clears filters back to the default catalog URL", async () => {
+    listListings.mockResolvedValue({
+      items: [],
+      total: 0,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket("/products?exterior=Field-Tested&stattrak=true");
+
+    expect(await screen.findByText("Nenhum item encontrado")).toBeTruthy();
+    fireEvent.click(
+      screen.getAllByRole("button", { name: "Limpar filtros" })[0],
+    );
+    expect(screen.getByTestId("market-query").textContent).toBe("");
   });
 });
