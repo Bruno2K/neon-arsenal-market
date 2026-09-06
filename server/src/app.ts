@@ -19,6 +19,7 @@ import { commissionsRoutes } from "./modules/commissions/commissions.routes.js";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
 import { getAllowedCorsOrigins, isCorsOriginAllowed } from "./shared/config/cors.js";
+import { API_V1_PREFIX } from "./shared/http/apiVersion.js";
 
 const app = express();
 
@@ -62,17 +63,22 @@ app.use(apiLimiter);
 
 app.use(healthRoutes);
 app.use(docsRoutes);
-app.use("/auth", authLimiter, authRoutes);
-app.use("/users", usersRoutes);
-app.use("/sellers", sellersRoutes);
-app.use("/products", productsRoutes);
-app.use("/listings", listingsRoutes);
-app.use("/listings", priceHistoryRoutes);
-app.use("/orders", ordersRoutes);
-app.use("/payments", paymentsRoutes);
-app.use("/commissions", commissionsRoutes);
-app.use("/reviews", reviewsRoutes);
-app.use("/admin", adminRoutes);
+
+const publicApi = express.Router();
+publicApi.use("/auth", authLimiter, authRoutes);
+publicApi.use("/users", usersRoutes);
+publicApi.use("/sellers", sellersRoutes);
+publicApi.use("/products", productsRoutes);
+publicApi.use("/listings", listingsRoutes);
+publicApi.use("/listings", priceHistoryRoutes);
+publicApi.use("/orders", ordersRoutes);
+publicApi.use("/payments", paymentsRoutes);
+publicApi.use("/commissions", commissionsRoutes);
+publicApi.use("/reviews", reviewsRoutes);
+publicApi.use("/admin", adminRoutes);
+
+app.use(publicApi);
+app.use(API_V1_PREFIX, publicApi);
 
 app.use(notFound);
 app.use(errorHandler);

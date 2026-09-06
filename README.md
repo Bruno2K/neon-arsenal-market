@@ -241,6 +241,13 @@ http://localhost:3001
 
 ## API Documentation
 
+The current public API contract is **`/api/v1`**. Unversioned domain paths (`/auth`, `/listings`, `/orders`, `/payments`, …) are compatibility aliases of the same v1 handlers.
+
+```text
+http://localhost:3001/api/v1/listings
+http://localhost:3001/listings
+```
+
 Swagger UI is available at:
 
 ```text
@@ -252,6 +259,8 @@ The raw OpenAPI document is available at:
 ```text
 http://localhost:3001/docs/json
 ```
+
+Compatibility policy (additive vs breaking changes, deprecation, client migration): [`docs/architecture/api-versioning.md`](docs/architecture/api-versioning.md).
 
 ## Testing
 
@@ -290,7 +299,7 @@ GET /health
 GET /ready
 ```
 
-`/health` checks process liveness, while `/ready` verifies database connectivity.
+`/health` checks process liveness, while `/ready` verifies database connectivity. Both stay at the host root (not under `/api/v1`) so Render and Docker probes do not depend on the public API version.
 
 ## Observability
 
