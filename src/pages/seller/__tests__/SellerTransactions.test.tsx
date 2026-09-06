@@ -6,6 +6,7 @@ import SellerTransactionsPage from "../SellerTransactions";
 import type { Role, SellerTransaction, User } from "@/types/api";
 
 const listCommissionTransactions = vi.fn();
+const getSellerMe = vi.fn();
 const authState = {
   user: {
     id: "seller-user",
@@ -18,6 +19,10 @@ const authState = {
 vi.mock("@/api/commissions", () => ({
   listCommissionTransactions: (...args: unknown[]) =>
     listCommissionTransactions(...args),
+}));
+
+vi.mock("@/api/sellers", () => ({
+  getSellerMe: (...args: unknown[]) => getSellerMe(...args),
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -73,6 +78,15 @@ function renderTransactions() {
 describe("SellerTransactions", () => {
   beforeEach(() => {
     listCommissionTransactions.mockReset();
+    getSellerMe.mockReset();
+    getSellerMe.mockResolvedValue({
+      id: "seller-1",
+      userId: "seller-user",
+      storeName: "NeonTrader Store",
+      balance: 0,
+      rating: 0,
+      isApproved: true,
+    });
     setRole("SELLER");
   });
 
@@ -103,6 +117,27 @@ describe("SellerTransactions", () => {
       "href",
       "/seller/listings",
     );
+  });
+
+  it("does not push a pending seller to create a listing", async () => {
+    listCommissionTransactions.mockResolvedValue([]);
+    getSellerMe.mockResolvedValue({
+      id: "seller-1",
+      userId: "seller-user",
+      storeName: "NeonTrader Store",
+      balance: 0,
+      rating: 0,
+      isApproved: false,
+    });
+
+    renderTransactions();
+
+    expect(
+      await screen.findByText(
+        "Quando um pedido for pago, o movimento aparece aqui.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("link", { name: "Criar listing" })).toBeNull();
   });
 
   it("retries the transactions query from the error state", async () => {

@@ -43,7 +43,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
-function seller(): Seller {
+function seller(overrides: Partial<Seller> = {}): Seller {
   return {
     id: "seller-1",
     userId: "user-1",
@@ -51,6 +51,7 @@ function seller(): Seller {
     balance: 0,
     rating: 0,
     isApproved: true,
+    ...overrides,
   };
 }
 
@@ -121,6 +122,24 @@ describe("SellerListings", () => {
 
   afterEach(() => {
     setAnalyticsCollector(null);
+  });
+
+  it("disables Novo Listing when getSellerMe reports a pending store", async () => {
+    getSellerMe.mockResolvedValue(seller({ isApproved: false }));
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    const createButton = await screen.findByRole("button", {
+      name: "Disponível após aprovação",
+    });
+    expect(createButton).toBeDisabled();
+    expect(createButton).toHaveAttribute("title", "Disponível após aprovação");
+    expect(screen.queryByRole("button", { name: "Novo Listing" })).toBeNull();
+    expect(screen.queryByText("Novo listing")).toBeNull();
   });
 
   it("keeps unique-item listing CRUD on /seller/listings", async () => {

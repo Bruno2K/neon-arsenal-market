@@ -29,6 +29,7 @@ import SellerOrders from "./pages/seller/SellerOrders";
 import SellerTransactions from "./pages/seller/SellerTransactions";
 import AdminSellers from "./pages/admin/AdminSellers";
 import AdminOrders from "./pages/admin/AdminOrders";
+import AdminOrderDetail from "./pages/admin/AdminOrderDetail";
 import AdminUsers from "./pages/admin/AdminUsers";
 import AdminCatalog from "./pages/admin/AdminCatalog";
 import NotFound from "./pages/NotFound";
@@ -178,6 +179,14 @@ const App = () => (
                     element={
                       <ProtectedRoute allowedRoles={["ADMIN"]}>
                         <AdminOrders />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/admin/orders/:id"
+                    element={
+                      <ProtectedRoute allowedRoles={["ADMIN"]}>
+                        <AdminOrderDetail />
                       </ProtectedRoute>
                     }
                   />

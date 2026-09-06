@@ -173,6 +173,8 @@ export interface Order {
   paymentStatus: string;
   trackingCode?: string | null;
   trackingCarrier?: string | null;
+  /** Present when the admin/order API already returns it. Not a PayPal secret. */
+  paypalOrderId?: string | null;
   createdAt: string;
   updatedAt: string;
   items?: OrderItem[];
