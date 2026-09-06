@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   EXPIRED_HOLD_COPY,
+  PAYPAL_SANDBOX_LOGIN_COPY,
   VERIFYING_RESERVATION_COPY,
   canRetryPayment,
   earliestReservationExpiresAt,
@@ -299,6 +300,11 @@ export default function OrderStatusPage() {
       </section>
 
       <div className="mt-6 space-y-3">
+        {showPayButton ? (
+          <p className="text-sm text-muted-foreground">
+            {PAYPAL_SANDBOX_LOGIN_COPY}
+          </p>
+        ) : null}
         {retryError ? (
           <p className="text-sm text-destructive" role="alert">
             {retryError}

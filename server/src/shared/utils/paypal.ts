@@ -98,8 +98,12 @@ export async function createPayPalOrder(
   request.requestBody(buildPayPalOrdersCreateBody(amount, currency, orderId, urls));
   return withPaypalOperation("orders_create", async () => {
     // OrdersCreate is not retried: a retry can create a second PayPal order.
-    const response = await withTimeout(client.execute(request), "PayPal OrdersCreate");
-    return response.result;
+    try {
+      const response = await withTimeout(client.execute(request), "PayPal OrdersCreate");
+      return response.result;
+    } catch (err) {
+      throw mapPayPalHttpError(err);
+    }
   });
 }
 
@@ -193,6 +197,29 @@ export async function getPayPalAccessToken(): Promise<string> {
       throw err;
     }
   });
+}
+
+export const PAYPAL_CLIENT_AUTH_FAILED = "PayPal client authentication failed";
+
+export function isPayPalClientAuthError(err: unknown): boolean {
+  const status =
+    err && typeof err === "object" && "statusCode" in err
+      ? (err as { statusCode?: unknown }).statusCode
+      : undefined;
+  const message = err instanceof Error ? err.message : String(err ?? "");
+  return (
+    status === 401 ||
+    /invalid_client|Client Authentication failed/i.test(message)
+  );
+}
+
+/** Stable AppError for REST credential failures. Does not echo PayPal JSON. */
+export function mapPayPalHttpError(err: unknown): Error {
+  if (err instanceof AppError) return err;
+  if (isPayPalClientAuthError(err)) {
+    return new AppError(503, PAYPAL_CLIENT_AUTH_FAILED);
+  }
+  return err instanceof Error ? err : new Error(String(err));
 }
 
 export function getPayPalOrderIdFromResult(result: { id?: string }): string | undefined {

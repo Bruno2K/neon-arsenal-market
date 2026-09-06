@@ -11,6 +11,9 @@ export const ORDER_POLL_INTERVAL_MS = 4000;
 export const PRE_ORDER_HOLD_COPY =
   "O item só é reservado quando você inicia o pagamento.";
 
+export const PAYPAL_SANDBOX_LOGIN_COPY =
+  "Este ambiente usa PayPal sandbox (sandbox.paypal.com). Entre com uma conta Personal de teste em developer.paypal.com → Sandbox → Accounts. E-mail e senha da sua conta PayPal real, e login com Google/Apple, não funcionam lá.";
+
 export const EXPIRED_HOLD_COPY =
   "A reserva expirou. O item pode ter voltado ao Market.";
 

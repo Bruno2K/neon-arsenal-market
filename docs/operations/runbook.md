@@ -18,6 +18,17 @@ Secrets (`PAYPAL_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `JWT_*`, `CS2SH_API_KEY`) s
 
 Rollback: Render Dashboard → previous deploy. Schema rollback is a new Prisma migration, not `migrate down`.
 
+## Sandbox checkout (PayPal login)
+
+Production `PAYPAL_MODE` is `sandbox` (`render.yaml`). Checkout uses **PayPal Sandbox**, not live PayPal. Two credential layers must both be sandbox:
+
+1. **REST app (merchant)** — `PAYPAL_CLIENT_ID` and `PAYPAL_SECRET` on `neon-arsenal-api` must belong to a **Sandbox** app from [developer.paypal.com](https://developer.paypal.com/dashboard/applications/sandbox). A live Client ID fails sandbox OAuth with HTTP 401 `invalid_client` / `Client Authentication failed`. Checkout then never opens a valid PayPal session. After rotating secrets in the Render Dashboard, restart the API.
+2. **Buyer login** — on `sandbox.paypal.com`, sign in with a **Sandbox Personal** (Buyer) account from Developer Dashboard → Sandbox → Accounts. A real PayPal email/password, Google, or Apple login does **not** work in sandbox.
+
+Do not set `PAYPAL_MODE=production` to “make login work.” That is a live-money cutover, not a login fix. Never paste Client Secret into git, issues, or logs.
+
+If checkout creates a local order but PayPal does not open, check API logs for `PAYPAL_CLIENT_AUTH_FAILED` (HTTP 503, no PayPal JSON in the body). The storefront maps that message to Portuguese copy when the buyer retries payment.
+
 ## Health vs ready
 
 The API exposes two GET routes. Render has **one** probe (`healthCheckPath`).

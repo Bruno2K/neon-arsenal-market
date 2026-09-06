@@ -4,7 +4,10 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import Checkout from "../Checkout";
 import type { Listing, Order, User } from "@/types/api";
-import { PRE_ORDER_HOLD_COPY } from "@/lib/orderPaymentView";
+import {
+  PRE_ORDER_HOLD_COPY,
+  PAYPAL_SANDBOX_LOGIN_COPY,
+} from "@/lib/orderPaymentView";
 import { USER_FACING_NETWORK } from "@/lib/userFacingApiError";
 
 const createOrder = vi.fn();
@@ -234,6 +237,7 @@ describe("Checkout", () => {
     expect(screen.getByText("$105.00")).toBeTruthy();
     expect(screen.getByText(/Pagar com PayPal — \$105\.00/)).toBeTruthy();
     expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
+    expect(screen.getByText(PAYPAL_SANDBOX_LOGIN_COPY)).toBeTruthy();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(screen.queryByText(/Pedido Confirmado/i)).toBeNull();
     expect(screen.queryByText(/processado com sucesso/i)).toBeNull();
