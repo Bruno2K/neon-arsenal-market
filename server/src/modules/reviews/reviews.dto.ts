@@ -1,22 +1,23 @@
 import { z } from "zod";
+import { REVIEW_COMMENT_MAX, resourceIdSchema } from "../../shared/validation/httpLimits.js";
 
 export const createReviewDto = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: resourceIdSchema("Product ID"),
   rating: z.number().int().min(1).max(5),
-  comment: z.string().optional(),
+  comment: z.string().max(REVIEW_COMMENT_MAX).optional(),
 });
 
 export const updateReviewDto = z.object({
   rating: z.number().int().min(1).max(5).optional(),
-  comment: z.string().optional(),
+  comment: z.string().max(REVIEW_COMMENT_MAX).optional(),
 });
 
 export const reviewIdParamsDto = z.object({
-  id: z.string().min(1, "Review ID is required"),
+  id: resourceIdSchema("Review ID"),
 });
 
 export const productIdParamsDto = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: resourceIdSchema("Product ID"),
 });
 
 export type CreateReviewInput = z.infer<typeof createReviewDto>;
