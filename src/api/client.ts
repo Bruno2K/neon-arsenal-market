@@ -1,4 +1,8 @@
-import { ApiClientError, logTechnicalError } from "@/lib/userFacingApiError";
+import {
+  ApiError,
+  ApiClientError,
+  logTechnicalError,
+} from "@/lib/userFacingApiError";
 import { resolveApiBaseUrl } from "./apiBaseUrl";
 
 const API_BASE = resolveApiBaseUrl({
@@ -28,7 +32,7 @@ const tokenStorage: TokenStorage = {
 
 async function refreshAccessToken(): Promise<string> {
   const refresh = tokenStorage.getRefreshToken();
-  if (!refresh) throw new ApiClientError("No refresh token", { status: 401 });
+  if (!refresh) throw new ApiError("No refresh token", { status: 401 });
   const res = await fetch(`${API_BASE}/auth/refresh`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -37,7 +41,7 @@ async function refreshAccessToken(): Promise<string> {
   if (!res.ok) {
     tokenStorage.clear();
     const data = await res.json().catch(() => ({}));
-    throw new ApiClientError(data.error ?? "Session expired", {
+    throw new ApiError(data.error ?? "Session expired", {
       status: res.status,
     });
   }
@@ -91,12 +95,9 @@ async function request<T>(
     res = await doFetch(access);
   } catch (err) {
     const reason = err instanceof Error ? err.message : "Failed to fetch";
-    const error = new ApiClientError(
-      `Could not reach API at ${url}: ${reason}`,
-      {
-        code: "NETWORK",
-      },
-    );
+    const error = new ApiError(`Could not reach API at ${url}: ${reason}`, {
+      code: "NETWORK",
+    });
     logTechnicalError(error);
     throw error;
   }
@@ -108,7 +109,7 @@ async function request<T>(
     } catch {
       tokenStorage.clear();
       const data = await res.json().catch(() => ({}));
-      const error = new ApiClientError(data.error ?? "Unauthorized", {
+      const error = new ApiError(data.error ?? "Unauthorized", {
         status: 401,
       });
       logTechnicalError(error);
@@ -118,10 +119,9 @@ async function request<T>(
 
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const error = new ApiClientError(
-      data.error ?? `Request failed: ${res.status}`,
-      { status: res.status },
-    );
+    const error = new ApiError(data.error ?? `Request failed: ${res.status}`, {
+      status: res.status,
+    });
     logTechnicalError(error);
     throw error;
   }
@@ -148,4 +148,4 @@ export const api = {
   delete: <T>(path: string) => request<T>(path, { method: "DELETE" }),
 };
 
-export { tokenStorage };
+export { tokenStorage, ApiError, ApiClientError };

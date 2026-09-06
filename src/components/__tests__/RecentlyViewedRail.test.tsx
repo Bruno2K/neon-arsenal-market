@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { RecentlyViewedRail } from "../RecentlyViewedRail";
 import { CartProvider } from "@/contexts/CartContext";
 import type { Listing } from "@/types/api";
@@ -59,12 +60,17 @@ describe("RecentlyViewedRail", () => {
   });
 
   it("uses history copy instead of a personalization engine", () => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
     render(
-      <MemoryRouter>
-        <CartProvider>
-          <RecentlyViewedRail listings={[makeListing()]} />
-        </CartProvider>
-      </MemoryRouter>,
+      <QueryClientProvider client={client}>
+        <MemoryRouter>
+          <CartProvider>
+            <RecentlyViewedRail listings={[makeListing()]} />
+          </CartProvider>
+        </MemoryRouter>
+      </QueryClientProvider>,
     );
 
     expect(screen.getByText(RECENTLY_VIEWED_HEADING)).toBeTruthy();

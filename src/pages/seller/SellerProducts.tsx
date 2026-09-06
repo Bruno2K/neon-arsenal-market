@@ -77,6 +77,11 @@ export default function SellerProductsPage() {
         <EmptyState
           title="Nenhum produto no catálogo"
           description="O catálogo é gerenciado pelo admin."
+          action={
+            <Button asChild>
+              <Link to="/seller/listings">Ir para listings</Link>
+            </Button>
+          }
         />
       ) : (
         <div className="overflow-hidden rounded-md border border-border">

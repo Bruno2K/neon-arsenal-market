@@ -141,6 +141,7 @@ describe("Products", () => {
       page: 1,
       limit: 20,
       status: "ACTIVE",
+      sort: "createdAt_desc",
     });
     expect(screen.queryByText(MARKET_SIMILAR_EMPTY_TITLE)).toBeNull();
   });
@@ -163,6 +164,7 @@ describe("Products", () => {
       limit: 20,
       status: "ACTIVE",
       productId: "ak-redline-ft",
+      sort: "createdAt_desc",
     });
   });
 
@@ -189,6 +191,7 @@ describe("Products", () => {
       limit: 20,
       status: "ACTIVE",
       productId: "ak-redline-ft",
+      sort: "createdAt_desc",
     });
   });
 
@@ -209,6 +212,7 @@ describe("Products", () => {
       page: 1,
       limit: 20,
       status: "ACTIVE",
+      sort: "createdAt_desc",
     });
   });
 
@@ -301,6 +305,7 @@ describe("Products", () => {
       limit: 20,
       status: "ACTIVE",
       exterior: "Minimal Wear",
+      sort: "price_asc",
     });
     expect(listProducts).not.toHaveBeenCalled();
   });
@@ -324,6 +329,7 @@ describe("Products", () => {
       page: 1,
       limit: 20,
       status: "ACTIVE",
+      sort: "createdAt_desc",
     });
     expect(screen.getAllByRole("button", { name: "Todos" })[0]).toHaveAttribute(
       "aria-pressed",
@@ -392,6 +398,7 @@ describe("Products", () => {
       limit: 20,
       status: "ACTIVE",
       productId: "talon-fade-fn",
+      sort: "createdAt_desc",
     });
   });
 
@@ -444,6 +451,68 @@ describe("Products", () => {
     );
   });
 
+  it("does not request listings when minFloat is greater than maxFloat", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+    renderMarket();
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    listListings.mockClear();
+
+    fireEvent.change(screen.getByLabelText("Float mínimo"), {
+      target: { value: "0.4" },
+    });
+    fireEvent.change(screen.getByLabelText("Float máximo"), {
+      target: { value: "0.1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /Filtrar/ }));
+
+    expect(
+      await screen.findByText(
+        "O float mínimo não pode ser maior que o máximo.",
+      ),
+    ).toBeTruthy();
+    expect(listListings).not.toHaveBeenCalled();
+  });
+
+  it("puts weapon and rarity in the URL and listListings params", async () => {
+    listListings.mockResolvedValue({
+      items: [makeListing()],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderMarket();
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "AK-47" }));
+    fireEvent.click(screen.getByRole("button", { name: "Covert" }));
+
+    expect(screen.getByTestId("market-query").textContent).toContain(
+      "weapon=AK-47",
+    );
+    expect(screen.getByTestId("market-query").textContent).toContain(
+      "rarity=Covert",
+    );
+    await waitFor(() => {
+      expect(listListings).toHaveBeenCalledWith(
+        expect.objectContaining({
+          weapon: "AK-47",
+          rarity: "Covert",
+          status: "ACTIVE",
+        }),
+      );
+    });
+  });
+
   it("clears filters back to the default catalog URL", async () => {
     listListings.mockResolvedValue({
       items: [],
@@ -454,7 +523,9 @@ describe("Products", () => {
 
     renderMarket("/products?exterior=Field-Tested&stattrak=true");
 
-    expect(await screen.findByText("Nenhum item encontrado")).toBeTruthy();
+    expect(
+      await screen.findByText("Nenhum listing com estes filtros"),
+    ).toBeTruthy();
     fireEvent.click(
       screen.getAllByRole("button", { name: "Limpar filtros" })[0],
     );

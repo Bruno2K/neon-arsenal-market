@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { adminApproveSeller, listAdminOrders } from "@/api/admin";
 import { listProducts } from "@/api/products";
@@ -152,6 +153,11 @@ export default function AdminDashboard() {
               <EmptyState
                 title="Nenhum vendedor pendente de aprovação"
                 description="Todos os cadastros já foram revisados."
+                action={
+                  <Button asChild variant="outline">
+                    <Link to="/admin/sellers">Ver vendedores</Link>
+                  </Button>
+                }
               />
             ) : (
               <PendingSellersTable
@@ -172,7 +178,14 @@ export default function AdminDashboard() {
               Todos os vendedores
             </h2>
             {sellers.length === 0 ? (
-              <EmptyState title="Nenhum vendedor cadastrado" />
+              <EmptyState
+                title="Nenhum vendedor cadastrado"
+                action={
+                  <Button asChild>
+                    <Link to="/admin/users">Ver usuários</Link>
+                  </Button>
+                }
+              />
             ) : (
               <SellersOverviewTable sellers={sellers} />
             )}
@@ -183,7 +196,15 @@ export default function AdminDashboard() {
               Pedidos recentes
             </h2>
             {recentOrders.length === 0 ? (
-              <EmptyState title="Nenhum pedido encontrado" />
+              <EmptyState
+                title="Nenhum pedido encontrado"
+                description="Enquanto isso, revise vendedores ou o catálogo."
+                action={
+                  <Button asChild>
+                    <Link to="/admin/sellers">Aprovar vendedores</Link>
+                  </Button>
+                }
+              />
             ) : (
               <RecentOrdersTable orders={recentOrders} />
             )}

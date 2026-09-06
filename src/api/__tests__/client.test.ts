@@ -65,11 +65,55 @@ describe("api extra headers", () => {
     fetchMock.mockRejectedValue(new TypeError("Failed to fetch"));
 
     await expect(api.get("/listings")).rejects.toMatchObject({
-      name: "ApiClientError",
+      name: "ApiError",
       code: "NETWORK",
       message: expect.stringMatching(
         /Could not reach API at .+Failed to fetch/,
       ),
+    });
+  });
+});
+
+describe("api HTTP errors", () => {
+  beforeEach(() => {
+    tokenStorage.clear();
+    vi.stubGlobal("fetch", vi.fn());
+  });
+
+  afterEach(() => {
+    tokenStorage.clear();
+    vi.unstubAllGlobals();
+  });
+
+  it("throws ApiError with status 400", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ error: "Bad request" }, 400),
+    );
+    await expect(api.get("/listings")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 400,
+    });
+  });
+
+  it("throws ApiError with status 401", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ error: "Unauthorized" }, 401),
+    );
+    await expect(
+      api.get("/listings", { skipAuth: true }),
+    ).rejects.toMatchObject({
+      name: "ApiError",
+      status: 401,
+    });
+  });
+
+  it("throws ApiError with status 500", async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      jsonResponse({ error: "Server exploded" }, 500),
+    );
+    await expect(api.get("/listings")).rejects.toMatchObject({
+      name: "ApiError",
+      status: 500,
     });
   });
 });

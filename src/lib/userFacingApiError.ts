@@ -68,6 +68,14 @@ export class ApiClientError extends Error {
   }
 }
 
+/** Typed HTTP failure from `api` (`res.ok === false` includes `status`). */
+export class ApiError extends ApiClientError {
+  constructor(message: string, options?: { status?: number; code?: string }) {
+    super(message, options);
+    this.name = "ApiError";
+  }
+}
+
 const LISTING_STATUS_LABELS: Record<string, string> = {
   ACTIVE: "Disponível",
   RESERVED: "Reservado",
@@ -246,6 +254,9 @@ export function userFacingApiError(error: unknown): string {
 
   return leaksTechnicalDetail(copy) ? USER_FACING_GENERIC : copy;
 }
+
+/** Page-facing mapper — callers should not parse `Failed to fetch` themselves. */
+export const toUserMessage = userFacingApiError;
 
 export function logTechnicalError(error: unknown): void {
   if (import.meta.env.DEV) {

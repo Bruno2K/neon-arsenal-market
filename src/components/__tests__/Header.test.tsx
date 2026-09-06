@@ -50,6 +50,28 @@ describe("Header", () => {
     authState.logout.mockReset();
   });
 
+  it("exposes skip-to-content as the first focusable control", () => {
+    renderHeader();
+    const skip = screen.getByRole("link", { name: "Ir para o conteúdo" });
+    expect(skip).toHaveAttribute("href", "#conteudo");
+    const focusables = document.querySelectorAll(
+      "a[href], button, input, [tabindex]:not([tabindex='-1'])",
+    );
+    expect(focusables[0]).toBe(skip);
+  });
+
+  it("hides the storefront hamburger when dashboards own the mobile menu", () => {
+    render(
+      <MemoryRouter initialEntries={["/seller/listings"]}>
+        <Header hideMobileMenu />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByRole("button", { name: "Menu" })).toBeNull();
+    expect(
+      screen.getByRole("link", { name: "Ir para o conteúdo" }),
+    ).toBeTruthy();
+  });
+
   it("shows Neon Arsenal brand and storefront links", () => {
     renderHeader();
     expect(screen.getAllByText("Neon Arsenal").length).toBeGreaterThan(0);
@@ -101,6 +123,10 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Pedidos" })).toHaveAttribute(
       "href",
       "/account/orders",
+    );
+    expect(screen.getByRole("link", { name: "Favoritos" })).toHaveAttribute(
+      "href",
+      "/account/favorites",
     );
     expect(screen.getByRole("link", { name: "Buyer" })).toHaveAttribute(
       "href",

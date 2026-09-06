@@ -4,6 +4,8 @@ import type { Listing, ListListingsResponse } from "@/types/api";
 import {
   MARKET_PAGE_SIZE,
   MARKET_SEARCH_PRODUCT_LIMIT,
+  isValidMarketRange,
+  toListingSort,
   type MarketQuery,
   type MarketSort,
 } from "@/lib/marketQuery";
@@ -11,6 +13,7 @@ import {
 function listingFilters(query: MarketQuery): ListListingsParams {
   return {
     status: "ACTIVE",
+    sort: toListingSort(query.sort),
     ...(query.productId ? { productId: query.productId } : {}),
     ...(query.exterior ? { exterior: query.exterior } : {}),
     ...(query.isStattrak !== undefined ? { isStattrak: query.isStattrak } : {}),
@@ -18,25 +21,31 @@ function listingFilters(query: MarketQuery): ListListingsParams {
     ...(query.maxPrice ? { maxPrice: parseFloat(query.maxPrice) } : {}),
     ...(query.minFloat ? { minFloat: parseFloat(query.minFloat) } : {}),
     ...(query.maxFloat ? { maxFloat: parseFloat(query.maxFloat) } : {}),
+    ...(query.weapon ? { weapon: query.weapon } : {}),
+    ...(query.rarity ? { rarity: query.rarity } : {}),
   };
 }
 
+/**
+ * Only used when textual search merges several product pages into one
+ * complete result set. Never used to re-sort a single GET /listings page.
+ */
 export function sortMarketListings(
   items: Listing[],
   sort: MarketSort,
 ): Listing[] {
-  if (sort === "price-asc") {
+  if (sort === "price_asc") {
     return [...items].sort((a, b) => Number(a.price) - Number(b.price));
   }
-  if (sort === "price-desc") {
+  if (sort === "price_desc") {
     return [...items].sort((a, b) => Number(b.price) - Number(a.price));
   }
-  if (sort === "float-asc") {
+  if (sort === "float_asc") {
     return [...items].sort(
       (a, b) => Number(a.floatValue) - Number(b.floatValue),
     );
   }
-  if (sort === "float-desc") {
+  if (sort === "float_desc") {
     return [...items].sort(
       (a, b) => Number(b.floatValue) - Number(a.floatValue),
     );
@@ -67,22 +76,24 @@ function paginate(
  * Storefront catalog. `GET /listings` has no `search`; resolve `q` through
  * `GET /products?search=` (weapon / skin / collection / marketHashName), then
  * load ACTIVE listings for those product ids.
+ *
+ * Sort is sent to GET /listings. The current page is not re-sorted.
  */
 export async function fetchMarketListings(
   query: MarketQuery,
 ): Promise<ListListingsResponse> {
+  if (!isValidMarketRange(query)) {
+    return emptyPage(query.page);
+  }
+
   const filters = listingFilters(query);
 
   if (!query.q) {
-    const result = await listListings({
+    return listListings({
       ...filters,
       page: query.page,
       limit: MARKET_PAGE_SIZE,
     });
-    return {
-      ...result,
-      items: sortMarketListings(result.items, query.sort),
-    };
   }
 
   const products = await listProducts({
@@ -96,16 +107,12 @@ export async function fetchMarketListings(
   if (ids.length === 0) return emptyPage(query.page);
 
   if (ids.length === 1) {
-    const result = await listListings({
+    return listListings({
       ...filters,
       productId: ids[0],
       page: query.page,
       limit: MARKET_PAGE_SIZE,
     });
-    return {
-      ...result,
-      items: sortMarketListings(result.items, query.sort),
-    };
   }
 
   const pages = await Promise.all(

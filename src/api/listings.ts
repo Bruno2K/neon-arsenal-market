@@ -1,6 +1,13 @@
 import { api } from "./client";
 import type { Listing, ListListingsResponse } from "@/types/api";
 
+export type ListingSort =
+  | "createdAt_desc"
+  | "price_asc"
+  | "price_desc"
+  | "float_asc"
+  | "float_desc";
+
 export interface ListListingsParams {
   page?: number;
   limit?: number;
@@ -13,9 +20,15 @@ export interface ListListingsParams {
   maxFloat?: number;
   exterior?: string;
   isStattrak?: boolean;
+  /** Server whitelist (#93). Default on the API is createdAt_desc. */
+  sort?: ListingSort;
+  weapon?: string;
+  rarity?: string;
 }
 
-export function listListings(params?: ListListingsParams): Promise<ListListingsResponse> {
+export function listListings(
+  params?: ListListingsParams,
+): Promise<ListListingsResponse> {
   const search = new URLSearchParams();
   if (params?.page != null) search.set("page", String(params.page));
   if (params?.limit != null) search.set("limit", String(params.limit));
@@ -27,7 +40,11 @@ export function listListings(params?: ListListingsParams): Promise<ListListingsR
   if (params?.minFloat != null) search.set("minFloat", String(params.minFloat));
   if (params?.maxFloat != null) search.set("maxFloat", String(params.maxFloat));
   if (params?.exterior) search.set("exterior", params.exterior);
-  if (params?.isStattrak !== undefined) search.set("isStattrak", String(params.isStattrak));
+  if (params?.isStattrak !== undefined)
+    search.set("isStattrak", String(params.isStattrak));
+  if (params?.sort) search.set("sort", params.sort);
+  if (params?.weapon) search.set("weapon", params.weapon);
+  if (params?.rarity) search.set("rarity", params.rarity);
   const qs = search.toString();
   return api.get<ListListingsResponse>(`/listings${qs ? `?${qs}` : ""}`);
 }
@@ -54,12 +71,15 @@ export function updateListing(
     price: number;
     status: "ACTIVE" | "SOLD" | "RESERVED" | "CANCELED";
     tradeLockUntil: string | null;
-  }>
+  }>,
 ): Promise<Listing> {
   return api.patch<Listing>(`/listings/${id}`, body);
 }
 
-export function updateListingPrice(id: string, body: { newPrice: number }): Promise<Listing> {
+export function updateListingPrice(
+  id: string,
+  body: { newPrice: number },
+): Promise<Listing> {
   return api.patch<Listing>(`/listings/${id}/price`, body);
 }
 
@@ -71,6 +91,11 @@ export function cancelListing(id: string): Promise<void> {
   return api.post(`/listings/${id}/cancel`);
 }
 
-export function getSellerListings(): Promise<{ items: Listing[]; total: number }> {
-  return api.get<{ items: Listing[]; total: number }>("/listings/seller/my-listings");
+export function getSellerListings(): Promise<{
+  items: Listing[];
+  total: number;
+}> {
+  return api.get<{ items: Listing[]; total: number }>(
+    "/listings/seller/my-listings",
+  );
 }
