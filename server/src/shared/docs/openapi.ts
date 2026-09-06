@@ -82,6 +82,32 @@ export const openApiSpec = {
           refreshToken: { type: "string" },
         },
       },
+      Product: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          game: { type: "string", example: "CS2" },
+          weapon: { type: "string" },
+          skinName: { type: "string" },
+          rarity: { type: "string" },
+          exterior: { type: "string" },
+          collection: { type: "string", nullable: true },
+          imageUrl: { type: "string", nullable: true },
+          isStattrak: { type: "boolean" },
+          isSouvenir: { type: "boolean" },
+          marketHashName: {
+            type: "string",
+            nullable: true,
+            description: "Steam / cs2.sh market_hash_name. Null on hand-seeded demo products.",
+          },
+          referencePriceUsd: {
+            type: "string",
+            nullable: true,
+            description:
+              "cs2.sh USD ask for catalog reference only. Not PayPal/ledger currency (ADR 0014).",
+          },
+        },
+      },
       Listing: {
         type: "object",
         properties: {
@@ -382,7 +408,8 @@ export const openApiSpec = {
         summary: "Browse product catalog",
         description:
           "Public catalog list. Same dual pagination as GET /listings: omit `cursor` for `{ items, total, page, limit }`; " +
-          "pass `cursor` for `{ items, limit, nextCursor }`. Order is `createdAt DESC, id DESC`. Limit 1–100, default 20.",
+          "pass `cursor` for `{ items, limit, nextCursor }`. Order is `createdAt DESC, id DESC`. Limit 1–100, default 20. " +
+          "Imported skins expose `marketHashName` and `referencePriceUsd` (USD catalog ask; not checkout currency).",
         security: [],
         parameters: [
           {

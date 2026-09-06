@@ -21,7 +21,8 @@
     "db:push": "prisma db push",
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
-    "db:reset": "prisma migrate reset --force --skip-seed"
+    "db:reset": "prisma migrate reset --force --skip-seed",
+    "import:cs2sh": "tsx src/scripts/importCs2ShCatalog.ts"
   },
   "prisma": {
     "seed": "node dist/scripts/seedDemoData.js"

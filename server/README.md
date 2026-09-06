@@ -22,6 +22,10 @@ npm run db:migrate:deploy
 
 Para desenvolvimento iterativo de schema, use `npm run db:migrate`.
 
+## Catálogo cs2.sh (opcional)
+
+`npm run import:cs2sh` busca o schema e o snapshot de preços da [cs2.sh](https://cs2.sh/docs/schema) e faz upsert de `Product` (skins tradable) mais um conjunto pequeno de listings demo. Exige `CS2SH_API_KEY` em `server/.env`. Sem a key o script sai com código 1 e não toca o banco. `CS2SH_IMPORT=true` no boot da API importa depois do seed demo; a API sobe mesmo se o import falhar. Ver `docs/adr/0014-cs2sh-catalog-import.md`.
+
 ## Configuração
 
 1. Na pasta `server/`, copie `.env.example` para `.env` e ajuste JWT e PayPal se quiser.

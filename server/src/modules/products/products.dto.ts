@@ -2,7 +2,17 @@ import { z } from "zod";
 import { CURSOR_MAX_LENGTH } from "../../shared/pagination/cursor.js";
 
 const EXTERIOR_TYPES = ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"] as const;
-const RARITY_TYPES = ["Consumer Grade", "Industrial Grade", "Mil-Spec Grade", "Restricted", "Classified", "Covert", "Exceedingly Rare"] as const;
+const RARITY_TYPES = [
+  "Consumer Grade",
+  "Industrial Grade",
+  "Mil-Spec Grade",
+  "Restricted",
+  "Classified",
+  "Covert",
+  "Exceedingly Rare",
+  "Contraband",
+  "Extraordinary",
+] as const;
 
 export const createProductDto = z.object({
   game: z.string().min(1, "Game is required").default("CS2"),
