@@ -53,20 +53,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (listing.status !== "ACTIVE") {
       return "unavailable";
     }
-    let result: AddItemResult = "added";
+    if (items.some((item) => item.listing.id === listing.id)) {
+      toast({ title: CART_DUPLICATE_MESSAGE });
+      return "duplicate";
+    }
     setItems((prev) => {
       if (prev.some((item) => item.listing.id === listing.id)) {
-        result = "duplicate";
         return prev;
       }
       return [...prev, { listing, priceWhenAdded: listing.price }];
     });
-    if (result === "added") {
-      toast({ title: CART_ADDED_MESSAGE });
-    } else if (result === "duplicate") {
-      toast({ title: CART_DUPLICATE_MESSAGE });
-    }
-    return result;
+    toast({ title: CART_ADDED_MESSAGE });
+    return "added";
   };
 
   const updateListing = useCallback((listing: Listing) => {
@@ -82,17 +80,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const removeItem = (listingId: string) => {
-    let removed = false;
-    setItems((prev) => {
-      if (!prev.some((item) => item.listing.id === listingId)) {
-        return prev;
-      }
-      removed = true;
-      return prev.filter((item) => item.listing.id !== listingId);
-    });
-    if (removed) {
-      toast({ title: CART_REMOVED_MESSAGE });
+    if (!items.some((item) => item.listing.id === listingId)) {
+      return;
     }
+    setItems((prev) => prev.filter((item) => item.listing.id !== listingId));
+    toast({ title: CART_REMOVED_MESSAGE });
   };
 
   const removeItems = (listingIds: string[]) => {
