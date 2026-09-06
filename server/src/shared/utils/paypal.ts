@@ -317,3 +317,8 @@ export function getPayPalApprovalLink(result: ParsedPayPalOrder): string | undef
   const link = result.links?.find((l) => l.rel === "approve");
   return link?.href;
 }
+
+/** Test seam so failure-recovery tests can force a fresh OAuth token fetch. */
+export function resetPayPalTokenCacheForTests(): void {
+  tokenCache = null;
+}

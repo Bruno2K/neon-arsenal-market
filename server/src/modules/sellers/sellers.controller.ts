@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { sellersService } from "./sellers.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { requestParam } from "../../shared/http/requestFields.js";
 
 export const sellersController = {
   async list(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -17,7 +18,7 @@ export const sellersController = {
 
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const seller = await sellersService.getById(req.params.id);
+      const seller = await sellersService.getById(requestParam(req, "id"));
       res.json(seller);
     } catch (e) {
       next(e);
@@ -47,7 +48,7 @@ export const sellersController = {
   async update(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const seller = await sellersService.update(req.params.id, user.id, user.role, req.body);
+      const seller = await sellersService.update(requestParam(req, "id"), user.id, user.role, req.body);
       res.json(seller);
     } catch (e) {
       next(e);
@@ -56,7 +57,7 @@ export const sellersController = {
 
   async approve(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const seller = await sellersService.approve(req.params.id, req.body.isApproved);
+      const seller = await sellersService.approve(requestParam(req, "id"), req.body.isApproved);
       res.json(seller);
     } catch (e) {
       next(e);

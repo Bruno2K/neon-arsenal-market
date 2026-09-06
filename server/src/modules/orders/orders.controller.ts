@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { ordersService } from "./orders.service.js";
 import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
+import { requestParam } from "../../shared/http/requestFields.js";
 import { auditActorFromRequest } from "../audit/audit.service.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { listOrdersQueryDto, type ListOrdersQuery } from "./orders.dto.js";
@@ -20,7 +21,7 @@ export const ordersController = {
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const user = getAuthUser(req);
-      const order = await ordersService.getById(req.params.id, user.id, user.role);
+      const order = await ordersService.getById(requestParam(req, "id"), user.id, user.role);
       res.json(order);
     } catch (e) {
       next(e);
@@ -48,7 +49,7 @@ export const ordersController = {
     try {
       const user = getAuthUser(req);
       const order = await ordersService.updateStatus(
-        req.params.id,
+        requestParam(req, "id"),
         user.id,
         user.role,
         req.body.status,
@@ -64,7 +65,7 @@ export const ordersController = {
     try {
       const user = getAuthUser(req);
       const order = await ordersService.updateTracking(
-        req.params.id,
+        requestParam(req, "id"),
         user.id,
         user.role,
         req.body

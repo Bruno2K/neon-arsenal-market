@@ -186,3 +186,5 @@ Transactional outbox (#46) is implemented: `OutboxEvent` in the confirm transact
 4. Write an ADR when the change is significant.
 
 Periodic financial reconciliation as a product (#45) is implemented: in-process job, ledger-wins SET of `Seller.balance`, audit + metrics. See `docs/adr/0011-seller-ledger.md`.
+
+Randomized property coverage for money composition, commission identity, SOLD irreversibility, and idempotent request hashes lives in `server/src/shared/domain/__tests__/invariants.property.test.ts` (seed `0x4e454f4e`, #64).

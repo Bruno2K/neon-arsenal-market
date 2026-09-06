@@ -251,3 +251,5 @@ Do **not** interview as if these exist:
 ## 8. What this document is for
 
 Use it to explain, in an interview, **where trust stops**, **why the webhook is unauthenticated at Express**, **why the client cannot confirm payment**, and **which controls are real versus aspirational**. Update this file when a listed control is added or removed in code — do not add a control in this document first.
+
+Automated abuse coverage for T3–T7, T10, and listing/order IDOR is in `server/src/__tests__/api.security.integration.test.ts` (#72), plus the existing PayPal webhook and listing ownership unit tests.

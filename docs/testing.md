@@ -117,6 +117,11 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `seller.ledger.reconcile.integration.test.ts` | Matching projection is a no-op; drifted projection is SET once + audited; concurrent confirmPayment cannot double-credit. |
 | `listings.cursor.integration.test.ts` | Keyset first/next/last page; concurrent insert does not duplicate/skip under cursor; offset `page`/`limit`/`total` still works; invalid cursor HTTP 400. |
 | `auth.security.integration.test.ts` | Refresh family rotation/reuse revocation; concurrent refresh; login throttle 429; password policy. |
+| `api.security.integration.test.ts` | HTTP IDOR (customer/seller), ADMIN escalation, seller listing ownership, status/payment tampering, invalid/replayed webhook, expired-reservation purchase, client price manipulation (#72). |
+
+PayPal timeout / 5xx / 429, fail-fast `OrdersCreate`/`OrdersCapture`, PostgreSQL vs `/health`/`/ready`, rollback, and Redis N/A are recorded in `docs/verification/failure-recovery-scenarios.md` (#56). Unit evidence: `shared/resilience/__tests__/retry.test.ts`, `shared/utils/__tests__/paypal.failure-recovery.test.ts`, `shared/routes/__tests__/health.test.ts`.
+
+Property-based invariant tests (#64) use `fast-check` with a fixed seed `0x4e454f4e` (`NEON`): `shared/domain/__tests__/invariants.property.test.ts` and `modules/listings/__tests__/listings.sold.property.test.ts`. Money cases stay on Prisma `Decimal`.
 
 OpenTelemetry is disabled for normal development. Telemetry tests start an in-memory exporter with `startTestTelemetry()` and do not require a collector. Unit tests also cover request-ID correlation, HTTP route cardinality, business-vs-operational span status, redaction and the disabled/OTLP-down paths. See `docs/observability.md`.
 
