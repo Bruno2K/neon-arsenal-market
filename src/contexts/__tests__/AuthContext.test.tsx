@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { AuthProvider, useAuth } from "../AuthContext";
 import type { User } from "@/types/api";
 
@@ -75,7 +75,7 @@ describe("AuthContext profile and logout", () => {
     );
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Buyer");
-    screen.getByRole("button", { name: "save-name" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "save-name" }));
 
     await waitFor(() => {
       expect(updateMe).toHaveBeenCalledWith({ name: "Novo Nome" });
@@ -91,7 +91,7 @@ describe("AuthContext profile and logout", () => {
     );
 
     expect(await screen.findByTestId("name")).toHaveTextContent("Buyer");
-    screen.getByRole("button", { name: "sair" }).click();
+    fireEvent.click(screen.getByRole("button", { name: "sair" }));
 
     await waitFor(() => {
       expect(logoutApi).toHaveBeenCalledTimes(1);

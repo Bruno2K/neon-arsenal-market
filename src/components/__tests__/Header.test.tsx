@@ -96,7 +96,7 @@ describe("Header", () => {
   it("shows Admin for an admin", () => {
     authState.user = {
       id: "a1",
-      name: "Admin",
+      name: "Ada",
       email: "admin@test.com",
       role: "ADMIN",
     };
@@ -105,6 +105,10 @@ describe("Header", () => {
     expect(screen.getByRole("link", { name: "Admin" })).toHaveAttribute(
       "href",
       "/admin",
+    );
+    expect(screen.getByRole("link", { name: "Ada" })).toHaveAttribute(
+      "href",
+      "/account",
     );
     expect(screen.queryByRole("link", { name: "Dashboard" })).toBeNull();
     expect(screen.queryByRole("link", { name: "Pedidos" })).toBeNull();
