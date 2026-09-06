@@ -23,7 +23,7 @@ The user explicitly authorized starting F3 after PR `#175` merged. The Notion F2
 
 The first validator run found that a path such as `PLAN-0001-plan-contract...` was extracted as the invalid reference `PLAN-0001-`. F3.1 fixed reference extraction to trim path and prose punctuation suffixes, tightened canonical IDs to end in an alphanumeric character, and added a regression test. Verification review then found that substring checks accepted wrong-level, suffixed, or fenced headings; exact outside-fence matching and regression cases now close that gap. The checks above are after both corrections.
 
-The repository commit hook and CI results are pending at this checkpoint. Runtime, frontend, database and PostgreSQL integration suites are not required by this documentation and dependency-free validator change; the commit hook still enforces client and server typechecks.
+The repository commit hook passed client and server typechecks. PR `#176` is open; CI results are pending at this checkpoint. Runtime, frontend, database and PostgreSQL integration suites are not required by this documentation and dependency-free validator change.
 
 ## Review boundary
 
@@ -31,4 +31,4 @@ Structural validation cannot judge whether a decomposition is substantively corr
 
 ## Remaining gate
 
-F3.1 becomes Done only after review findings are resolved, the commit hook and CI pass, and the PR merges. Do not start F3.2 from this evidence alone.
+Architecture and verification reviewers reported no remaining blockers after the corrections. F3.1 becomes Done only after CI passes and PR `#176` merges. Do not start F3.2 from this evidence alone.

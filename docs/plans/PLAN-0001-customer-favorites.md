@@ -152,7 +152,7 @@ GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE �
 - Specification: `SPEC-0004` v1 (`Proposed`)
 - Plan: `PLAN-0001` v1 (`Draft`)
 - Tasks: Plan labels only; canonical artifacts pending F3.2 and Spec acceptance
-- PR: pending F3.1 contract PR; no favorites implementation PR
+- PR: `#176` is the F3.1 contract PR; no favorites implementation PR
 - Verification/Convergence: F3.1 structural evidence only; feature evidence pending
 - Evaluation: pending F5
 - Memory: pending F6
