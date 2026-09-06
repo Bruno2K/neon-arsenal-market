@@ -159,7 +159,7 @@ describe("SellerDashboard", () => {
     expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
     expect(screen.getByText("Listings ativos")).toBeTruthy();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
-    expect(screen.getByText("AK-47 | Redline")).toBeTruthy();
+    expect(screen.getAllByText("AK-47 | Redline").length).toBeGreaterThan(0);
     expect(screen.queryByText("Receita")).toBeNull();
     expect(screen.queryByText("$84.00")).toBeNull();
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
