@@ -17,11 +17,15 @@ RUN npx prisma generate
 RUN npm run build
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Stage 2: Production image
+# Stage 2: Production image (minimal runtime, non-root)
 # ─────────────────────────────────────────────────────────────────────────────
 FROM node:20-alpine AS production
 
-RUN apk add --no-cache openssl python3 make g++
+# openssl: Prisma query engine. wget: Docker HEALTHCHECK.
+# libstdc++/libgcc: bcrypt .node at runtime. python3/make/g++: compile only.
+RUN apk add --no-cache openssl wget libstdc++ libgcc python3 make g++ \
+  && mkdir -p /tmp \
+  && chmod 1777 /tmp
 
 WORKDIR /app
 
@@ -29,10 +33,9 @@ ENV NODE_ENV=production
 
 # Install only production dependencies (no --ignore-scripts so bcrypt native bindings compile)
 COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Install prisma CLI locally so entrypoint doesn't download v7 via npx
-RUN npm install prisma@5 --save-dev
+RUN npm ci --omit=dev \
+  && npm install prisma@5 --save-dev \
+  && apk del python3 make g++
 
 # Copy built output and Prisma client
 COPY --from=builder /app/dist ./dist
@@ -52,8 +55,10 @@ USER expressjs
 
 EXPOSE 3001
 
+# Liveness only. Render probes /ready (see render.yaml). Do not use /ready
+# here: SIGTERM drain would look like a dead container (ADR 0005).
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD wget -qO- http://localhost:3001/health || exit 1
 
-# Runs migrations then starts the server
+# Runs migrations then starts the server (exec, so SIGTERM reaches Node)
 ENTRYPOINT ["./entrypoint.sh"]

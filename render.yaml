@@ -64,6 +64,9 @@ services:
     healthCheckPath: /ready
     # App drain is 10s (SHUTDOWN_DRAIN_MS). Default platform delay is 30s.
     maxShutdownDelaySeconds: 30
+    # Instance RAM/CPU = the Render plan (Dashboard / existing service). Do not
+    # add a paid plan or Redis Key Value here. Scale-out: more instances of this
+    # service; PG connection ceiling is the shared limit (docs/architecture/capacity.md).
     autoDeploy: true
 
   - type: web

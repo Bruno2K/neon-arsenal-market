@@ -179,6 +179,26 @@ jobs:
         continue-on-error: true
 
   # ─────────────────────────────────────────────
+  # Security: Trivy filesystem (#68)
+  # No image registry in this repo; Render builds at deploy. Report-only,
+  # same policy as npm audit (docs/operations/ci-protection.md).
+  # ─────────────────────────────────────────────
+  trivy:
+    name: Security (Trivy filesystem)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Trivy scan server/ (Dockerfile + lockfile)
+        uses: aquasecurity/trivy-action@0.32.0
+        with:
+          scan-type: fs
+          scan-ref: server
+          severity: CRITICAL,HIGH
+          exit-code: "0"
+
+  # ─────────────────────────────────────────────
   # Build verification (frontend + backend)
   # ─────────────────────────────────────────────
   build:

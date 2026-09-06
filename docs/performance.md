@@ -60,6 +60,7 @@ Index-only/unique lookups for `OrderIdempotencyKey(customerId, key)` and `Paymen
 - One modular-monolith API process + one PostgreSQL. In-process expiry/reconciliation timers. Horizontal API replicas are safe because invariants live in PostgreSQL.
 - Current catalog size (demo seed / a few thousand listings) is well inside the plans above.
 - OFFSET pagination remains the Market default (`page` / `limit`). `GET /listings` and `GET /products` also accept an opaque `createdAt`+`id` cursor (ADR 0013). Deep offsets are not a current product need (`limit` max 100).
+- Users/RPS, read/write mix, checkout concurrency, and PG connection budget are **hypotheses** in `docs/architecture/capacity.md`. This file does not invent k6 numbers (issue #55 is not done).
 
 ## Scaling triggers
 
