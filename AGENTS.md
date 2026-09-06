@@ -89,13 +89,15 @@ Current domain modules include:
 - auth
 - users
 - sellers
-- products
+- products (Catalog)
 - listings
 - orders
 - payments
-- commissions
+- commissions (Ledger)
 - reviews
 - admin
+
+Allowed in-process imports and composition roots: `docs/architecture/modular-monolith.md` (ADR 0016, `SPEC-0006`).
 
 Do not introduce microservices unless a concrete requirement demonstrates that the modular monolith can no longer satisfy the requirement. Architectural complexity must have a measurable reason.
 
