@@ -48,6 +48,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { EmptyState, ErrorState } from "@/components/page-state";
+import {
+  productDisplayName,
+  SkinThumb,
+  SkinVisual,
+} from "@/components/ProductCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useToast } from "@/hooks/use-toast";
 import {
@@ -291,6 +296,12 @@ export default function SellerListings() {
     }
   };
 
+  const selectedFormProduct =
+    products.find((product) => product.id === form.productId) ??
+    (editingListing?.productId === form.productId
+      ? editingListing.product
+      : undefined);
+
   if (error) {
     return (
       <ErrorState
@@ -354,10 +365,15 @@ export default function SellerListings() {
             </TableHeader>
             <TableBody>
               {listings.map((l) => {
-                const productName = `${l.product.weapon} | ${l.product.skinName} (${l.product.exterior})`;
+                const productName = productDisplayName(l.product);
                 return (
                   <TableRow key={l.id}>
-                    <TableCell className="font-medium">{productName}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <SkinThumb product={l.product} size="md" decorative />
+                        <span className="font-medium">{productName}</span>
+                      </div>
+                    </TableCell>
                     <TableCell className="hidden md:table-cell text-muted-foreground">
                       {Number(l.floatValue).toFixed(8)}
                     </TableCell>
@@ -456,17 +472,40 @@ export default function SellerListings() {
                 }
                 disabled={!!editingListing}
               >
-                <SelectTrigger id="productId" aria-labelledby="productId-label">
+                <SelectTrigger
+                  id="productId"
+                  aria-labelledby="productId-label"
+                  className="h-auto min-h-11 [&>span]:line-clamp-none [&>span]:flex [&>span]:items-center [&>span]:gap-2"
+                >
                   <SelectValue placeholder="Selecione um produto" />
                 </SelectTrigger>
                 <SelectContent>
                   {products.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.weapon} | {p.skinName} ({p.exterior})
+                      <span className="flex items-center gap-2">
+                        <SkinThumb product={p} size="sm" decorative />
+                        <span>
+                          {p.weapon} | {p.skinName} ({p.exterior})
+                        </span>
+                      </span>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {selectedFormProduct ? (
+                <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
+                  <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border">
+                    <SkinVisual
+                      product={selectedFormProduct}
+                      className="text-sm"
+                      padded={false}
+                    />
+                  </div>
+                  <p className="text-sm font-medium">
+                    {productDisplayName(selectedFormProduct)}
+                  </p>
+                </div>
+              ) : null}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">

@@ -4,15 +4,10 @@ import { useCart } from "@/contexts/CartContext";
 import { useCartListingsRevalidation } from "@/hooks/useCartListingsRevalidation";
 import { CartListingAlerts } from "@/components/CartListingAlerts";
 import { EmptyState } from "@/components/page-state";
+import { productDisplayName, SkinThumb } from "@/components/ProductCard";
 import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-
-function listingLabel(listing: {
-  product: { weapon: string; skinName: string; exterior: string };
-}) {
-  return `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
-}
 
 export default function CartPage() {
   const { items, removeItem, updateListing, totalPrice, totalItems } =
@@ -66,15 +61,13 @@ export default function CartPage() {
             }
 
             const listing = line.display;
-            const name = listingLabel(listing);
+            const name = productDisplayName(listing.product);
             return (
               <li
                 key={listing.id}
                 className="flex items-center gap-4 rounded-md border border-border bg-card p-4"
               >
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-md bg-muted px-1 text-center text-[10px] leading-tight text-muted-foreground">
-                  {listing.product.weapon}
-                </div>
+                <SkinThumb product={listing.product} size="lg" />
                 <div className="min-w-0 flex-1">
                   <Link
                     to={`/listing/${listing.id}`}

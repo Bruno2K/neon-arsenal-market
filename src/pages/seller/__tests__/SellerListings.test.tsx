@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SellerListings from "../SellerListings";
-import type { Listing, Seller, User } from "@/types/api";
+import type { Listing, Product, Seller, User } from "@/types/api";
 
 const getSellerMe = vi.fn();
 const getSellerListings = vi.fn();
@@ -48,10 +48,28 @@ function seller(): Seller {
   };
 }
 
-function listing(): Listing {
+function product(overrides: Partial<Product> = {}): Product {
+  return {
+    id: "ak-redline-ft",
+    game: "CS2",
+    weapon: "AK-47",
+    skinName: "Redline",
+    rarity: "Classified",
+    exterior: "Field-Tested",
+    isStattrak: false,
+    isSouvenir: false,
+    imageUrl: "https://cs2.sh/image/ak-redline.png",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+function listing(overrides: Partial<Listing> = {}): Listing {
+  const catalog = product();
   return {
     id: "listing-1",
-    productId: "ak-redline-ft",
+    productId: catalog.id,
     sellerId: "seller-1",
     floatValue: 0.25,
     pattern: 123,
@@ -60,32 +78,23 @@ function listing(): Listing {
     status: "ACTIVE",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-    product: {
-      id: "ak-redline-ft",
-      game: "CS2",
-      weapon: "AK-47",
-      skinName: "Redline",
-      rarity: "Classified",
-      exterior: "Field-Tested",
-      isStattrak: false,
-      isSouvenir: false,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    },
+    product: catalog,
     seller: { id: "seller-1", storeName: "NeonTrader Store" },
+    ...overrides,
   };
 }
 
 describe("SellerListings", () => {
   beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
     getSellerMe.mockReset();
     getSellerListings.mockReset();
     listProducts.mockReset();
     getSellerMe.mockResolvedValue(seller());
     getSellerListings.mockResolvedValue({ items: [listing()], total: 1 });
     listProducts.mockResolvedValue({
-      items: [],
-      total: 0,
+      items: [product()],
+      total: 1,
       page: 1,
       limit: 100,
     });
@@ -168,5 +177,76 @@ describe("SellerListings", () => {
     expect(screen.queryByText("Seller not found")).toBeNull();
     expect(getSellerMe).not.toHaveBeenCalled();
     expect(getSellerListings).not.toHaveBeenCalled();
+  });
+
+  it("shows a catalog thumbnail in each listing row", async () => {
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText("AK-47 | Redline (Field-Tested)"),
+    ).toBeTruthy();
+    const thumb = document.querySelector(
+      'img[src="https://cs2.sh/image/ak-redline.png"]',
+    );
+    expect(thumb).toBeTruthy();
+  });
+
+  it("shows a product preview in the edit listing dialog", async () => {
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(await screen.findByLabelText("Editar"));
+    expect(await screen.findByText("Editar listing")).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "AK-47 | Redline (Field-Tested)" }),
+    ).toHaveAttribute("src", "https://cs2.sh/image/ak-redline.png");
+  });
+
+  it("shows option thumbnails and a preview when creating a listing", async () => {
+    const awp = product({
+      id: "awp-asiimov-ft",
+      weapon: "AWP",
+      skinName: "Asiimov",
+      imageUrl: "https://cs2.sh/image/awp-asiimov.png",
+    });
+    listProducts.mockResolvedValue({
+      items: [product(), awp],
+      total: 2,
+      page: 1,
+      limit: 100,
+    });
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Novo Listing" }),
+    );
+    expect(await screen.findByText("Novo listing")).toBeTruthy();
+
+    fireEvent.click(screen.getByLabelText("Produto"));
+    const option = await screen.findByText("AWP | Asiimov (Field-Tested)");
+    expect(
+      option
+        .closest("[role='option']")
+        ?.querySelector('img[src="https://cs2.sh/image/awp-asiimov.png"]'),
+    ).toBeTruthy();
+
+    fireEvent.click(option);
+    await waitFor(() => {
+      expect(
+        screen.getByRole("img", { name: "AWP | Asiimov (Field-Tested)" }),
+      ).toHaveAttribute("src", "https://cs2.sh/image/awp-asiimov.png");
+    });
   });
 });

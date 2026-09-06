@@ -243,6 +243,24 @@ describe("Checkout", () => {
     expect(reserveListing).not.toHaveBeenCalled();
   });
 
+  it("shows a catalog thumbnail for each checkout line", async () => {
+    const withImage = listing(100);
+    withImage.product = {
+      ...withImage.product,
+      imageUrl: "https://cs2.sh/image/ak-redline.png",
+    };
+    cartState.items = [{ listing: withImage }];
+    cartState.totalPrice = 100;
+    asCustomer();
+
+    renderCheckout();
+    await waitForPayable();
+
+    expect(
+      document.querySelector('img[src="https://cs2.sh/image/ak-redline.png"]'),
+    ).toBeTruthy();
+  });
+
   it("sends absolute returnUrl and cancelUrl and prunes ordered listings", async () => {
     cartState.items = [{ listing: listing(100) }];
     cartState.totalPrice = 100;

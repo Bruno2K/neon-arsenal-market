@@ -23,7 +23,7 @@ vi.mock("@/contexts/AuthContext", () => ({
   useAuth: () => authState,
 }));
 
-function product(): Product {
+function product(overrides: Partial<Product> = {}): Product {
   return {
     id: "ak-redline-ft",
     game: "CS2",
@@ -37,6 +37,7 @@ function product(): Product {
     isSouvenir: false,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
+    ...overrides,
   };
 }
 
@@ -89,6 +90,22 @@ describe("SellerProducts", () => {
       screen.getByText("Ir para listings").closest("a")?.getAttribute("href"),
     ).toBe("/seller/listings");
     expect(listProducts).toHaveBeenCalled();
+  });
+
+  it("shows a catalog thumbnail when product.imageUrl is set", async () => {
+    listProducts.mockResolvedValue({
+      items: [product({ imageUrl: "https://cs2.sh/image/ak-redline.png" })],
+      total: 1,
+      page: 1,
+      limit: 20,
+    });
+
+    renderProducts();
+
+    expect(await screen.findByText("AK-47 | Redline")).toBeTruthy();
+    expect(
+      document.querySelector('img[src="https://cs2.sh/image/ak-redline.png"]'),
+    ).toBeTruthy();
   });
 
   it("does not expose listing or product mutations", async () => {

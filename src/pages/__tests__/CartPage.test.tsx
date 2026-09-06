@@ -229,4 +229,40 @@ describe("CartPage", () => {
     });
     expect(screen.queryByText("Erro ao atualizar")).toBeNull();
   });
+
+  it("shows the listing image when product.imageUrl is set", async () => {
+    cartState.items = [
+      {
+        listing: listing("listing-ak", 100, {
+          product: {
+            ...listing("listing-ak", 100).product,
+            imageUrl: "https://cs2.sh/image/ak-neon-rider.png",
+          },
+        }),
+        priceWhenAdded: 100,
+      },
+    ];
+    cartState.totalPrice = 100;
+    cartState.totalItems = 1;
+    renderCart();
+
+    expect(
+      await screen.findByRole("img", {
+        name: "AK-47 | Neon Rider (Field-Tested)",
+      }),
+    ).toHaveAttribute("src", "https://cs2.sh/image/ak-neon-rider.png");
+  });
+
+  it("falls back to a weapon monogram when the listing has no image", async () => {
+    cartState.items = [
+      { listing: listing("listing-ak", 100), priceWhenAdded: 100 },
+    ];
+    cartState.totalPrice = 100;
+    cartState.totalItems = 1;
+    renderCart();
+
+    expect(await screen.findByText("Finalizar compra")).toBeTruthy();
+    expect(screen.queryByRole("img")).toBeNull();
+    expect(screen.getByText("AK-")).toBeTruthy();
+  });
 });

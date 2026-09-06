@@ -7,6 +7,7 @@ import { createOrder } from "@/api/orders";
 import { createPaymentLink } from "@/api/payments";
 import { CartListingAlerts } from "@/components/CartListingAlerts";
 import { EmptyState } from "@/components/page-state";
+import { productDisplayName, SkinThumb } from "@/components/ProductCard";
 import { ReservationHold } from "@/components/ReservationHold";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -179,12 +180,17 @@ export default function Checkout() {
               }
 
               const listing = line.display;
-              const name = `${listing.product.weapon} | ${listing.product.skinName} (${listing.product.exterior})`;
+              const name = productDisplayName(listing.product);
               return (
                 <li key={listing.id} className="space-y-1 text-sm">
                   <div className="flex items-start justify-between gap-4">
-                    <span className="min-w-0 truncate text-foreground">
-                      {name}
+                    <span className="flex min-w-0 items-center gap-3 text-foreground">
+                      <SkinThumb
+                        product={listing.product}
+                        size="sm"
+                        decorative
+                      />
+                      <span className="truncate">{name}</span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
                       <span className="tabular-price text-muted-foreground">

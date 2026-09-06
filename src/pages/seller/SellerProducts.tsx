@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { listProducts } from "@/api/products";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
+import { SkinThumb } from "@/components/ProductCard";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -92,8 +93,13 @@ export default function SellerProductsPage() {
             <TableBody>
               {items.map((product) => (
                 <TableRow key={product.id}>
-                  <TableCell className="font-medium">
-                    {product.weapon} | {product.skinName}
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <SkinThumb product={product} size="md" decorative />
+                      <span className="font-medium">
+                        {product.weapon} | {product.skinName}
+                      </span>
+                    </div>
                   </TableCell>
                   <TableCell>{product.rarity}</TableCell>
                   <TableCell className="hidden text-muted-foreground md:table-cell">

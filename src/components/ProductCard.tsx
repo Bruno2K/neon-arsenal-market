@@ -2,23 +2,43 @@ import { Link } from "react-router-dom";
 import type { Listing, Product } from "@/types/api";
 import { ListingCartCta } from "@/components/ListingCartCta";
 
-export function productDisplayName(product: Product): string {
+export function productDisplayName(
+  product: Pick<Product, "weapon" | "skinName" | "exterior">,
+): string {
   return `${product.weapon} | ${product.skinName} (${product.exterior})`;
 }
+
+export type SkinProduct = Pick<Product, "weapon" | "skinName" | "exterior"> & {
+  imageUrl?: string | null;
+};
+
+const SKIN_THUMB_SIZE = {
+  sm: "h-8 w-10",
+  md: "h-12 w-16",
+  lg: "h-16 w-24",
+} as const;
 
 export function SkinVisual({
   product,
   className = "text-2xl",
+  padded = true,
+  decorative = false,
 }: {
-  product: Product;
+  product: SkinProduct;
   className?: string;
+  padded?: boolean;
+  decorative?: boolean;
 }) {
   if (product.imageUrl) {
     return (
       <img
         src={product.imageUrl}
-        alt={productDisplayName(product)}
-        className="h-full w-full object-contain p-3"
+        alt={decorative ? "" : productDisplayName(product)}
+        className={
+          padded
+            ? "h-full w-full object-contain p-3"
+            : "h-full w-full object-contain p-0.5"
+        }
       />
     );
   }
@@ -27,6 +47,31 @@ export function SkinVisual({
       className={`font-semibold tracking-tight text-muted-foreground/70 ${className}`}
     >
       {product.weapon.slice(0, 3).toUpperCase()}
+    </span>
+  );
+}
+
+/** Compact catalog preview for tables, cart lines, and select options. */
+export function SkinThumb({
+  product,
+  size = "md",
+  decorative = false,
+}: {
+  product: SkinProduct;
+  size?: keyof typeof SKIN_THUMB_SIZE;
+  decorative?: boolean;
+}) {
+  return (
+    <span
+      className={`inline-flex ${SKIN_THUMB_SIZE[size]} shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border`}
+      aria-hidden={decorative || undefined}
+    >
+      <SkinVisual
+        product={product}
+        className="text-[10px]"
+        padded={false}
+        decorative={decorative}
+      />
     </span>
   );
 }
