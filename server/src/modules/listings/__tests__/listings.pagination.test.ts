@@ -47,6 +47,11 @@ describe("GET /listings and GET /products pagination query contract", () => {
       page: 9,
       limit: 20,
     });
+    expect(listListingsQueryDto.parse({ sort: "price_asc", weapon: "AK-47" })).toMatchObject({
+      sort: "price_asc",
+      weapon: "AK-47",
+    });
+    expect(listListingsQueryDto.safeParse({ sort: "newest" }).success).toBe(false);
     expect(listProductsQueryDto.parse({ cursor: "abc" })).toMatchObject({ cursor: "abc", page: 1, limit: 20 });
   });
 
@@ -54,6 +59,11 @@ describe("GET /listings and GET /products pagination query contract", () => {
     const response = await fetch(`${baseUrl}/listings?cursor=not-a-cursor&limit=2`);
     expect(response.status).toBe(400);
     await expect(response.json()).resolves.toEqual({ error: "Invalid cursor" });
+  });
+
+  it("returns 400 for an unknown listings sort key", async () => {
+    const response = await fetch(`${baseUrl}/listings?sort=newest`);
+    expect(response.status).toBe(400);
   });
 
   it("returns 400 for an invalid products cursor without requiring auth", async () => {

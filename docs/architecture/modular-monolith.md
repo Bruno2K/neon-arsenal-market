@@ -19,6 +19,7 @@ This is one Express API process and one PostgreSQL database. Modules are folders
 | Payments | `modules/payments` | PaymentLink, webhook claim, capture, `confirmPayment`, PayPal GET reconcile |
 | Ledger | `modules/commissions` | `Seller.balance` projection reads and projection-only reconcile |
 | Reviews | `modules/reviews` | Product reviews |
+| Favorites | `modules/favorites` | Account-owned saved listings (`GET/POST /favorites`, `DELETE /favorites/:listingId`) |
 | Admin | `modules/admin` | ADMIN composition: users, orders, seller approval, audit read, catalog import |
 | Audit | `modules/audit` | Append-only `AuditLog` (supporting; not a marketplace domain) |
 

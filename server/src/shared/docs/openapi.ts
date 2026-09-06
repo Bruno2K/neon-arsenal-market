@@ -181,6 +181,31 @@ export const openApiSpec = {
           createdAt: { type: "string", format: "date-time" },
         },
       },
+      FavoriteItem: {
+        type: "object",
+        required: ["listingId", "listing"],
+        properties: {
+          listingId: { type: "string" },
+          listing: { $ref: "#/components/schemas/Listing" },
+        },
+      },
+      FavoriteList: {
+        type: "object",
+        required: ["items"],
+        properties: {
+          items: {
+            type: "array",
+            items: { $ref: "#/components/schemas/FavoriteItem" },
+          },
+        },
+      },
+      FavoriteWrite: {
+        type: "object",
+        required: ["listingId"],
+        properties: {
+          listingId: { type: "string" },
+        },
+      },
       Cs2ShImportSummary: {
         type: "object",
         properties: {
@@ -389,8 +414,10 @@ export const openApiSpec = {
         summary: "Browse listings with filters",
         description:
           "Public listing browse. Offset pagination (`page`/`limit`) remains the default so existing Market clients keep working. " +
-          "When `cursor` is present (empty string = first keyset page), `page` is ignored and the response is `{ items, limit, nextCursor }` " +
+          "When `cursor` is present (empty string = first keyset page), `page` and `sort` are ignored and the response is `{ items, limit, nextCursor }` " +
           "ordered by `createdAt DESC, id DESC`. The cursor is opaque base64url of those two keys; clients must not parse it. " +
+          "Offset mode accepts `sort` (`createdAt_desc` default, `price_asc`, `price_desc`, `float_asc`, `float_desc`) applied in PostgreSQL " +
+          "to the full filtered catalog before `page`/`limit`. `weapon`, `rarity`, and `game` filter via related Product (no category table). " +
           "Limit is 1–100 (default 20). Concurrent inserts do not skip or duplicate rows already walked by a cursor.",
         security: [],
         parameters: [
@@ -423,6 +450,35 @@ export const openApiSpec = {
           { name: "maxFloat", in: "query", schema: { type: "number" } },
           { name: "exterior", in: "query", schema: { type: "string" } },
           { name: "isStattrak", in: "query", schema: { type: "boolean" } },
+          {
+            name: "weapon",
+            in: "query",
+            schema: { type: "string" },
+            description: "Exact Product.weapon match (case-insensitive). Example: AK-47.",
+          },
+          {
+            name: "rarity",
+            in: "query",
+            schema: { type: "string" },
+            description: "Exact Product.rarity match (case-insensitive). Example: Covert.",
+          },
+          {
+            name: "game",
+            in: "query",
+            schema: { type: "string" },
+            description: "Optional exact Product.game match (case-insensitive). Example: CS2.",
+          },
+          {
+            name: "sort",
+            in: "query",
+            schema: {
+              type: "string",
+              enum: ["createdAt_desc", "price_asc", "price_desc", "float_asc", "float_desc"],
+              default: "createdAt_desc",
+            },
+            description:
+              "Offset-mode catalog sort. Default createdAt_desc (newest first). Applied in SQL to the full filter set, then paginated. Ignored in cursor mode.",
+          },
         ],
         responses: {
           200: {
@@ -725,6 +781,77 @@ export const openApiSpec = {
               },
             },
           },
+        },
+      },
+    },
+    "/favorites": {
+      get: {
+        tags: ["Favorites"],
+        summary: "List the authenticated customer's saved listings",
+        description:
+          "CUSTOMER-only. Owner is the JWT subject; userId is never accepted from the query or body. " +
+          "Does not reserve or change listing status. Saved SOLD listings remain in the list.",
+        responses: {
+          200: {
+            description: "Saved listings for the caller",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FavoriteList" },
+              },
+            },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not CUSTOMER" },
+        },
+      },
+      post: {
+        tags: ["Favorites"],
+        summary: "Save a listing for the authenticated customer",
+        description:
+          "CUSTOMER-only. Body is `{ listingId }` only. Duplicate POST is 200/no-op (unique userId+listingId). Missing listing is 404.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { $ref: "#/components/schemas/FavoriteWrite" },
+            },
+          },
+        },
+        responses: {
+          200: {
+            description: "Created or already saved",
+            content: {
+              "application/json": {
+                schema: { $ref: "#/components/schemas/FavoriteWrite" },
+              },
+            },
+          },
+          400: { description: "Invalid listingId" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not CUSTOMER" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/favorites/{listingId}": {
+      delete: {
+        tags: ["Favorites"],
+        summary: "Remove a saved listing for the authenticated customer",
+        description:
+          "CUSTOMER-only. Scoped to the JWT subject. Repeated DELETE is 204/no-op. Cannot remove another user's favorite.",
+        parameters: [
+          {
+            name: "listingId",
+            in: "path",
+            required: true,
+            schema: { type: "string" },
+          },
+        ],
+        responses: {
+          204: { description: "Removed or already absent" },
+          400: { description: "Invalid listingId" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not CUSTOMER" },
         },
       },
     },

@@ -15,10 +15,20 @@ import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
 import {
-  createdAtIdDescOrderBy,
   decodeCreatedAtIdCursor,
   nextCreatedAtIdCursor,
 } from "../../shared/pagination/cursor.js";
+import { DEFAULT_LISTING_SORT, listingOrderBy } from "./listings.sort.js";
+
+function productRelationFilter(query: ListListingsQuery): Prisma.ProductWhereInput | undefined {
+  const product: Prisma.ProductWhereInput = {};
+  if (query.exterior) product.exterior = query.exterior;
+  if (query.isStattrak !== undefined) product.isStattrak = query.isStattrak;
+  if (query.weapon) product.weapon = { equals: query.weapon, mode: "insensitive" };
+  if (query.rarity) product.rarity = { equals: query.rarity, mode: "insensitive" };
+  if (query.game) product.game = { equals: query.game, mode: "insensitive" };
+  return Object.keys(product).length ? product : undefined;
+}
 
 export const listingsService = {
   async list(query: ListListingsQuery) {
@@ -40,15 +50,12 @@ export const listingsService = {
       if (query.maxFloat !== undefined) where.floatValue.lte = query.maxFloat;
     }
 
-    if (query.exterior || query.isStattrak !== undefined) {
-      where.product = {};
-      if (query.exterior) where.product.exterior = query.exterior;
-      if (query.isStattrak !== undefined) where.product.isStattrak = query.isStattrak;
-    }
+    const product = productRelationFilter(query);
+    if (product) where.product = product;
 
     const filters = Object.keys(where).length ? where : undefined;
 
-    // Cursor mode: ignore `page`, skip COUNT(*), keyset on createdAt+id.
+    // Cursor mode: ignore `page` and `sort`, skip COUNT(*), keyset on createdAt+id.
     if (query.cursor !== undefined) {
       const after = query.cursor === "" ? undefined : decodeCreatedAtIdCursor(query.cursor);
       const { items, hasMore } = await listingsRepository.findManyByKeyset({
@@ -63,20 +70,23 @@ export const listingsService = {
       };
     }
 
+    const sort = query.sort ?? DEFAULT_LISTING_SORT;
     const skip = (query.page - 1) * query.limit;
     const { items, total } = await listingsRepository.findMany({
       skip,
       take: query.limit,
       where: filters,
-      orderBy: createdAtIdDescOrderBy,
+      orderBy: listingOrderBy(sort),
     });
 
+    const hasMore = skip + items.length < total;
     return {
       items,
       total,
       page: query.page,
       limit: query.limit,
-      nextCursor: nextCreatedAtIdCursor(items, skip + items.length < total),
+      nextCursor:
+        sort === DEFAULT_LISTING_SORT ? nextCreatedAtIdCursor(items, hasMore) : null,
     };
   },
 

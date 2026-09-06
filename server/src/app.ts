@@ -17,6 +17,7 @@ import { ordersRoutes } from "./modules/orders/orders.routes.js";
 import { paymentsRoutes } from "./modules/payments/payments.routes.js";
 import { commissionsRoutes } from "./modules/commissions/commissions.routes.js";
 import { reviewsRoutes } from "./modules/reviews/reviews.routes.js";
+import { favoritesRoutes } from "./modules/favorites/favorites.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
 import { getAllowedCorsOrigins, isCorsOriginAllowed } from "./shared/config/cors.js";
 import { API_V1_PREFIX } from "./shared/http/apiVersion.js";
@@ -75,6 +76,7 @@ publicApi.use("/orders", ordersRoutes);
 publicApi.use("/payments", paymentsRoutes);
 publicApi.use("/commissions", commissionsRoutes);
 publicApi.use("/reviews", reviewsRoutes);
+publicApi.use("/favorites", favoritesRoutes);
 publicApi.use("/admin", adminRoutes);
 
 app.use(publicApi);

@@ -27,6 +27,8 @@ describe("SPEC-0006 modular monolith map", () => {
     expect(DOMAIN_MODULE_FOLDERS).toContain("products");
     expect(DOMAIN_MODULE_FOLDERS).toContain("commissions");
     expect(DOMAIN_MODULE_FOLDERS).toContain("audit");
+    expect(DOMAIN_MODULE_FOLDERS).toContain("favorites");
+    expect(LOGICAL_MODULE_NAMES.favorites).toBe("Favorites");
   });
 
   it("encodes Admin composition and Audit write edges only", () => {
@@ -38,6 +40,7 @@ describe("SPEC-0006 modular monolith map", () => {
     expect(ALLOWED_MODULE_EDGES.commissions).toEqual(["audit"]);
     expect(ALLOWED_MODULE_EDGES.auth).toEqual([]);
     expect(ALLOWED_MODULE_EDGES.reviews).toEqual([]);
+    expect(ALLOWED_MODULE_EDGES.favorites).toEqual([]);
     expect(isModuleEdgeAllowed("payments", "orders")).toBe(false);
     expect(isModuleEdgeAllowed("orders", "listings")).toBe(false);
     expect(isModuleEdgeAllowed("reviews", "products")).toBe(false);

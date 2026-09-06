@@ -22,6 +22,7 @@ Express API
        +--> payments
        +--> commissions   (Ledger)
        +--> reviews
+       +--> favorites
        +--> admin
        +--> audit         (supporting)
        |
@@ -66,7 +67,7 @@ This is not an emergency rewrite target. Agents should avoid broad refactors. Wh
 
 PostgreSQL is the source of truth for business state. Prisma is the data-access layer.
 
-The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews, refresh-token families (`RefreshToken`), per-email login throttle (`LoginThrottle`), an append-only `AuditLog`, and a transactional `OutboxEvent` table. `Product.marketHashName` is the unique cs2.sh/Steam key when a row was imported; `referencePriceUsd` is catalog USD ask and is not ledger currency (`docs/adr/0014-cs2sh-catalog-import.md`). Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint. Critical lifecycle columns (`User.role`, `Order.status`, `Order.paymentStatus`, `Listing.status`, payment-link and idempotency claim status, webhook processing status/provider, seller-transaction status, outbox processing status) are PostgreSQL enums. PayPal `eventType` stays text so unknown provider events can be persisted and ignored. See `docs/adr/0009-prisma-domain-enums.md`. `AuditLog` records ADMIN/seller listing/order/payment mutations with ADMIN-only read access and a 365-day retention policy (`docs/adr/0010-audit-log.md`). `OutboxEvent` is inserted in the same local transaction as payment confirmation and published by an in-process skip-locked dispatcher (`docs/adr/0012-transactional-outbox.md`).
+The schema contains the main marketplace entities: users, pending registrations, sellers, products, listings, orders, order items, seller transactions, payment webhook events, reviews, customer favorites (`Favorite`, unique `(userId, listingId)`), refresh-token families (`RefreshToken`), per-email login throttle (`LoginThrottle`), an append-only `AuditLog`, and a transactional `OutboxEvent` table. `Product.marketHashName` is the unique cs2.sh/Steam key when a row was imported; `referencePriceUsd` is catalog USD ask and is not ledger currency (`docs/adr/0014-cs2sh-catalog-import.md`). Listings contain reservation fields `reservedAt`, `reservationExpiresAt` and `reservedByOrderId`. `PaymentWebhookEvent` stores PayPal event identity with a unique `(provider, externalEventId)` constraint. Critical lifecycle columns (`User.role`, `Order.status`, `Order.paymentStatus`, `Listing.status`, payment-link and idempotency claim status, webhook processing status/provider, seller-transaction status, outbox processing status) are PostgreSQL enums. PayPal `eventType` stays text so unknown provider events can be persisted and ignored. See `docs/adr/0009-prisma-domain-enums.md`. `AuditLog` records ADMIN/seller listing/order/payment mutations with ADMIN-only read access and a 365-day retention policy (`docs/adr/0010-audit-log.md`). `OutboxEvent` is inserted in the same local transaction as payment confirmation and published by an in-process skip-locked dispatcher (`docs/adr/0012-transactional-outbox.md`).
 
 ## Critical workflows
 

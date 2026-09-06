@@ -18,6 +18,7 @@ export const DOMAIN_MODULE_FOLDERS = [
   "payments",
   "commissions",
   "reviews",
+  "favorites",
   "admin",
   "audit",
 ] as const;
@@ -34,6 +35,7 @@ export const LOGICAL_MODULE_NAMES = {
   payments: "Payments",
   commissions: "Ledger",
   reviews: "Reviews",
+  favorites: "Favorites",
   admin: "Admin",
   audit: "Audit",
 } as const satisfies Record<DomainModuleFolder, string>;
@@ -62,6 +64,7 @@ export const ALLOWED_MODULE_EDGES: Record<DomainModuleFolder, readonly DomainMod
   payments: ["audit"],
   commissions: ["audit"],
   reviews: [],
+  favorites: [],
   admin: ["sellers", "orders", "products", "audit"],
   audit: [],
 };

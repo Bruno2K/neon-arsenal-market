@@ -7,6 +7,7 @@ import {
   STEAM_ASSET_ID_MAX,
   resourceIdSchema,
 } from "../../shared/validation/httpLimits.js";
+import { LISTING_SORTS } from "./listings.sort.js";
 
 export const createListingDto = z.object({
   productId: resourceIdSchema("Product ID"),
@@ -40,6 +41,14 @@ export const listListingsQueryDto = z.object({
   maxFloat: z.coerce.number().min(0).max(1).optional(),
   exterior: z.string().max(SEARCH_MAX).optional(),
   isStattrak: z.coerce.boolean().optional(),
+  weapon: z.string().max(SEARCH_MAX).optional(),
+  rarity: z.string().max(SEARCH_MAX).optional(),
+  game: z.string().max(SEARCH_MAX).optional(),
+  /**
+   * Offset-mode catalog sort. Default `createdAt_desc`. Ignored when `cursor` is
+   * present (keyset remains createdAt+id). Applied in SQL to the full filter set.
+   */
+  sort: z.enum(LISTING_SORTS).optional(),
   /**
    * Opaque keyset cursor (`createdAt` + `id`). When present (including empty = first
    * keyset page), `page` is ignored. Limit remains 1–100, default 20.

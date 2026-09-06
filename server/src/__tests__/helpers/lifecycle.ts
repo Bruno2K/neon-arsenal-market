@@ -13,6 +13,7 @@ import { prisma } from "../../shared/database/index.js";
  * `deleteMany` chains copied across files.
  */
 export const BUSINESS_TABLES = [
+  "Favorite",
   "Review",
   "SellerTransaction",
   "PaymentWebhookEvent",

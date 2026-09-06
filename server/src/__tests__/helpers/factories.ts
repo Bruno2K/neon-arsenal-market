@@ -43,16 +43,19 @@ export async function createSeller(userId?: string) {
 
 export async function createProduct(overrides: {
   skinName?: string;
+  weapon?: string;
+  rarity?: string;
+  game?: string;
   createdAt?: Date;
   id?: string;
 } = {}) {
   return prisma.product.create({
     data: {
       ...(overrides.id ? { id: overrides.id } : {}),
-      game: "CS2",
-      weapon: "AK-47",
+      game: overrides.game ?? "CS2",
+      weapon: overrides.weapon ?? "AK-47",
       skinName: overrides.skinName ?? `Skin ${uniqueSuffix()}`,
-      rarity: "Classified",
+      rarity: overrides.rarity ?? "Classified",
       exterior: "Field-Tested",
       ...(overrides.createdAt ? { createdAt: overrides.createdAt } : {}),
     },

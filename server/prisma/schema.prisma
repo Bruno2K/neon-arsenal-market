@@ -74,6 +74,7 @@ model User {
   orderIdempotencyKeys OrderIdempotencyKey[]
   reviews              Review[]
   refreshTokens        RefreshToken[]
+  favorites            Favorite[]
 }
 
 // Pending sign-up: user is created only after email verification (code confirmation)
@@ -229,6 +230,7 @@ model Listing {
   seller       Seller         @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   priceHistory PriceHistory[]
   orderItems   OrderItem[]
+  favorites    Favorite[]
 
   @@index([productId])
   @@index([price])
@@ -237,8 +239,26 @@ model Listing {
   @@index([productId, status])
   @@index([createdAt, id])
   @@index([status, createdAt, id])
+  @@index([status, price, id])
+  @@index([status, floatValue, id])
   @@index([status, reservationExpiresAt])
   @@index([reservedByOrderId])
+}
+
+/// Account-owned saved listing. Unique (userId, listingId). Does not reserve,
+/// buy, or change Listing status (SPEC-0004 / issue #106).
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  listing Listing @relation(fields: [listingId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, listingId])
+  @@index([userId, createdAt])
+  @@index([listingId])
 }
 
 model PriceHistory {
