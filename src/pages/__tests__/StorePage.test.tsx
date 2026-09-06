@@ -99,7 +99,7 @@ describe("StorePage", () => {
     renderStore();
 
     expect(await screen.findByText("RustKing")).toBeTruthy();
-    expect(screen.getByText(new RegExp(SELLER_RATING_COPY))).toBeTruthy();
+    expect(screen.getByText(SELLER_RATING_COPY, { exact: false })).toBeTruthy();
     expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
     expect(listListings).toHaveBeenCalledWith({
       sellerId: "seller-1",
@@ -107,7 +107,7 @@ describe("StorePage", () => {
       page: 1,
       limit: 40,
     });
-    expect(screen.queryByText(/média de avaliações/i)).toBeNull();
+    expect(screen.queryByText(/média das avaliações/i)).toBeNull();
   });
 
   it("shows 404 copy for a missing seller", async () => {

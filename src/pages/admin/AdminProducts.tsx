@@ -476,7 +476,7 @@ export default function AdminProducts() {
             <AlertDialogAction
               onClick={() => pendingDelete && remove.mutate(pendingDelete.id)}
             >
-              Excluir
+              Confirmar exclusão
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

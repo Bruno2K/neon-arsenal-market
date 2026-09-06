@@ -82,7 +82,7 @@ describe("AccountFavoritesPage", () => {
   it("keeps a SOLD favorite with a badge and related link", async () => {
     listFavorites.mockResolvedValue([soldFavorite()]);
     renderPage();
-    expect(await screen.findByText("Vendido")).toBeTruthy();
+    expect(await screen.findAllByText("Vendido")).toHaveLength(2);
     expect(
       screen.getByRole("link", { name: "Ver relacionados" }),
     ).toHaveAttribute("href", "/products?productId=prod-1");

@@ -95,7 +95,7 @@ describe("AdminProducts", () => {
     fireEvent.click(screen.getByRole("button", { name: "Excluir" }));
     expect(screen.getByText("Excluir produto?")).toBeTruthy();
     expect(deleteProduct).not.toHaveBeenCalled();
-    fireEvent.click(screen.getAllByRole("button", { name: "Excluir" })[1]);
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar exclusão" }));
     await waitFor(() => {
       expect(deleteProduct).toHaveBeenCalledWith("prod-1");
     });
