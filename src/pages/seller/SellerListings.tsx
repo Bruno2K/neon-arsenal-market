@@ -17,7 +17,7 @@ import {
   cancelListing,
 } from "@/api";
 import type { Seller, Listing, Product } from "@/types/api";
-import { listProducts } from "@/api/products";
+import { ProductCatalogPicker } from "@/components/seller/ProductCatalogPicker";
 import { Button } from "@/components/ui/button";
 import {
   Table,
@@ -83,7 +83,7 @@ export default function SellerListings() {
   const isAdmin = user?.role === "ADMIN";
   const [seller, setSeller] = useState<Seller | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
-  const [products, setProducts] = useState<Product[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<Product | undefined>();
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -123,15 +123,6 @@ export default function SellerListings() {
     }
   };
 
-  const loadProducts = async () => {
-    try {
-      const res = await listProducts({ page: 1, limit: 100 });
-      setProducts(res.items);
-    } catch (e) {
-      console.error("Erro ao carregar produtos:", e);
-    }
-  };
-
   const reload = async () => {
     setLoading(true);
     setError(null);
@@ -140,7 +131,7 @@ export default function SellerListings() {
       setLoading(false);
       return;
     }
-    await Promise.all([loadListings(), loadProducts()]);
+    await loadListings();
   };
 
   useEffect(() => {
@@ -156,12 +147,14 @@ export default function SellerListings() {
 
   const openCreate = () => {
     setEditingListing(null);
+    setSelectedProduct(undefined);
     setForm(emptyForm);
     setFormOpen(true);
   };
 
   const openEdit = (l: Listing) => {
     setEditingListing(l);
+    setSelectedProduct(l.product);
     setForm({
       productId: l.productId,
       floatValue: String(l.floatValue),
@@ -296,11 +289,7 @@ export default function SellerListings() {
     }
   };
 
-  const selectedFormProduct =
-    products.find((product) => product.id === form.productId) ??
-    (editingListing?.productId === form.productId
-      ? editingListing.product
-      : undefined);
+  const selectedFormProduct = selectedProduct;
 
   if (error) {
     return (
@@ -449,7 +438,7 @@ export default function SellerListings() {
       )}
 
       <Dialog open={formOpen} onOpenChange={setFormOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {editingListing ? "Editar listing" : "Novo listing"}
@@ -462,36 +451,17 @@ export default function SellerListings() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="productId" id="productId-label">
-                Produto
-              </Label>
-              <Select
-                value={form.productId}
-                onValueChange={(value) =>
-                  setForm((f) => ({ ...f, productId: value }))
-                }
-                disabled={!!editingListing}
-              >
-                <SelectTrigger
-                  id="productId"
-                  aria-labelledby="productId-label"
-                  className="h-auto min-h-11 [&>span]:line-clamp-none [&>span]:flex [&>span]:items-center [&>span]:gap-2"
-                >
-                  <SelectValue placeholder="Selecione um produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {products.map((p) => (
-                    <SelectItem key={p.id} value={p.id}>
-                      <span className="flex items-center gap-2">
-                        <SkinThumb product={p} size="sm" decorative />
-                        <span>
-                          {p.weapon} | {p.skinName} ({p.exterior})
-                        </span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Label id="productId-label">Produto</Label>
+              {editingListing ? null : (
+                <ProductCatalogPicker
+                  selectedProduct={selectedProduct}
+                  enabled={formOpen}
+                  onSelect={(product) => {
+                    setSelectedProduct(product);
+                    setForm((f) => ({ ...f, productId: product.id }));
+                  }}
+                />
+              )}
               {selectedFormProduct ? (
                 <div className="flex items-center gap-3 rounded-md border border-border bg-muted/40 p-3">
                   <div className="flex h-20 w-28 shrink-0 items-center justify-center overflow-hidden rounded-md bg-black/40 ring-1 ring-border">
