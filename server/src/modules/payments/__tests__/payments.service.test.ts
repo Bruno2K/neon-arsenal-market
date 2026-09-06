@@ -46,6 +46,8 @@ vi.mock("../../../shared/utils/paypal.js", () => ({
   capturePayPalOrder: vi.fn(),
   getPayPalApprovalLink: vi.fn(),
   getPayPalOrder: vi.fn(),
+  isPayPalApprovedStatus: (value: unknown) => value === "APPROVED",
+  isPayPalCompletedStatus: (value: unknown) => value === "COMPLETED",
   isPayPalOrderAlreadyCapturedError: (err: unknown) =>
     err instanceof Error && /ORDER_ALREADY_CAPTURED/i.test(err.message),
 }));
@@ -717,6 +719,20 @@ describe("paymentsService", () => {
         statusCode: 403,
       });
       expect(getPayPalOrder).not.toHaveBeenCalled();
+    });
+
+    it("does not confirm when PayPal status is a local or unknown label", async () => {
+      vi.mocked(prisma.order.findUnique).mockResolvedValue(liveOrder() as never);
+      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1" });
+
+      const result = await paymentsService.capturePayment("user-1", "order-1");
+
+      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(prisma.order.updateMany).not.toHaveBeenCalled();
+      expect(result).toMatchObject({
+        orderId: "order-1",
+        paymentStatus: "PENDING",
+      });
     });
   });
 });

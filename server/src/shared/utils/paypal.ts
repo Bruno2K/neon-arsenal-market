@@ -4,6 +4,88 @@ import { logger } from "../logger.js";
 import { getPayPalApiBaseUrl, getPayPalApiTimeoutMs, PAYPAL_IDEMPOTENT_RETRY } from "../config/paypal.js";
 import { withPaypalOperation } from "../observability/paypal.js";
 import { classifyHttpStatus, isTimeoutError, withRetry } from "../resilience/retry.js";
+import { isOneOf, isRecord } from "../types/guards.js";
+
+/**
+ * Checkout Orders v2 `status` labels.
+ * @see https://developer.paypal.com/docs/api/orders/v2/#orders_get
+ * Unknown labels are discarded so they cannot be compared as COMPLETED via a cast.
+ */
+export const PAYPAL_ORDER_STATUSES = [
+  "CREATED",
+  "SAVED",
+  "APPROVED",
+  "VOIDED",
+  "COMPLETED",
+  "PAYER_ACTION_REQUIRED",
+] as const;
+export type PayPalOrderStatus = (typeof PAYPAL_ORDER_STATUSES)[number];
+
+export type PayPalOrderLink = {
+  href: string;
+  rel: string;
+};
+
+export type ParsedPayPalOrder = {
+  id?: string;
+  status?: PayPalOrderStatus;
+  links?: PayPalOrderLink[];
+};
+
+export function isPayPalOrderStatus(value: unknown): value is PayPalOrderStatus {
+  return isOneOf(value, PAYPAL_ORDER_STATUSES);
+}
+
+export function isPayPalCompletedStatus(value: unknown): value is "COMPLETED" {
+  return value === "COMPLETED";
+}
+
+export function isPayPalApprovedStatus(value: unknown): value is "APPROVED" {
+  return value === "APPROVED";
+}
+
+export function parsePayPalOrderResource(value: unknown): ParsedPayPalOrder {
+  if (!isRecord(value)) {
+    throw new AppError(502, "PayPal order response is not an object");
+  }
+
+  const parsed: ParsedPayPalOrder = {};
+  if (typeof value.id === "string" && value.id.length > 0) {
+    parsed.id = value.id;
+  }
+  if (isPayPalOrderStatus(value.status)) {
+    parsed.status = value.status;
+  }
+  const links = parsePayPalOrderLinks(value.links);
+  if (links.length > 0) {
+    parsed.links = links;
+  }
+  return parsed;
+}
+
+function parsePayPalOrderLinks(value: unknown): PayPalOrderLink[] {
+  if (!Array.isArray(value)) return [];
+  const links: PayPalOrderLink[] = [];
+  for (const item of value) {
+    if (!isRecord(item)) continue;
+    if (typeof item.href !== "string" || item.href.length === 0) continue;
+    if (typeof item.rel !== "string" || item.rel.length === 0) continue;
+    links.push({ href: item.href, rel: item.rel });
+  }
+  return links;
+}
+
+function parsePayPalAccessToken(value: unknown): { access_token: string; expires_in?: number } {
+  if (!isRecord(value) || typeof value.access_token !== "string" || value.access_token.length === 0) {
+    throw new AppError(502, "PayPal OAuth token missing");
+  }
+  return {
+    access_token: value.access_token,
+    expires_in: typeof value.expires_in === "number" && Number.isFinite(value.expires_in)
+      ? value.expires_in
+      : undefined,
+  };
+}
 
 function environment() {
   const clientId = process.env.PAYPAL_CLIENT_ID ?? "";
@@ -92,7 +174,7 @@ export async function createPayPalOrder(
   currency = "BRL",
   orderId: string,
   urls?: PayPalCheckoutUrls
-) {
+): Promise<ParsedPayPalOrder> {
   const request = new paypal.orders.OrdersCreateRequest();
   request.prefer("return=representation");
   request.requestBody(buildPayPalOrdersCreateBody(amount, currency, orderId, urls));
@@ -100,28 +182,28 @@ export async function createPayPalOrder(
     // OrdersCreate is not retried: a retry can create a second PayPal order.
     try {
       const response = await withTimeout(client.execute(request), "PayPal OrdersCreate");
-      return response.result;
+      return parsePayPalOrderResource(response.result);
     } catch (err) {
       throw mapPayPalHttpError(err);
     }
   });
 }
 
-export async function capturePayPalOrder(orderId: string) {
+export async function capturePayPalOrder(orderId: string): Promise<ParsedPayPalOrder> {
   const request = new paypal.orders.OrdersCaptureRequest(orderId);
   request.requestBody({});
   return withPaypalOperation("orders_capture", async () => {
     // OrdersCapture is not retried: a retry can capture funds more than once.
     try {
       const response = await withTimeout(client.execute(request), "PayPal OrdersCapture");
-      return response.result as { id?: string; status?: string };
+      return parsePayPalOrderResource(response.result);
     } catch (err) {
       throw mapPayPalHttpError(err);
     }
   });
 }
 
-export async function getPayPalOrder(paypalOrderId: string): Promise<{ id?: string; status?: string }> {
+export async function getPayPalOrder(paypalOrderId: string): Promise<ParsedPayPalOrder> {
   return withPaypalOperation("orders_get", async () => {
     const token = await getPayPalAccessToken();
     const url = `${getPayPalApiBaseUrl()}/v2/checkout/orders/${encodeURIComponent(paypalOrderId)}`;
@@ -138,7 +220,7 @@ export async function getPayPalOrder(paypalOrderId: string): Promise<{ id?: stri
               classifyHttpStatus(response.status)
             );
           }
-          return (await response.json()) as { id?: string; status?: string };
+          return parsePayPalOrderResource(await response.json());
         },
         {
           maxAttempts: PAYPAL_HTTP_POLICY.orders_get.maxAttempts,
@@ -181,7 +263,7 @@ export async function getPayPalAccessToken(): Promise<string> {
               classifyHttpStatus(response.status)
             );
           }
-          return (await response.json()) as { access_token?: string; expires_in?: number };
+          return parsePayPalAccessToken(await response.json());
         },
         {
           maxAttempts: PAYPAL_HTTP_POLICY.oauth_token.maxAttempts,
@@ -191,9 +273,6 @@ export async function getPayPalAccessToken(): Promise<string> {
           },
         }
       );
-      if (!body.access_token) {
-        throw new AppError(502, "PayPal OAuth token missing");
-      }
       const ttlMs = Math.max(30_000, ((body.expires_in ?? 300) - 30) * 1000);
       tokenCache = { token: body.access_token, expiresAt: Date.now() + ttlMs };
       return tokenCache.token;
@@ -212,10 +291,7 @@ export function isPayPalOrderAlreadyCapturedError(err: unknown): boolean {
 }
 
 export function isPayPalClientAuthError(err: unknown): boolean {
-  const status =
-    err && typeof err === "object" && "statusCode" in err
-      ? (err as { statusCode?: unknown }).statusCode
-      : undefined;
+  const status = isRecord(err) ? err.statusCode : undefined;
   const message = err instanceof Error ? err.message : String(err ?? "");
   return (
     status === 401 ||
@@ -232,11 +308,11 @@ export function mapPayPalHttpError(err: unknown): Error {
   return err instanceof Error ? err : new Error(String(err));
 }
 
-export function getPayPalOrderIdFromResult(result: { id?: string }): string | undefined {
+export function getPayPalOrderIdFromResult(result: ParsedPayPalOrder): string | undefined {
   return result.id;
 }
 
-export function getPayPalApprovalLink(result: { links?: Array<{ href?: string; rel?: string }> }): string | undefined {
+export function getPayPalApprovalLink(result: ParsedPayPalOrder): string | undefined {
   const link = result.links?.find((l) => l.rel === "approve");
   return link?.href;
 }

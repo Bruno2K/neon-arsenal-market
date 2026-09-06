@@ -6,6 +6,7 @@ import { AppError } from "../../../shared/errors/AppError.js";
 vi.mock("../orders.service.js", () => ({
   ordersService: {
     create: vi.fn(),
+    listAdmin: vi.fn(),
   },
 }));
 
@@ -93,5 +94,30 @@ describe("ordersController.create", () => {
 
     expect(ordersService.create).toHaveBeenCalledWith("customer-1", req.body, "order-key-1");
     expect(next).toHaveBeenCalledWith(error);
+  });
+});
+
+describe("ordersController.list", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("rejects unknown paymentStatus filters instead of casting them", async () => {
+    const req = {
+      user: { id: "admin-1", email: "admin@test.local", role: "ADMIN" },
+      query: { paymentStatus: "COMPLETED" },
+    } as unknown as Request;
+    const res = mockRes();
+    const next = vi.fn();
+
+    await ordersController.list(req, res, next);
+
+    expect(ordersService.listAdmin).not.toHaveBeenCalled();
+    expect(next).toHaveBeenCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        message: expect.stringContaining("paymentStatus"),
+      })
+    );
   });
 });

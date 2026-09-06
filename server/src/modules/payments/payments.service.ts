@@ -6,7 +6,10 @@ import {
   createPayPalOrder,
   getPayPalApprovalLink,
   getPayPalOrder,
+  isPayPalApprovedStatus,
+  isPayPalCompletedStatus,
   isPayPalOrderAlreadyCapturedError,
+  type PayPalOrderStatus,
 } from "../../shared/utils/paypal.js";
 import {
   PAYPAL_EVENT_CAPTURE_COMPLETED,
@@ -19,7 +22,12 @@ import {
 } from "../../shared/config/paypal.js";
 import { Prisma } from "@prisma/client";
 import type { CreatePaymentInput } from "./payments.dto.js";
-import { PaymentProvider, type WebhookEventStatus } from "../../shared/types/roles.js";
+import {
+  PaymentProvider,
+  type ListingStatus,
+  type PaymentStatus,
+  type WebhookEventStatus,
+} from "../../shared/types/roles.js";
 import { appMetrics } from "../../shared/observability/metrics.js";
 import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
@@ -68,14 +76,12 @@ export const paymentsService = {
             ? { returnUrl: input.returnUrl, cancelUrl: input.cancelUrl }
             : undefined;
         const paypalOrder = await createPayPalOrder(amount, "BRL", order.id, checkoutUrls);
-        openedPaypalOrderId = (paypalOrder as { id?: string }).id;
+        openedPaypalOrderId = paypalOrder.id;
         if (!openedPaypalOrderId) {
           throw new AppError(500, "Failed to create PayPal order");
         }
         const approvalLink =
-          getPayPalApprovalLink(
-            paypalOrder as { links?: Array<{ href?: string; rel?: string }> }
-          ) ?? paypalCheckoutUrl(openedPaypalOrderId);
+          getPayPalApprovalLink(paypalOrder) ?? paypalCheckoutUrl(openedPaypalOrderId);
 
         await prisma.$transaction(async (tx) => {
           await tx.paymentLink.update({
@@ -124,7 +130,7 @@ export const paymentsService = {
       if (order.customerId !== userId) throw new AppError(403, "Not your order");
       if (order.paymentStatus === "PAID") {
         markSpanOutcome(span, "already_confirmed");
-        return { orderId: order.id, paymentStatus: "PAID" as const };
+        return { orderId: order.id, paymentStatus: "PAID" satisfies PaymentStatus };
       }
       if (order.status === "CANCELLED") throw new AppError(400, "Order is cancelled");
       if (!order.paypalOrderId) throw new AppError(400, "PayPal order has not been created");
@@ -438,7 +444,7 @@ type OrderForPaypalSync = {
   paypalOrderId: string | null;
   items: Array<{
     listing?: {
-      status: string;
+      status: ListingStatus;
       reservedByOrderId: string | null;
       reservationExpiresAt: Date | null;
     } | null;
@@ -446,8 +452,8 @@ type OrderForPaypalSync = {
 };
 
 type RemotePaypalSyncOutcome = {
-  paymentStatus: "PAID" | "PENDING";
-  paypalStatus?: string;
+  paymentStatus: Extract<PaymentStatus, "PAID" | "PENDING">;
+  paypalStatus?: PayPalOrderStatus;
 };
 
 function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): boolean {
@@ -464,7 +470,7 @@ function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): bo
   });
 }
 
-async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<string | undefined> {
+async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<PayPalOrderStatus | undefined> {
   try {
     const captured = await capturePayPalOrder(paypalOrderId);
     return captured.status;
@@ -491,7 +497,7 @@ async function syncRemotePaypalPayment(
 
   let status = (await getPayPalOrder(order.paypalOrderId)).status;
 
-  if (status === "APPROVED" && options.captureIfApproved) {
+  if (isPayPalApprovedStatus(status) && options.captureIfApproved) {
     if (!orderHoldAllowsCapture(order)) {
       logger.warn({ orderId: order.id }, "paypal capture skipped: reservation expired");
       throw new AppError(409, "Reservation expired or listing is no longer reserved");
@@ -499,7 +505,7 @@ async function syncRemotePaypalPayment(
     status = await captureApprovedPaypalOrder(order.paypalOrderId);
   }
 
-  if (status === "COMPLETED") {
+  if (isPayPalCompletedStatus(status)) {
     await paymentsService.confirmPayment(order.id);
     return { paymentStatus: "PAID", paypalStatus: status };
   }

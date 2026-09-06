@@ -14,6 +14,7 @@ import { markSpanOutcome } from "../../shared/observability/outcomes.js";
 import { withSpan } from "../../shared/observability/tracing.js";
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType, type AuditActor } from "../audit/audit.types.js";
+import { parseOptionalRole } from "../../shared/types/roles.js";
 
 const IDEMPOTENCY_KEY_MAX_LENGTH = 128;
 
@@ -251,7 +252,7 @@ export const ordersService = {
       await auditRepository.create(
         {
           actorId: actor?.actorId ?? userId,
-          actorRole: (actor?.actorRole ?? role) as AuditActor["actorRole"],
+          actorRole: parseOptionalRole(actor?.actorRole ?? role),
           ip: actor?.ip,
           userAgent: actor?.userAgent,
           action: AuditAction.ORDER_STATUS_CHANGE,

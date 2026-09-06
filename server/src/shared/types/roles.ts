@@ -13,6 +13,7 @@ import {
   UserRole,
   WebhookEventStatus,
 } from "@prisma/client";
+import { isOneOf } from "./guards.js";
 
 export { ClaimStatus, OutboxEventStatus, PaymentProvider, UserRole, WebhookEventStatus };
 
@@ -68,3 +69,24 @@ export const OUTBOX_EVENT_STATUSES = [
   OutboxEventStatus.PUBLISHED,
   OutboxEventStatus.FAILED,
 ] as const;
+
+export function isRole(value: unknown): value is Role {
+  return isOneOf(value, ROLES);
+}
+
+export function isOrderStatus(value: unknown): value is OrderStatus {
+  return isOneOf(value, ORDER_STATUSES);
+}
+
+export function isPaymentStatus(value: unknown): value is PaymentStatus {
+  return isOneOf(value, PAYMENT_STATUSES);
+}
+
+export function isListingStatus(value: unknown): value is ListingStatus {
+  return isOneOf(value, LISTING_STATUSES);
+}
+
+/** Audit / JWT role fields: unknown labels become null instead of a forged Role. */
+export function parseOptionalRole(value: unknown): Role | null {
+  return isRole(value) ? value : null;
+}
