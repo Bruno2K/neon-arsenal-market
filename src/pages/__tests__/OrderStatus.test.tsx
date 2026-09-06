@@ -14,6 +14,11 @@ import {
   USER_FACING_ORDER_CANCELLED,
 } from "@/lib/userFacingApiError";
 import type { Role, User } from "@/types/api";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 
 const getOrder = vi.fn();
 const createPaymentLink = vi.fn();
@@ -101,8 +106,15 @@ function renderPage(path: string) {
   );
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("OrderStatusPage", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     getOrder.mockReset();
     createPaymentLink.mockReset();
     capturePayment.mockReset();
@@ -122,6 +134,7 @@ describe("OrderStatusPage", () => {
   });
 
   afterEach(() => {
+    setAnalyticsCollector(null);
     vi.restoreAllMocks();
   });
 
@@ -391,5 +404,44 @@ describe("OrderStatusPage", () => {
     expect(
       screen.queryByRole("link", { name: "Voltar aos pedidos" }),
     ).toBeNull();
+  });
+
+  it("tracks order_viewed and payment_return on the PayPal return route", async () => {
+    getOrder.mockResolvedValue(pendingOrder());
+    renderPage("/orders/order-1/return");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Pedido criado. Aguardando confirmação do PayPal.",
+      }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(analyticsEvents).toContainEqual({
+        event: "order_viewed",
+        props: { orderId: "order-1" },
+      });
+      expect(analyticsEvents).toContainEqual({
+        event: "payment_return",
+        props: { orderId: "order-1" },
+      });
+    });
+    expect(JSON.stringify(analyticsEvents)).not.toMatch(/buyer@test.com|Buyer/);
+  });
+
+  it("tracks payment_cancel on the PayPal cancel route", async () => {
+    getOrder.mockResolvedValue(pendingOrder());
+    renderPage("/orders/order-1/cancel");
+
+    expect(
+      await screen.findByRole("heading", {
+        name: "Você cancelou o pagamento.",
+      }),
+    ).toBeTruthy();
+    await waitFor(() => {
+      expect(analyticsEvents).toContainEqual({
+        event: "payment_cancel",
+        props: { orderId: "order-1" },
+      });
+    });
   });
 });

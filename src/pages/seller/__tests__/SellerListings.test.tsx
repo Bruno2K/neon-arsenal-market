@@ -1,8 +1,14 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import SellerListings from "../SellerListings";
+import { createListing } from "@/api";
 import type { Listing, Product, Seller, User } from "@/types/api";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 
 const getSellerMe = vi.fn();
 const getSellerListings = vi.fn();
@@ -84,8 +90,15 @@ function listing(overrides: Partial<Listing> = {}): Listing {
   };
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 describe("SellerListings", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     Element.prototype.scrollIntoView = vi.fn();
     getSellerMe.mockReset();
     getSellerListings.mockReset();
@@ -104,6 +117,10 @@ describe("SellerListings", () => {
       email: "seller@test.com",
       role: "SELLER",
     };
+  });
+
+  afterEach(() => {
+    setAnalyticsCollector(null);
   });
 
   it("keeps unique-item listing CRUD on /seller/listings", async () => {
@@ -261,5 +278,48 @@ describe("SellerListings", () => {
         screen.getByRole("img", { name: "AWP | Asiimov (Field-Tested)" }),
       ).toHaveAttribute("src", "https://cs2.sh/image/awp-asiimov.png");
     });
+  });
+
+  it("tracks seller_listing_created after a successful create", async () => {
+    const created = listing({ id: "listing-new", price: 18.5 });
+    vi.mocked(createListing).mockResolvedValue(created);
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Novo Listing" }),
+    );
+    fireEvent.click(
+      await screen.findByRole("option", {
+        name: "AK-47 | Redline (Field-Tested)",
+      }),
+    );
+    fireEvent.change(screen.getByLabelText("Float (0-1)"), {
+      target: { value: "0.25" },
+    });
+    fireEvent.change(screen.getByLabelText("Preço"), {
+      target: { value: "18.5" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+
+    await waitFor(() => {
+      expect(createListing).toHaveBeenCalled();
+      expect(analyticsEvents).toContainEqual({
+        event: "seller_listing_created",
+        props: {
+          listingId: "listing-new",
+          productId: "ak-redline-ft",
+          price: "18.5",
+          source: "seller",
+        },
+      });
+    });
+    expect(JSON.stringify(analyticsEvents)).not.toMatch(
+      /seller@test.com|Seller/,
+    );
   });
 });

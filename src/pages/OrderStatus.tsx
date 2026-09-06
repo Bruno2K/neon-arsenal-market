@@ -30,6 +30,7 @@ import {
   paymentStatusLabel,
   userFacingApiError,
 } from "@/lib/userFacingApiError";
+import { track } from "@/lib/analytics";
 import type { Order } from "@/types/api";
 
 function OrderHeadline({
@@ -105,6 +106,7 @@ export default function OrderStatusPage() {
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
   const captureAttemptedRef = useRef<string | null>(null);
+  const analyticsKeyRef = useRef<string | null>(null);
 
   const {
     data: order,
@@ -127,6 +129,20 @@ export default function OrderStatusPage() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [expiresAt]);
+
+  useEffect(() => {
+    if (!order) return;
+    const key = `${order.id}:${intent}`;
+    if (analyticsKeyRef.current === key) return;
+    analyticsKeyRef.current = key;
+    track("order_viewed", { orderId: order.id });
+    if (intent === "return") {
+      track("payment_return", { orderId: order.id });
+    }
+    if (intent === "cancel") {
+      track("payment_cancel", { orderId: order.id });
+    }
+  }, [order, intent]);
 
   useEffect(() => {
     if (intent !== "return" || !order || !isCustomer) return;
@@ -217,6 +233,7 @@ export default function OrderStatusPage() {
     setRetrying(true);
     setRetryError(null);
     try {
+      track("payment_started", { orderId: order.id });
       const payment = await createPaymentLink({
         orderId: order.id,
         ...paypalCheckoutUrls(order.id),

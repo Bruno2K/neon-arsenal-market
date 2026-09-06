@@ -8,6 +8,7 @@ import { CartProvider } from "@/contexts/CartContext";
 import MainLayout from "@/layouts/MainLayout";
 import DashboardLayout from "@/layouts/DashboardLayout";
 import { ProtectedRoute } from "@/components/ProtectedRoute";
+import { PageViewTracker } from "@/components/PageViewTracker";
 import Index from "./pages/Index";
 import Products from "./pages/Products";
 import ListingDetail from "./pages/ListingDetail";
@@ -42,6 +43,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <BrowserRouter>
+              <PageViewTracker />
               <Routes>
                 <Route element={<MainLayout />}>
                   <Route path="/" element={<Index />} />

@@ -27,6 +27,7 @@ import {
   logTechnicalError,
   userFacingApiError,
 } from "@/lib/userFacingApiError";
+import { track } from "@/lib/analytics";
 import type { Order } from "@/types/api";
 
 export default function Checkout() {
@@ -43,6 +44,7 @@ export default function Checkout() {
   const [createdOrder, setCreatedOrder] = useState<Order | null>(null);
   const [now, setNow] = useState(() => Date.now());
   const inFlightRef = useRef(false);
+  const checkoutStartedRef = useRef(false);
   const idempotencyRef = useRef<CheckoutIdempotencyState | null>(null);
   const serviceFee = totalPrice * 0.05;
   const total = totalPrice * 1.05;
@@ -58,6 +60,19 @@ export default function Checkout() {
     const timer = window.setInterval(() => setNow(Date.now()), 1000);
     return () => window.clearInterval(timer);
   }, [expiresAt]);
+
+  const canShowCheckout =
+    (items.length > 0 || Boolean(createdOrder)) &&
+    isAuthenticated &&
+    user?.role === "CUSTOMER";
+
+  useEffect(() => {
+    if (!canShowCheckout || items.length === 0 || checkoutStartedRef.current) {
+      return;
+    }
+    checkoutStartedRef.current = true;
+    track("checkout_started", { itemCount: items.length });
+  }, [canShowCheckout, items.length]);
 
   if (items.length === 0 && !loading && !createdOrder) {
     return (
@@ -119,6 +134,7 @@ export default function Checkout() {
       createdOrderId = order.id;
       setCreatedOrder(order);
       removeItems(listingIds);
+      track("payment_started", { orderId: order.id });
       const payment = await createPaymentLink({
         orderId: order.id,
         ...paypalCheckoutUrls(order.id),

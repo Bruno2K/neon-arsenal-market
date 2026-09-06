@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { afterEach, describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -18,6 +18,11 @@ import {
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
 import { CART_STORAGE_KEY } from "@/lib/cartStorage";
+import {
+  setAnalyticsCollector,
+  type AnalyticsEventName,
+  type AnalyticsProps,
+} from "@/lib/analytics";
 import {
   PRODUCT_REVIEWS_DELETE,
   PRODUCT_REVIEWS_EMPTY,
@@ -136,6 +141,9 @@ function CartProbe() {
   return <span data-testid="cart-count">{totalItems}</span>;
 }
 
+const analyticsEvents: { event: AnalyticsEventName; props: AnalyticsProps }[] =
+  [];
+
 function renderDetail(id = "listing-1") {
   const client = new QueryClient({
     defaultOptions: { queries: { retry: false } },
@@ -156,6 +164,10 @@ function renderDetail(id = "listing-1") {
 
 describe("ListingDetail", () => {
   beforeEach(() => {
+    analyticsEvents.length = 0;
+    setAnalyticsCollector((event, props) => {
+      analyticsEvents.push({ event, props });
+    });
     getListing.mockReset();
     listListings.mockReset();
     getPriceHistory.mockReset();
@@ -172,6 +184,10 @@ describe("ListingDetail", () => {
     listListings.mockResolvedValue({ items: [], total: 0, page: 1, limit: 4 });
     getPriceHistory.mockResolvedValue([]);
     listProductReviews.mockResolvedValue([]);
+  });
+
+  afterEach(() => {
+    setAnalyticsCollector(null);
   });
 
   it("keeps listing facts, history, related cards and add to cart", async () => {
@@ -410,5 +426,22 @@ describe("ListingDetail", () => {
     listProductReviews.mockResolvedValue([makeReview()]);
     fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(await screen.findByText("Ana")).toBeTruthy();
+  });
+
+  it("tracks product_view without PII when the listing loads", async () => {
+    getListing.mockResolvedValue(makeListing());
+    renderDetail();
+
+    await waitFor(() => {
+      expect(analyticsEvents).toContainEqual({
+        event: "product_view",
+        props: {
+          listingId: "listing-1",
+          productId: "ak-redline-ft",
+          price: "22",
+        },
+      });
+    });
+    expect(JSON.stringify(analyticsEvents)).not.toMatch(/NeonTrader|Ana|@/);
   });
 });

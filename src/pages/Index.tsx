@@ -8,6 +8,7 @@ import { listSellers } from "@/api/sellers";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { MARKET_VIEW_CTA } from "@/lib/listingCartCta";
+import { track } from "@/lib/analytics";
 import {
   HOME_EMPTY_DESCRIPTION,
   HOME_EMPTY_TITLE,
@@ -108,7 +109,17 @@ export default function IndexPage() {
                 variant="outline"
                 size="sm"
               >
-                <Link to={shortcut.href}>{shortcut.label}</Link>
+                <Link
+                  to={shortcut.href}
+                  onClick={() =>
+                    track("category_view", {
+                      productId: shortcut.productId,
+                      source: "home",
+                    })
+                  }
+                >
+                  {shortcut.label}
+                </Link>
               </Button>
             ))}
           </div>
@@ -173,7 +184,7 @@ export default function IndexPage() {
         listings.length > 0 ? (
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {listings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} />
+              <ListingCard key={listing.id} listing={listing} source="home" />
             ))}
           </div>
         ) : null}

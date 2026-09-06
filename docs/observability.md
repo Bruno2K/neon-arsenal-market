@@ -2,18 +2,20 @@
 
 Neon Arsenal Market uses OpenTelemetry for traces and metrics, and Pino for logs. The goal is to diagnose latency, errors and business failures on the checkout path without running an observability platform locally.
 
+Storefront funnel events (`page_view` → PayPal → `order_viewed`) live in the frontend wrapper documented in [`docs/product-analytics.md`](./product-analytics.md). They are not OTel spans and do not use `OTEL_*`.
+
 ## Defaults
 
 Telemetry is **off** unless `OTEL_ENABLED=true`.
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `OTEL_ENABLED` | unset/false | Start the SDK |
-| `OTEL_EXPORTER` | `none` | `none`, `console`, or `otlp` |
-| `OTEL_SERVICE_NAME` | `neon-arsenal-api` | Resource service name |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | unset | Base OTLP HTTP endpoint |
-| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT` | unset | Overrides the traces URL |
-| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | unset | Overrides the metrics URL |
+| Variable                              | Default            | Purpose                      |
+| ------------------------------------- | ------------------ | ---------------------------- |
+| `OTEL_ENABLED`                        | unset/false        | Start the SDK                |
+| `OTEL_EXPORTER`                       | `none`             | `none`, `console`, or `otlp` |
+| `OTEL_SERVICE_NAME`                   | `neon-arsenal-api` | Resource service name        |
+| `OTEL_EXPORTER_OTLP_ENDPOINT`         | unset              | Base OTLP HTTP endpoint      |
+| `OTEL_EXPORTER_OTLP_TRACES_ENDPOINT`  | unset              | Overrides the traces URL     |
+| `OTEL_EXPORTER_OTLP_METRICS_ENDPOINT` | unset              | Overrides the metrics URL    |
 
 `npm run dev` does not need Docker extras, Jaeger, Grafana, Prometheus or a collector. If the chosen exporter is unreachable, request handling continues.
 
@@ -31,34 +33,34 @@ Inbound W3C `traceparent` / `tracestate` are accepted. Do not introduce a second
 
 ## Spans
 
-| Span | Meaning |
-|---|---|
-| `http.server.request` | Inbound HTTP, except `/health` and `/ready` |
-| `orders.create` | Order creation, including idempotency outcomes |
-| `orders.create.transaction` | PostgreSQL transaction that reserves listings and writes the order |
-| `listings.reserve` | Reservation attempt (order path or standalone reserve) |
-| `listings.expire` | Expired-reservation sweep |
-| `payments.confirm` | Payment confirmation |
-| `payments.confirm.transaction` | Claim order, sell listings, write seller transactions |
-| `payments.reconcile` | PayPal GET reconciliation batch |
-| `seller.ledger.reconcile` | Seller.balance vs PAID ledger SUM |
-| `outbox.dispatch` | Claim and publish transactional outbox rows |
-| `paypal.webhook.verify` | Webhook signature verification |
-| `paypal.webhook.handle` | Event claim, ignore, confirm or fail |
-| `paypal.orders_create` / `orders_get` / `orders_capture` / `oauth_token` | PayPal HTTP |
-| `db.prisma` | Prisma operation (`db.operation` + `db.collection` only) |
+| Span                                                                     | Meaning                                                            |
+| ------------------------------------------------------------------------ | ------------------------------------------------------------------ |
+| `http.server.request`                                                    | Inbound HTTP, except `/health` and `/ready`                        |
+| `orders.create`                                                          | Order creation, including idempotency outcomes                     |
+| `orders.create.transaction`                                              | PostgreSQL transaction that reserves listings and writes the order |
+| `listings.reserve`                                                       | Reservation attempt (order path or standalone reserve)             |
+| `listings.expire`                                                        | Expired-reservation sweep                                          |
+| `payments.confirm`                                                       | Payment confirmation                                               |
+| `payments.confirm.transaction`                                           | Claim order, sell listings, write seller transactions              |
+| `payments.reconcile`                                                     | PayPal GET reconciliation batch                                    |
+| `seller.ledger.reconcile`                                                | Seller.balance vs PAID ledger SUM                                  |
+| `outbox.dispatch`                                                        | Claim and publish transactional outbox rows                        |
+| `paypal.webhook.verify`                                                  | Webhook signature verification                                     |
+| `paypal.webhook.handle`                                                  | Event claim, ignore, confirm or fail                               |
+| `paypal.orders_create` / `orders_get` / `orders_capture` / `oauth_token` | PayPal HTTP                                                        |
+| `db.prisma`                                                              | Prisma operation (`db.operation` + `db.collection` only)           |
 
 `app.outcome` distinguishes expected business results from operational failures:
 
-| Outcome | Typical cause | Span status |
-|---|---|---|
-| `created` / `confirmed` | Success | UNSET |
-| `idempotency_replay` | Same key and listing set | UNSET |
-| `idempotency_conflict` | Same key, different request or in-progress | UNSET |
-| `reservation_conflict` | Listing already held | UNSET |
-| `reservation_expired` | Payment after expiry | UNSET |
-| `webhook_duplicate` / `webhook_ignored` | Duplicate or unsupported event | UNSET |
-| `timeout` / `provider_error` / `error` | PayPal/DB/unexpected | ERROR |
+| Outcome                                 | Typical cause                              | Span status |
+| --------------------------------------- | ------------------------------------------ | ----------- |
+| `created` / `confirmed`                 | Success                                    | UNSET       |
+| `idempotency_replay`                    | Same key and listing set                   | UNSET       |
+| `idempotency_conflict`                  | Same key, different request or in-progress | UNSET       |
+| `reservation_conflict`                  | Listing already held                       | UNSET       |
+| `reservation_expired`                   | Payment after expiry                       | UNSET       |
+| `webhook_duplicate` / `webhook_ignored` | Duplicate or unsupported event             | UNSET       |
+| `timeout` / `provider_error` / `error`  | PayPal/DB/unexpected                       | ERROR       |
 
 ## Metrics
 
