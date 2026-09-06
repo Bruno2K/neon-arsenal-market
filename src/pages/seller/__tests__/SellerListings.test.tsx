@@ -123,6 +123,24 @@ describe("SellerListings", () => {
     setAnalyticsCollector(null);
   });
 
+  it("disables Novo Listing when getSellerMe reports a pending store", async () => {
+    getSellerMe.mockResolvedValue(seller({ isApproved: false }));
+
+    render(
+      <MemoryRouter>
+        <SellerListings />
+      </MemoryRouter>,
+    );
+
+    const createButton = await screen.findByRole("button", {
+      name: "Disponível após aprovação",
+    });
+    expect(createButton).toBeDisabled();
+    expect(createButton).toHaveAttribute("title", "Disponível após aprovação");
+    expect(screen.queryByRole("button", { name: "Novo Listing" })).toBeNull();
+    expect(screen.queryByText("Novo listing")).toBeNull();
+  });
+
   it("keeps unique-item listing CRUD on /seller/listings", async () => {
     render(
       <MemoryRouter>

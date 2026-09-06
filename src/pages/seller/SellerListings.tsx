@@ -146,7 +146,14 @@ export default function SellerListings() {
     return <Navigate to="/admin" replace />;
   }
 
+  const canCreateListing = seller?.isApproved === true;
+  const pendingApproval = seller?.isApproved === false;
+  const createListingLabel = pendingApproval
+    ? "Disponível após aprovação"
+    : "Novo Listing";
+
   const openCreate = () => {
+    if (!canCreateListing) return;
     setEditingListing(null);
     setSelectedProduct(undefined);
     setForm(emptyForm);
@@ -323,9 +330,13 @@ export default function SellerListings() {
             CRUD de itens únicos. O catálogo de produtos é somente leitura.
           </p>
         </div>
-        <Button onClick={openCreate} disabled={!seller}>
-          <Package className="mr-2 h-4 w-4" />
-          Novo Listing
+        <Button
+          onClick={openCreate}
+          disabled={!canCreateListing}
+          title={pendingApproval ? "Disponível após aprovação" : undefined}
+        >
+          {canCreateListing ? <Package className="mr-2 h-4 w-4" /> : null}
+          {createListingLabel}
         </Button>
       </div>
 
@@ -340,10 +351,18 @@ export default function SellerListings() {
       ) : listings.length === 0 ? (
         <EmptyState
           title="Nenhum listing"
-          description="Crie um item único a partir do catálogo de produtos."
+          description={
+            pendingApproval
+              ? "Você poderá anunciar depois que um admin aprovar."
+              : "Crie um item único a partir do catálogo de produtos."
+          }
           action={
-            <Button onClick={openCreate} disabled={!seller}>
-              Novo Listing
+            <Button
+              onClick={openCreate}
+              disabled={!canCreateListing}
+              title={pendingApproval ? "Disponível após aprovação" : undefined}
+            >
+              {createListingLabel}
             </Button>
           }
         />

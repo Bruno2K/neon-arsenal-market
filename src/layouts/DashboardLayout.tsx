@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Outlet, useLocation, Link } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
 import {
   BarChart3,
   Menu,
@@ -10,6 +11,8 @@ import {
   Shield,
   Tag,
 } from "lucide-react";
+import { getSellerMe } from "@/api/sellers";
+import { SellerPendingBanner } from "@/components/seller/SellerPendingBanner";
 import { Header } from "@/components/Header";
 import { SiteFooter } from "@/components/SiteFooter";
 import { Button } from "@/components/ui/button";
@@ -81,6 +84,12 @@ export default function DashboardLayout() {
   const isAdmin = location.pathname.startsWith("/admin");
   const items = isAdmin ? adminItems : sellerItems;
   const [open, setOpen] = useState(false);
+  const sellerMeQuery = useQuery({
+    queryKey: ["sellerMe"],
+    queryFn: () => getSellerMe(),
+    enabled: !isAdmin,
+  });
+  const showPendingBanner = sellerMeQuery.data?.isApproved === false;
 
   return (
     <div className="flex min-h-screen flex-col bg-background">
@@ -117,6 +126,7 @@ export default function DashboardLayout() {
             </Sheet>
           </div>
           <main className="flex-1 p-6">
+            {showPendingBanner ? <SellerPendingBanner /> : null}
             <Outlet />
           </main>
         </div>

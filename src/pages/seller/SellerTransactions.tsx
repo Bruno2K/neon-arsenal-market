@@ -1,6 +1,7 @@
 import { Link, Navigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { listCommissionTransactions } from "@/api/commissions";
+import { getSellerMe } from "@/api/sellers";
 import { useAuth } from "@/contexts/AuthContext";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
@@ -37,6 +38,12 @@ export default function SellerTransactionsPage() {
     queryFn: () => listCommissionTransactions(),
     enabled: user?.role === "SELLER",
   });
+  const sellerMeQuery = useQuery({
+    queryKey: ["sellerMe"],
+    queryFn: () => getSellerMe(),
+    enabled: user?.role === "SELLER",
+  });
+  const canCreateListing = sellerMeQuery.data?.isApproved === true;
 
   if (isAdmin) {
     return <Navigate to="/admin" replace />;
@@ -81,9 +88,11 @@ export default function SellerTransactionsPage() {
           title="Nenhuma transação"
           description="Quando um pedido for pago, o movimento aparece aqui."
           action={
-            <Button asChild>
-              <Link to="/seller/listings">Criar listing</Link>
-            </Button>
+            canCreateListing ? (
+              <Button asChild>
+                <Link to="/seller/listings">Criar listing</Link>
+              </Button>
+            ) : undefined
           }
         />
       ) : (
