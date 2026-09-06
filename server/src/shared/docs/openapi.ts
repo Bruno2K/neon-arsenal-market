@@ -234,7 +234,7 @@ export const openApiSpec = {
                 properties: {
                   name: { type: "string", example: "Bruno" },
                   email: { type: "string", format: "email" },
-                  password: { type: "string", minLength: 6 },
+                  password: { type: "string", minLength: 8, maxLength: 72, description: "At least 8 characters, one letter and one number" },
                   role: { type: "string", enum: ["CUSTOMER", "SELLER"], default: "CUSTOMER" },
                   storeName: { type: "string", description: "Required when role=SELLER" },
                 },
@@ -303,13 +303,14 @@ export const openApiSpec = {
             content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } },
           },
           401: { description: "Invalid credentials" },
+          429: { description: "Too many login attempts — Retry-After seconds until the next try is allowed" },
         },
       },
     },
     "/auth/refresh": {
       post: {
         tags: ["Auth"],
-        summary: "Rotate refresh token — returns new access + refresh token pair",
+        summary: "Rotate refresh token — returns a new access + refresh pair in the same family",
         security: [],
         requestBody: {
           required: true,
@@ -328,14 +329,14 @@ export const openApiSpec = {
             description: "New tokens issued",
             content: { "application/json": { schema: { $ref: "#/components/schemas/AuthResponse" } } },
           },
-          401: { description: "Token revoked or expired" },
+          401: { description: "Token expired, unknown, or family revoked after reuse" },
         },
       },
     },
     "/auth/logout": {
       post: {
         tags: ["Auth"],
-        summary: "Logout — revokes the refresh token",
+        summary: "Logout — revokes the refresh token family",
         security: [],
         requestBody: {
           required: true,

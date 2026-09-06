@@ -1,11 +1,12 @@
 import { z } from "zod";
 import { REGISTRATION_ROLES } from "../../shared/types/roles.js";
+import { passwordSchema } from "../../shared/validation/passwordPolicy.js";
 
 export const registerDto = z
   .object({
     name: z.string().min(1, "Name is required"),
     email: z.string().email("Invalid email"),
-    password: z.string().min(6, "Password must be at least 6 characters"),
+    password: passwordSchema,
     role: z.enum(REGISTRATION_ROLES).default("CUSTOMER"),
     storeName: z.string().min(1).optional(),
   })

@@ -60,8 +60,9 @@ with shared concerns such as authentication, validation, rate limiting, error ha
 ### Authentication
 
 - JWT access tokens
-- Refresh token rotation
-- Refresh token revocation
+- Refresh token families (rotation + reuse revocation)
+- Per-email login throttle
+- Password policy (8–72, letter + number)
 - Email verification flow
 - Role-based authorization
 - Password hashing with bcrypt

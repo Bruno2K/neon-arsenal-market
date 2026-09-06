@@ -45,7 +45,7 @@ There is **no** reverse proxy WAF, **no** Helmet middleware, **no** CSRF token (
 | Orders and payment confirmation | Money movement; seller payout eligibility | `Order`, `PaymentLink`, `PaymentWebhookEvent`, seller ledger |
 | Seller balances / ledger rows | Must not credit twice | Unique seller transaction per order |
 | Passwords | Account takeover | Hashed with bcrypt (`hashPassword`, 10 rounds). Never logged. |
-| JWT access + refresh tokens | Session | Access: Bearer, default **15m** (`JWT_ACCESS_EXPIRES_IN`). Refresh: default **7d**; `jti` recorded in `RevokedToken` on logout/rotate. |
+| JWT access + refresh tokens | Session | Access: Bearer, default **15m** (`JWT_ACCESS_EXPIRES_IN`). Refresh: default **7d**; persisted `RefreshToken` allowlist with `familyId`. Rotation marks `usedAt`; reuse revokes the family. |
 | PayPal credentials + `PAYPAL_WEBHOOK_ID` | Forged captures / API abuse | Process env. Render Blueprint `sync: false`. |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Forge sessions | Env; Blueprint `generateValue` on first deploy. |
 | Buyer/seller PII (email, names) | Privacy | User rows; keep out of logs. |
@@ -78,7 +78,8 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 - Access token: `Authorization: Bearer` checked by `authenticate` (`server/src/shared/middlewares/authenticate.ts`). Missing/invalid → 401. Role and identity come from the **JWT payload** (`sub`, `email`, `role`), not a per-request database lookup.
 - Role gate: `requireRole` (`server/src/shared/middlewares/requireRole.ts`). Admin router: `authenticate` then `requireRole("ADMIN")` on `/admin`.
 - Register body: Zod `role` is `CUSTOMER` \| `SELLER` only (`auth.dto.ts`). Comment in `auth.service.ts`: ADMIN is seed-only.
-- Refresh: verifies refresh JWT, rejects if `jti` is in `RevokedToken`, loads the **current** user from the database, rotates refresh (`auth.service.ts`). Logout blacklists the **refresh** `jti`. Access tokens are **not** checked against `RevokedToken`; they expire on TTL (comment: “The access token expires naturally (15m TTL)”).
+- Refresh: verifies refresh JWT (`jti` + `familyId`), accepts only an unused unrevoked unexpired `RefreshToken` row, rotates with a conditional `usedAt` claim, loads the **current** user from the database (`auth.service.ts`). Reuse of a used/revoked `jti` revokes the family. Logout revokes the **family**. Access tokens are **not** checked against `RefreshToken`; they expire on TTL.
+- Login: failed attempts for a normalized email persist `LoginThrottle`. After two free failures, HTTP 429 + `Retry-After` with progressive delay (1s, 2s, 4s, … cap 15 minutes). Unknown emails are throttled too. Dummy bcrypt compare on unknown users. Password policy on register/`PATCH` me: 8–72 characters, letter + number (`passwordPolicy.ts`).
 - Zod `validateBody` on auth and other write routes.
 - **Ownership (domain, not only middleware):** a customer may only act on their orders; a seller only on orders that include their items (`docs/architecture/domain-invariants.md`).
 - `/auth/me` requires `authenticate`.
@@ -145,11 +146,11 @@ Format: attacker goal → relevant STRIDE-ish type → what the code does → re
 
 ### T1. Stolen or leaked JWT
 
-**Spoofing.** Access tokens are bearer secrets. Anyone who presents a valid access token is that user until TTL. Mitigation: default 15m access JWT; refresh `jti` revocation on logout/rotate. Residual: XSS in the frontend, stolen localStorage, or log leakage of `Authorization` impersonates until access expiry. Logout does **not** invalidate in-flight access tokens. No token binding to IP or device. `authenticate` does not consult `RevokedToken`.
+**Spoofing.** Access tokens are bearer secrets. Anyone who presents a valid access token is that user until TTL. Mitigation: default 15m access JWT; refresh family revocation on logout/rotate/reuse. Residual: XSS in the frontend, stolen localStorage, or log leakage of `Authorization` impersonates until access expiry. Logout does **not** invalidate in-flight access tokens. No token binding to IP or device. `authenticate` does not consult `RefreshToken`.
 
 ### T2. Password stuffing / credential stuffing on `/auth`
 
-**Spoofing / abuse.** Production `authLimiter` default 10 / 15 min / IP, plus the global limiter. Passwords hashed (offline dump still requires cracking). Residual: in-memory limiter per instance; distributed attackers and multi-instance deploy weaken the cap. No CAPTCHA, no lockout by account id.
+**Spoofing / abuse.** Production `authLimiter` default 10 / 15 min / IP, plus the global limiter, plus durable per-email `LoginThrottle` (progressive delay, 429). Passwords hashed (offline dump still requires cracking). Residual: in-memory IP limiter per instance; distributed attackers still face per-email delay in PostgreSQL. No CAPTCHA.
 
 ### T3. Privilege escalation (CUSTOMER → ADMIN)
 
@@ -228,8 +229,7 @@ Do **not** interview as if these exist:
 | Webhook IP allowlist | Not implemented (signature is the control) |
 | AWS Secrets Manager / ECS task role | Not the current deploy |
 | 2FA / WebAuthn | Not implemented |
-| Account lockout by email | Not implemented (IP rate limit only) |
-| Access-token denylist | Not implemented (refresh `jti` only) |
+| Access-token denylist | Not implemented (refresh family allowlist only; access JWT expires on TTL) |
 | Field-level encryption of PII | Not implemented |
 
 ---

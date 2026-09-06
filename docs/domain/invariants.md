@@ -101,7 +101,23 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 - Service: `ordersService.getById` / `updateStatus` / `updateTracking`; `paymentsService.createPaymentLink` (`order.customerId !== userId` → 403); `listingsService.update` / `updatePrice` / `cancel`; `commissionsService.listTransactions` is seller-scoped unless ADMIN.
 - Tests: `server/src/modules/orders/__tests__/orders.service.test.ts`; `server/src/modules/listings/__tests__/listings.invariants.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts` (createPaymentLink 403); `server/src/modules/commissions/__tests__/commissions.service.test.ts`; `server/src/__tests__/audit.integration.test.ts` (audit log ADMIN-only).
 
-**Related:** `INV-AUDIT-APPEND-ONLY`.
+**Related:** `INV-AUDIT-APPEND-ONLY`, `INV-AUTH-REFRESH-FAMILY`.
+
+---
+
+## INV-AUTH-REFRESH-FAMILY
+
+**Statement:** A refresh JWT is accepted only when its `jti` row exists, is unexpired, unused, and unrevoked. Rotation is a conditional `UPDATE` that sets `usedAt`. Reuse of a used/revoked `jti` revokes every token in that `familyId`. Logout revokes the family. Login and email verification start a new family.
+
+**Why it matters:** A denylist of rotated `jti`s leaves the current family token valid after theft/replay. Family revocation ends the stolen session.
+
+**Enforced:**
+
+- Schema: `RefreshToken` (`jti` unique, `familyId`, `usedAt`, `revokedAt`, `expiresAt`). No raw JWT stored.
+- Service: `authService.refresh` / `logout` / login session issue (`server/src/modules/auth/auth.service.ts`). ADR 0015.
+- Tests: `server/src/modules/auth/__tests__/auth.service.test.ts`; `server/src/__tests__/auth.security.integration.test.ts`.
+
+**Related:** `INV-AUTH-OWNERSHIP`.
 
 ---
 
@@ -157,6 +173,7 @@ These are already specified in the architecture narrative. This table is the ID 
 | `INV-PAYMENT-LINK-IDEMPOTENT` | One `OrdersCreate` per local order. Replay completed `PaymentLink`. Concurrent claim 409. OrdersCreate is not retried. | `PaymentLink.orderId` PK | `payment.link.idempotency.integration.test.ts` |
 | `INV-SELLER-TXN-UNIQUE` | One seller transaction per `(sellerId, orderId)`. | schema unique + confirm claim | `postgres.constraints.integration.test.ts`, `seller.ledger.integration.test.ts` |
 | `INV-AUDIT-APPEND-ONLY` | Sensitive mutations append `AuditLog`; ADMIN-only read; 365-day retention; no secrets on the trail. | `auditRepository`, `GET /admin/audit-logs` | `audit.integration.test.ts`, `docs/adr/0010-audit-log.md` |
+| `INV-AUTH-REFRESH-FAMILY` | Refresh `jti` allowlist; reuse of a used token revokes the family. | `RefreshToken`, `authService.refresh` | `auth.security.integration.test.ts`, `docs/adr/0015-refresh-token-families.md` |
 | `INV-DB-ENUMS` | Lifecycle columns are PostgreSQL enums; invalid labels fail with `22P02`. | Prisma enums | `postgres.enums.integration.test.ts`, `roles.test.ts` |
 
 Transactional outbox (#46) is implemented: `OutboxEvent` in the confirm transaction, in-process skip-locked dispatcher, no SQS. See `docs/adr/0012-transactional-outbox.md`.

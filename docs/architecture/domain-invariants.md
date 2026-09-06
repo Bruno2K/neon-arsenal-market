@@ -96,13 +96,15 @@ Rules:
 
 ## Authorization
 
-IDs: `INV-AUTH-OWNERSHIP`, `INV-AUDIT-APPEND-ONLY`.
+IDs: `INV-AUTH-OWNERSHIP`, `INV-AUTH-REFRESH-FAMILY`, `INV-AUDIT-APPEND-ONLY`.
 
 1. Customers can access only their own orders and customer-scoped data.
 2. Sellers can access order information only when they own an item in the order.
 3. Administrative operations require the appropriate role.
 4. Authentication and authorization cannot be bypassed for testing convenience.
 5. Sensitive mutations persist an append-only `AuditLog` row (actor, action, resource, non-sensitive before/after, timestamp, optional IP/user-agent). Read access is ADMIN-only (`GET /admin/audit-logs`). Retention is 365 days; see `docs/adr/0010-audit-log.md`. Credentials, JWT/refresh tokens, passwords, PayPal secrets, and full payment payloads must not be stored on the trail.
+6. Refresh tokens are an allowlist (`RefreshToken`) grouped by `familyId`. Each login starts a family. Rotation claims the current `jti` (`usedAt` null) and inserts a successor in the same family. Presenting a used or revoked `jti` revokes the entire family (`INV-AUTH-REFRESH-FAMILY`). Logout revokes the family. Access tokens still expire on TTL and are not denylisted.
+7. Failed login attempts for a normalized email persist a progressive delay (`LoginThrottle`). After two free failures the next attempt is blocked until `nextAllowedAt` (1s, 2s, 4s, … cap 15 minutes) with HTTP 429 and `Retry-After`. The handler does not sleep. Unknown emails are throttled too. Registration passwords must be 8–72 characters with a letter and a number.
 
 ## Database integrity
 
