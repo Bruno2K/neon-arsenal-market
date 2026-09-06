@@ -304,17 +304,27 @@ describe("HTTP handlers vs OpenAPI", () => {
   });
 
   it("POST /payments/webhook without PayPal headers is 401 Error on both mounts", async () => {
-    for (const path of ["/payments/webhook", `${API_V1_PREFIX}/payments/webhook`]) {
-      const response = await fetch(`${baseUrl}${path}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: "WH-1", event_type: "PAYMENT.CAPTURE.COMPLETED" }),
-      });
-      expect(response.status, path).toBe(401);
-      expect(documentedStatuses("/payments/webhook", "post")).toContain(401);
-      const body = await jsonOf(response);
-      assertErrorBody(body, spec);
-      expect(body).toEqual({ error: "Invalid webhook signature" });
+    const previousWebhookId = process.env.PAYPAL_WEBHOOK_ID;
+    process.env.PAYPAL_WEBHOOK_ID = "contract-webhook-id";
+    try {
+      for (const path of ["/payments/webhook", `${API_V1_PREFIX}/payments/webhook`]) {
+        const response = await fetch(`${baseUrl}${path}`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: "WH-CONTRACT", event_type: "CHECKOUT.ORDER.APPROVED" }),
+        });
+        expect(response.status, path).toBe(401);
+        expect(documentedStatuses("/payments/webhook", "post")).toContain(401);
+        const body = await jsonOf(response);
+        assertErrorBody(body, spec);
+        expect(body).toEqual({ error: "Invalid webhook signature" });
+      }
+    } finally {
+      if (previousWebhookId === undefined) {
+        delete process.env.PAYPAL_WEBHOOK_ID;
+      } else {
+        process.env.PAYPAL_WEBHOOK_ID = previousWebhookId;
+      }
     }
   });
 
