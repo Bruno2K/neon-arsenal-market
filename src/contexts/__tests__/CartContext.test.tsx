@@ -1,7 +1,19 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CartProvider, useCart } from "../CartContext";
 import type { Listing } from "@/types/api";
+import { CART_STORAGE_KEY, CART_STORAGE_VERSION } from "@/lib/cartStorage";
+import {
+  CART_ADDED_MESSAGE,
+  CART_DUPLICATE_MESSAGE,
+  CART_REMOVED_MESSAGE,
+} from "@/lib/listingCartCta";
+
+const toast = vi.fn();
+
+vi.mock("@/hooks/use-toast", () => ({
+  useToast: () => ({ toast }),
+}));
 
 function makeListing(overrides: Partial<Listing> = {}): Listing {
   return {
@@ -172,6 +184,16 @@ function renderCart() {
 }
 
 describe("CartContext", () => {
+  beforeEach(() => {
+    toast.mockReset();
+    localStorage.removeItem(CART_STORAGE_KEY);
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    localStorage.removeItem(CART_STORAGE_KEY);
+  });
+
   describe("initial state", () => {
     it("starts with empty cart", () => {
       renderCart();
@@ -195,6 +217,8 @@ describe("CartContext", () => {
       fireEvent.click(screen.getByTestId("add-ak"));
 
       expect(screen.getByTestId("count").textContent).toBe("1");
+      expect(toast).toHaveBeenCalledWith({ title: CART_ADDED_MESSAGE });
+      expect(toast).toHaveBeenCalledWith({ title: CART_DUPLICATE_MESSAGE });
     });
 
     it("does not add SOLD listings", () => {
@@ -239,6 +263,7 @@ describe("CartContext", () => {
 
       expect(screen.getByTestId("count").textContent).toBe("0");
       expect(screen.queryByTestId("item-listing-ak")).toBeNull();
+      expect(toast).toHaveBeenCalledWith({ title: CART_REMOVED_MESSAGE });
     });
 
     it("does nothing when removing non-existent item", () => {
@@ -315,6 +340,56 @@ describe("CartContext", () => {
 
       expect(screen.getByTestId("count").textContent).toBe("1");
       expect(screen.getByTestId("price").textContent).toBe("230.00");
+    });
+  });
+
+  describe("localStorage persistence", () => {
+    it("restores a previously added item after remount", () => {
+      const first = renderCart();
+      fireEvent.click(screen.getByTestId("add-ak"));
+      expect(screen.getByTestId("count").textContent).toBe("1");
+      first.unmount();
+
+      renderCart();
+      expect(screen.getByTestId("count").textContent).toBe("1");
+      expect(screen.getByTestId("item-listing-ak")).toBeTruthy();
+    });
+
+    it("starts empty when stored JSON is invalid", () => {
+      localStorage.setItem(CART_STORAGE_KEY, "{not-json");
+      renderCart();
+      expect(screen.getByTestId("count").textContent).toBe("0");
+    });
+
+    it("does not restore a CANCELED snapshot", () => {
+      localStorage.setItem(
+        CART_STORAGE_KEY,
+        JSON.stringify({
+          version: CART_STORAGE_VERSION,
+          items: [
+            {
+              listingId: "listing-canceled",
+              priceWhenAdded: 50,
+              listing: makeListing({
+                id: "listing-canceled",
+                status: "CANCELED",
+              }),
+            },
+          ],
+        }),
+      );
+      renderCart();
+      expect(screen.getByTestId("count").textContent).toBe("0");
+    });
+
+    it("keeps the in-memory cart when setItem throws", () => {
+      vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+        throw new Error("quota");
+      });
+      renderCart();
+      fireEvent.click(screen.getByTestId("add-ak"));
+      expect(screen.getByTestId("count").textContent).toBe("1");
+      expect(screen.getByTestId("item-listing-ak")).toBeTruthy();
     });
   });
 

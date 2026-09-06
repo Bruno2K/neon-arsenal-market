@@ -2,11 +2,19 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useState,
   ReactNode,
 } from "react";
 import type { Listing } from "@/types/api";
 import { cartSnapshotNeedsUpdate } from "@/lib/cartListingStatus";
+import { loadCartFromStorage, saveCartToStorage } from "@/lib/cartStorage";
+import {
+  CART_ADDED_MESSAGE,
+  CART_DUPLICATE_MESSAGE,
+  CART_REMOVED_MESSAGE,
+} from "@/lib/listingCartCta";
+import { useToast } from "@/hooks/use-toast";
 
 export type AddItemResult = "added" | "duplicate" | "unavailable";
 
@@ -29,7 +37,17 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
-  const [items, setItems] = useState<CartItem[]>([]);
+  const [items, setItems] = useState<CartItem[]>(() =>
+    loadCartFromStorage().map((item) => ({
+      listing: item.listing,
+      priceWhenAdded: item.priceWhenAdded ?? item.listing.price,
+    })),
+  );
+  const { toast } = useToast();
+
+  useEffect(() => {
+    saveCartToStorage(items);
+  }, [items]);
 
   const addItem = (listing: Listing): AddItemResult => {
     if (listing.status !== "ACTIVE") {
@@ -43,6 +61,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
       }
       return [...prev, { listing, priceWhenAdded: listing.price }];
     });
+    if (result === "added") {
+      toast({ title: CART_ADDED_MESSAGE });
+    } else if (result === "duplicate") {
+      toast({ title: CART_DUPLICATE_MESSAGE });
+    }
     return result;
   };
 
@@ -58,8 +81,19 @@ export function CartProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const removeItem = (listingId: string) =>
-    setItems((prev) => prev.filter((i) => i.listing.id !== listingId));
+  const removeItem = (listingId: string) => {
+    let removed = false;
+    setItems((prev) => {
+      if (!prev.some((item) => item.listing.id === listingId)) {
+        return prev;
+      }
+      removed = true;
+      return prev.filter((item) => item.listing.id !== listingId);
+    });
+    if (removed) {
+      toast({ title: CART_REMOVED_MESSAGE });
+    }
+  };
 
   const removeItems = (listingIds: string[]) => {
     const ids = new Set(listingIds);

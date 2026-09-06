@@ -11,6 +11,7 @@ import {
   CART_CTA_SIMILAR,
   CART_CTA_VIEW_CART,
 } from "@/lib/listingCartCta";
+import { CART_STORAGE_KEY } from "@/lib/cartStorage";
 
 const toast = vi.fn();
 
@@ -80,6 +81,7 @@ function addButton() {
 describe("ListingCard", () => {
   beforeEach(() => {
     toast.mockReset();
+    localStorage.removeItem(CART_STORAGE_KEY);
   });
   it("renders weapon | skin (exterior) as the display name", () => {
     renderCard(makeListing());
