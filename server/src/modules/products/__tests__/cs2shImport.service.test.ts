@@ -17,6 +17,7 @@ function hangingClient(): { client: Cs2ShClient; fail: (err: unknown) => void } 
   const gate = new Promise<typeof CS2SH_SCHEMA_FIXTURE>((_resolve, reject) => {
     fail = reject;
   });
+  void gate.catch(() => undefined);
   return {
     client: {
       fetchSchema: () => gate,
