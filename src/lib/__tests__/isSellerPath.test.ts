@@ -7,6 +7,7 @@ describe("isSellerPath", () => {
     expect(isSellerPath("/seller/listings")).toBe(true);
     expect(isSellerPath("/seller/products")).toBe(true);
     expect(isSellerPath("/seller/orders")).toBe(true);
+    expect(isSellerPath("/seller/transactions")).toBe(true);
   });
 
   it("does not treat admin or storefront paths as seller", () => {

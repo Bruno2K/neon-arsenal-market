@@ -24,6 +24,22 @@ function renderAdminNav(path: string) {
   );
 }
 
+function renderSellerNav(path: string) {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <Routes>
+        <Route element={<DashboardLayout />}>
+          <Route path="/seller" element={<div>overview</div>} />
+          <Route
+            path="/seller/transactions"
+            element={<div>transactions-page</div>}
+          />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+}
+
 describe("DashboardLayout admin nav", () => {
   it("exposes Catálogo next to Visão Geral", () => {
     renderAdminNav("/admin");
@@ -42,5 +58,26 @@ describe("DashboardLayout admin nav", () => {
       links.some((link) => link.getAttribute("aria-current") === "page"),
     ).toBe(true);
     expect(screen.getByText("catalog-page")).toBeTruthy();
+  });
+});
+
+describe("DashboardLayout seller nav", () => {
+  it("exposes Transações next to Visão Geral", () => {
+    renderSellerNav("/seller");
+    const links = screen.getAllByRole("link", { name: "Transações" });
+    expect(links.length).toBeGreaterThan(0);
+    expect(links[0]).toHaveAttribute("href", "/seller/transactions");
+    expect(
+      screen.getAllByRole("link", { name: "Visão Geral" })[0],
+    ).toHaveAttribute("href", "/seller");
+  });
+
+  it("marks Transações current on /seller/transactions", () => {
+    renderSellerNav("/seller/transactions");
+    const links = screen.getAllByRole("link", { name: "Transações" });
+    expect(
+      links.some((link) => link.getAttribute("aria-current") === "page"),
+    ).toBe(true);
+    expect(screen.getByText("transactions-page")).toBeTruthy();
   });
 });

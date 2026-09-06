@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import SellerDashboard from "../SellerDashboard";
-import type { Listing, Order, Role, User } from "@/types/api";
+import type { Listing, Order, Role, Seller, User } from "@/types/api";
 
 const getSellerListings = vi.fn();
 const listOrders = vi.fn();
+const getCommissionBalance = vi.fn();
+const getSellerMe = vi.fn();
 const authState = {
   user: {
     id: "seller-user",
@@ -22,6 +24,14 @@ vi.mock("@/api/listings", () => ({
 
 vi.mock("@/api/orders", () => ({
   listOrders: (...args: unknown[]) => listOrders(...args),
+}));
+
+vi.mock("@/api/commissions", () => ({
+  getCommissionBalance: (...args: unknown[]) => getCommissionBalance(...args),
+}));
+
+vi.mock("@/api/sellers", () => ({
+  getSellerMe: (...args: unknown[]) => getSellerMe(...args),
 }));
 
 vi.mock("@/contexts/AuthContext", () => ({
@@ -52,6 +62,19 @@ function listing(status: Listing["status"] = "ACTIVE"): Listing {
       updatedAt: new Date().toISOString(),
     },
     seller: { id: "seller-1", storeName: "NeonTrader Store" },
+  };
+}
+
+function sellerMe(overrides: Partial<Seller> = {}): Seller {
+  return {
+    id: "seller-1",
+    userId: "seller-user",
+    storeName: "NeonTrader Store",
+    commissionRate: "0.1",
+    balance: "0.00",
+    rating: 0,
+    isApproved: true,
+    ...overrides,
   };
 }
 
@@ -99,6 +122,10 @@ function renderDashboard(role: Role = "SELLER") {
         <Routes>
           <Route path="/seller" element={<SellerDashboard />} />
           <Route path="/admin" element={<div>admin-home</div>} />
+          <Route
+            path="/seller/transactions"
+            element={<div>transactions-page</div>}
+          />
         </Routes>
       </MemoryRouter>
     </QueryClientProvider>,
@@ -109,29 +136,79 @@ describe("SellerDashboard", () => {
   beforeEach(() => {
     getSellerListings.mockReset();
     listOrders.mockReset();
+    getCommissionBalance.mockReset();
+    getSellerMe.mockReset();
   });
 
-  it("shows listing, revenue and order stats without leftover marketplace chrome", async () => {
+  it("shows ledger balance, sellers/me commission rate, and active listings", async () => {
     getSellerListings.mockResolvedValue({
       items: [listing("ACTIVE"), listing("SOLD")],
       total: 2,
     });
-    listOrders.mockResolvedValue([order("ord-1", 42)]);
+    listOrders.mockResolvedValue([order("ord-1", 42), order("ord-2", 42)]);
+    getCommissionBalance.mockResolvedValue({ balance: "135.00" });
+    getSellerMe.mockResolvedValue(sellerMe({ commissionRate: "0.1" }));
 
     renderDashboard("SELLER");
 
     expect(await screen.findByText("Visão geral")).toBeTruthy();
+    expect(screen.getByText("Saldo $135.00 · Comissão 10%")).toBeTruthy();
+    expect(screen.getByText("Saldo")).toBeTruthy();
+    expect(screen.getAllByText("$135.00").length).toBeGreaterThan(0);
+    expect(screen.getByText("Comissão")).toBeTruthy();
+    expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
     expect(screen.getByText("Listings ativos")).toBeTruthy();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("$42.00").length).toBeGreaterThan(0);
-    expect(screen.getByText("AK-47 | Redline")).toBeTruthy();
+    expect(screen.getAllByText("AK-47 | Redline").length).toBeGreaterThan(0);
+    expect(screen.queryByText("Receita")).toBeNull();
+    expect(screen.queryByText("$84.00")).toBeNull();
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
     expect(screen.queryByText(/CS2 Skin Marketplace/i)).toBeNull();
+    expect(getCommissionBalance).toHaveBeenCalled();
+    expect(getSellerMe).toHaveBeenCalled();
+  });
+
+  it("does not invent saldo by summing local order totals", async () => {
+    getSellerListings.mockResolvedValue({ items: [], total: 0 });
+    listOrders.mockResolvedValue([order("ord-1", 50), order("ord-2", 50)]);
+    getCommissionBalance.mockResolvedValue({ balance: "0.00" });
+    getSellerMe.mockResolvedValue(sellerMe({ commissionRate: "0.15" }));
+
+    renderDashboard("SELLER");
+
+    expect(await screen.findByText("Saldo $0.00 · Comissão 15%")).toBeTruthy();
+    expect(screen.getAllByText("$0.00").length).toBeGreaterThan(0);
+    expect(screen.queryByText("$100.00")).toBeNull();
+    expect(screen.queryByText("Receita")).toBeNull();
+  });
+
+  it("retries all seller dashboard queries from the error state", async () => {
+    getSellerListings.mockRejectedValue(new Error("boom"));
+    listOrders.mockRejectedValue(new Error("boom"));
+    getCommissionBalance.mockRejectedValue(new Error("boom"));
+    getSellerMe.mockRejectedValue(new Error("boom"));
+
+    renderDashboard("SELLER");
+
+    expect(await screen.findByText("Erro ao carregar o painel")).toBeTruthy();
+
+    getSellerListings.mockResolvedValue({ items: [], total: 0 });
+    listOrders.mockResolvedValue([]);
+    getCommissionBalance.mockResolvedValue({ balance: "0.00" });
+    getSellerMe.mockResolvedValue(sellerMe());
+
+    fireEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+
+    expect(await screen.findByText("Visão geral")).toBeTruthy();
+    expect(getCommissionBalance.mock.calls.length).toBeGreaterThan(1);
+    expect(getSellerMe.mock.calls.length).toBeGreaterThan(1);
   });
 
   it("redirects ADMIN to /admin instead of showing Seller not found", async () => {
     getSellerListings.mockRejectedValue(new Error("Seller not found"));
     listOrders.mockRejectedValue(new Error("Seller not found"));
+    getCommissionBalance.mockRejectedValue(new Error("Seller not found"));
+    getSellerMe.mockRejectedValue(new Error("Seller not found"));
 
     renderDashboard("ADMIN");
 
@@ -140,5 +217,7 @@ describe("SellerDashboard", () => {
     expect(screen.queryByText("Seller not found")).toBeNull();
     expect(getSellerListings).not.toHaveBeenCalled();
     expect(listOrders).not.toHaveBeenCalled();
+    expect(getCommissionBalance).not.toHaveBeenCalled();
+    expect(getSellerMe).not.toHaveBeenCalled();
   });
 });

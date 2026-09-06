@@ -27,13 +27,40 @@ export interface Seller {
   id: string;
   userId: string;
   storeName: string;
-  commissionRate?: number;
-  balance: number;
+  /** Prisma Decimal JSON string (fraction, e.g. "0.1" = 10%). OpenAPI may still say number. */
+  commissionRate?: string | number;
+  /** Prisma Decimal JSON string. Prefer GET /commissions/balance for the projection. */
+  balance: string | number;
   rating: number;
   isApproved: boolean;
   createdAt?: string;
   updatedAt?: string;
   user?: { id: string; name: string; email: string };
+}
+
+export type PaymentStatus = "PENDING" | "PAID" | "REFUNDED";
+
+/** GET /commissions/balance — Seller.balance projection as a Decimal JSON string. */
+export interface CommissionBalance {
+  balance: string;
+}
+
+/**
+ * GET /commissions/transactions — SellerTransaction row.
+ * Decimal fields serialize as strings (Prisma Decimal#toJSON).
+ * SELLER payload includes `order`; ADMIN list also includes `seller`.
+ */
+export interface SellerTransaction {
+  id: string;
+  sellerId: string;
+  orderId: string;
+  grossAmount: string | number;
+  commissionAmount: string | number;
+  netAmount: string | number;
+  status: PaymentStatus;
+  createdAt: string;
+  order?: { id: string; createdAt: string };
+  seller?: { id: string; storeName: string };
 }
 
 // Product catalog base (skin model definition)

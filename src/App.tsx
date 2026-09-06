@@ -25,6 +25,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import SellerProducts from "./pages/seller/SellerProducts";
 import SellerListings from "./pages/seller/SellerListings";
 import SellerOrders from "./pages/seller/SellerOrders";
+import SellerTransactions from "./pages/seller/SellerTransactions";
 import AdminSellers from "./pages/admin/AdminSellers";
 import AdminOrders from "./pages/admin/AdminOrders";
 import AdminUsers from "./pages/admin/AdminUsers";
@@ -135,6 +136,14 @@ const App = () => (
                     element={
                       <ProtectedRoute allowedRoles={["SELLER"]}>
                         <SellerOrders />
+                      </ProtectedRoute>
+                    }
+                  />
+                  <Route
+                    path="/seller/transactions"
+                    element={
+                      <ProtectedRoute allowedRoles={["SELLER"]}>
+                        <SellerTransactions />
                       </ProtectedRoute>
                     }
                   />

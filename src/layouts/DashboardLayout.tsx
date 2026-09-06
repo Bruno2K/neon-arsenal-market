@@ -4,6 +4,7 @@ import {
   BarChart3,
   Menu,
   Package,
+  Receipt,
   ShoppingBag,
   Users,
   Shield,
@@ -22,6 +23,7 @@ import {
 
 const sellerItems = [
   { icon: BarChart3, label: "Visão Geral", href: "/seller" },
+  { icon: Receipt, label: "Transações", href: "/seller/transactions" },
   { icon: Tag, label: "Listings", href: "/seller/listings" },
   { icon: Package, label: "Produtos", href: "/seller/products" },
   { icon: ShoppingBag, label: "Pedidos", href: "/seller/orders" },

@@ -7,3 +7,4 @@ export * from "./price-history";
 export * from "./orders";
 export * from "./payments";
 export * from "./sellers";
+export * from "./commissions";
