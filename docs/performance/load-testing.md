@@ -2,6 +2,9 @@
 
 Contract: `SPEC-0009`. Harness: `load-tests/k6/neon-arsenal.js`. Issue: #55.
 
+For the GitHub Actions + isolated Render execution path, including the exact
+dashboard-only setup, see `docs/operations/load-test-ci.md`.
+
 ## Safety gate
 
 Use an isolated API and PostgreSQL database with production-like limits and disposable fixtures. Do not run write profiles against the public demo or a database containing user data. Do not run PayPal capture/webhook-success traffic without explicit operator approval and PayPal Sandbox isolation.
