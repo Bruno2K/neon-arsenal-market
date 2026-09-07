@@ -1,5 +1,7 @@
 # Performance evidence
 
+Load testing is specified separately in [`performance/load-testing.md`](./performance/load-testing.md). This document contains query-plan and service-timing evidence; it must not be presented as offered-load capacity.
+
 Measured on PostgreSQL 16, local Cloud Agent VM, 2 500 `ACTIVE` listings, 80 `RESERVED`, 80 `SOLD`, 120 stale pending PayPal orders. Command: `cd server && npm run perf:evidence` (after `prisma migrate deploy`). CI re-checks index use in `performance.evidence.integration.test.ts`.
 
 This is not a production load test. Absolute milliseconds will move with hardware. The **shape** of the plans and the chosen mitigations are the durable result.

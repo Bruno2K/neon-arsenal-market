@@ -37,6 +37,6 @@ Free Render web instances spin down after ~15 minutes idle; a sleeping instance 
 
 ## When to replace hypotheses with measurements
 
-Run issue #55 (k6 or equivalent) against a production-like API + Postgres **before** quoting RPS targets in SLOs. Until then, operators use `docs/operations/slos.md` (instrument-based) and `docs/performance.md` (plan shape), not invented load-test tables.
+Run issue #55 with the committed harness and procedure in `load-tests/k6/` and `docs/performance/load-testing.md` against a production-like API + Postgres **before** quoting RPS targets in SLOs. Until then, operators use `docs/operations/slos.md` (instrument-based) and `docs/performance.md` (plan shape), not invented load-test tables.
 
 If `GET /listings` p95 exceeds ~50 ms with an EXPLAIN that blames `COUNT(*)` or deep `OFFSET`, follow `scaling-path.md` (cursor mode is already shipped). That still does not justify Redis (ADR 0018).
