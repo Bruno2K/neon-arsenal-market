@@ -27,17 +27,7 @@ The team is intentionally **sequential by default**. Parallel agents are used on
 
 The repository artifact graph is the control plane. An agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles.
 
-Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python command or external tracker is required to start an agent.
-
-The previous Issue-based orchestrator remains as a temporary migration adapter:
-
-```bash
-python3 scripts/orchestrator/next.py --prompt
-```
-
-File-disjoint tracks may still run in the same wave (one backend issue on `server/` and one frontend issue on `src/`). Historical P-back / P-front JSON catalogs are archives. Shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).
-
-It is not authoritative and is not required for normal work. Its files will be removed only after the direct harness documentation is complete.
+Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python prompt generator, parent orchestrator, or external tracker is required to start an agent. File-disjoint Tasks may run in parallel only under the harness's semantic-independence rules.
 
 Recommended roles:
 

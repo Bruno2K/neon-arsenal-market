@@ -47,13 +47,13 @@ Typical role selection:
 - architecture: Planner + Backend + Architecture + Test + Verification
 - infrastructure: Planner + Infra/Backend + Security + Reliability + Verification
 
-Select a `Ready` Task from the validated repository graph whose dependencies are `Done`, then apply the minimum role set required by its risk. A single agent may switch perspective between implementation, testing, review, and verification. The legacy Issue-based orchestrator remains temporarily available during migration but is not authoritative or required. Verification must challenge the implementation against acceptance criteria and invariants.
+Select a `Ready` Task from the validated repository graph whose dependencies are `Done`, then apply the minimum role set required by its risk. A single agent may switch perspective between implementation, testing, review, and verification. There is no parent orchestration runtime. Verification must challenge the implementation against acceptance criteria and invariants.
 
 ## Required workflow
 
-For a requested issue or feature:
+For requested work:
 
-1. Identify the exact issue and acceptance criteria.
+1. Identify the authoritative artifact and acceptance criteria; shape a new request through the materiality rule when needed.
 2. Classify risk and select roles.
 3. Load minimum relevant context.
 4. Determine the authoritative artifact chain; for material work, require a Specification.

@@ -65,8 +65,20 @@ TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGE
 HARNESS_HEADINGS = (
     "## Purpose", "## Entry modes", "## Artifact resolution", "## Bootstrap",
     "## Context budget", "## Execution loop", "## Role lenses", "## Parallelism",
-    "## Evidence and handoff", "## Portability", "## Legacy compatibility",
+    "## Evidence and handoff", "## Portability", "## Removed interfaces",
     "## Stop conditions",
+)
+RETIRED_ORCHESTRATOR_PATHS = (
+    ".cursor/rules/06-orchestrator.mdc",
+    "docs/agents/orchestrator.md",
+    "docs/agents/p-back-orchestrator.md",
+    "docs/agents/p-front-orchestrator.md",
+    "scripts/orchestrator",
+    "scripts/p-back",
+    "scripts/p-front",
+    "scripts/next.sh",
+    "scripts/p-back-next.sh",
+    "scripts/p-front-next.sh",
 )
 
 
@@ -131,10 +143,9 @@ def validate_harness(errors: list[str], root: Path = ROOT) -> None:
         if path.is_file() and legacy_command in path.read_text(encoding="utf-8"):
             errors.append(f"{path.relative_to(root)} must not require the legacy orchestrator")
 
-    legacy_rule = root / ".cursor" / "rules" / "06-orchestrator.mdc"
-    metadata = parse_frontmatter(legacy_rule.read_text(encoding="utf-8")) if legacy_rule.is_file() else None
-    if metadata is None or metadata.get("alwaysApply", "").lower() != "false":
-        errors.append(".cursor/rules/06-orchestrator.mdc must be inactive by default")
+    for retired in RETIRED_ORCHESTRATOR_PATHS:
+        if (root / retired).exists():
+            errors.append(f"retired orchestrator path must be absent: {retired}")
 
 
 def parse_frontmatter(content: str) -> dict[str, str] | None:

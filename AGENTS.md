@@ -501,4 +501,4 @@ The main roadmap for this project prioritizes:
 
 Do not start a lower-priority initiative while a higher-priority correctness issue is known and unresolved, unless explicitly requested.
 
-Agents select work from validated repository Plans and Tasks. The legacy Issue-based command `python3 scripts/orchestrator/next.py` remains temporarily available during migration but is not authoritative or required. Do not implement AWS/Terraform while ADR 0007 keeps Render.
+Agents select work from validated repository Specifications, Plans, and Tasks through `docs/agents/harness.md`. There is no runtime orchestrator. Do not implement AWS/Terraform while ADR 0007 keeps Render.

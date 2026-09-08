@@ -11,6 +11,7 @@ from pathlib import Path
 from validate import (
     ID_PATTERNS,
     HARNESS_HEADINGS,
+    RETIRED_ORCHESTRATOR_PATHS,
     TEMPLATES,
     TRACEABILITY_CHAIN,
     artifact_references,
@@ -138,8 +139,6 @@ class ValidatorTests(unittest.TestCase):
             (root / "docs" / "agents" / "execution-protocol.md").write_text("Direct.\n", encoding="utf-8")
             (root / "docs" / "agents" / "context-policy.md").write_text("Direct.\n", encoding="utf-8")
             (root / ".cursor" / "rules" / "01-task-execution.mdc").write_text("Direct.\n", encoding="utf-8")
-            legacy_rule = root / ".cursor" / "rules" / "06-orchestrator.mdc"
-            legacy_rule.write_text("---\nalwaysApply: false\n---\n", encoding="utf-8")
 
             errors: list[str] = []
             validate_harness(errors, root)
@@ -148,11 +147,18 @@ class ValidatorTests(unittest.TestCase):
             (root / "docs" / "agents" / "execution-protocol.md").write_text(
                 "Run scripts/orchestrator/next.py.\n", encoding="utf-8"
             )
-            legacy_rule.write_text("---\nalwaysApply: true\n---\n", encoding="utf-8")
+            retired_runtime = root / "scripts" / "orchestrator"
+            retired_runtime.mkdir(parents=True)
+            (retired_runtime / "next.py").write_text("# retired\n", encoding="utf-8")
             errors = []
             validate_harness(errors, root)
             self.assertTrue(any("must not require the legacy orchestrator" in error for error in errors))
-            self.assertIn(".cursor/rules/06-orchestrator.mdc must be inactive by default", errors)
+            self.assertIn(
+                "retired orchestrator path must be absent: scripts/orchestrator",
+                errors,
+            )
+
+            self.assertIn("scripts/orchestrator", RETIRED_ORCHESTRATOR_PATHS)
 
     def test_valid_ready_plan_matches_accepted_source_version(self) -> None:
         errors: list[str] = []
