@@ -67,7 +67,7 @@ function listing(price = 100, id = "listing-ak"): Listing {
     sellerId: "seller-1",
     floatValue: 0.15 as unknown as Listing["floatValue"],
     price: price as unknown as Listing["price"],
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     tradeLockUntil: null,
     steamAssetId: null,
@@ -245,10 +245,10 @@ describe("Checkout", () => {
     renderCheckout();
     await waitForPayable();
 
-    expect(screen.getAllByText("$100.00").length).toBe(2);
-    expect(screen.getByText("$5.00")).toBeTruthy();
-    expect(screen.getByText("$105.00")).toBeTruthy();
-    expect(screen.getByText(/Pagar com PayPal — \$105\.00/)).toBeTruthy();
+    expect(screen.getAllByText("R$ 100.00").length).toBe(2);
+    expect(screen.getByText("R$ 5.00")).toBeTruthy();
+    expect(screen.getByText("R$ 105.00")).toBeTruthy();
+    expect(screen.getByText(/Pagar com PayPal — R\$ 105\.00/)).toBeTruthy();
     expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
     expect(screen.getByText(PAYPAL_SANDBOX_LOGIN_COPY)).toBeTruthy();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
@@ -562,7 +562,7 @@ describe("Checkout", () => {
     renderCheckout();
 
     expect(
-      await screen.findByText("Preço atualizado: $210.00 → $230.00"),
+      await screen.findByText("Preço atualizado: R$ 210.00 → R$ 230.00"),
     ).toBeTruthy();
     await waitForPayable();
     fireEvent.click(screen.getByRole("button", { name: /Pagar com PayPal/ }));

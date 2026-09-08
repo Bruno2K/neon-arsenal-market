@@ -4,6 +4,10 @@
 
 Accepted
 
+Currency wording amended by [ADR 0022](./0022-single-checkout-currency.md):
+`Listing.price` and `Listing.currency` are BRL checkout data, not unrelated
+catalog metadata.
+
 ## Context
 
 Issue #44. Payment confirmation already inserts a `SellerTransaction` and increments `Seller.balance` in the same PostgreSQL transaction. `(sellerId, orderId)` is unique. Amounts use Prisma `Decimal`. That is necessary but not sufficient: operators and later reconciliation (#45) need an explicit contract for which store is authoritative, how gross/commission/net are computed, which currency and scale apply, and which `PaymentStatus` values a ledger row may have.
@@ -15,7 +19,7 @@ The project is a modular monolith. PostgreSQL is the source of truth. Redis, Kaf
 1. **`SellerTransaction` is the authoritative seller ledger.** One row per `(sellerId, orderId)`. Duplicate confirm, webhook replay, and concurrent `confirmPayment` must not insert a second row.
 2. **`Seller.balance` is a materialized projection** of `SUM(netAmount)` over that seller's `status = PAID` rows. It is incremented in the **same local database transaction** as the ledger insert. If balance and the ledger ever disagree, **the ledger wins**. Application reads (`commissionsRepository.getBalance`) may use the projection; they must not treat it as independently authoritative.
 3. **Identity:** `commission = gross × seller.commissionRate`, `net = gross − commission`. Arithmetic uses Prisma/`Decimal.js`, never JavaScript `number`.
-4. **Currency:** ledger amounts are **BRL**, the PayPal `OrdersCreate` currency. `Listing.currency` is catalog metadata (schema default `USD`) and is not the ledger currency. No `currency` column is added; a second currency would be a new product decision.
+4. **Currency:** ledger amounts, `Listing.price`, `Listing.currency`, orders, and PayPal `OrdersCreate` are **BRL** checkout data. USD may appear only as catalog reference metadata such as `Product.referencePriceUsd`; it must never flow into checkout arithmetic. No ledger currency column is added while checkout is single-currency; supporting another currency requires a new Specification and explicit conversion, rounding, persistence, and reconciliation rules.
 5. **Scale / rounding:** listing prices and PayPal capture use 2 decimal places (`toFixed(2)` at the PayPal boundary). Commission keeps exact Decimal `gross × rate` (extra fractional digits from the rate are preserved). This is the existing policy; a separate banker's-rounding step is not introduced. The formal catalog (currency, scale, rounding mode, no-refund rule, and shared helpers) is [`docs/architecture/money-policy.md`](../architecture/money-policy.md) and `server/src/shared/money/policy.ts`.
 6. **Status:** `SellerTransaction.status` is `PaymentStatus` (`PENDING`, `PAID`, `REFUNDED`). Confirmation writes `PAID`. `PENDING` is the unused column default. `REFUNDED` exists for enum alignment with `Order.paymentStatus`; no application path writes it. Do not invent refunds.
 7. **Database enforcement:** keep `@@unique([sellerId, orderId])`. Add CHECK constraints `netAmount = grossAmount - commissionAmount` and non-negative amounts.

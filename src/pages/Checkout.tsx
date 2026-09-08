@@ -211,7 +211,7 @@ export default function Checkout() {
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
                       <span className="tabular-price text-muted-foreground">
-                        ${Number(listing.price).toFixed(2)}
+                        R$ {Number(listing.price).toFixed(2)}
                       </span>
                       <Button
                         type="button"
@@ -233,15 +233,15 @@ export default function Checkout() {
           <dl className="space-y-1 border-t border-border pt-3 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <dt>Subtotal</dt>
-              <dd className="tabular-price">${totalPrice.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {totalPrice.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <dt>Taxa de serviço</dt>
-              <dd className="tabular-price">${serviceFee.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {serviceFee.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between pt-1 text-base font-medium text-foreground">
               <dt>Total</dt>
-              <dd className="tabular-price">${total.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {total.toFixed(2)}</dd>
             </div>
           </dl>
         </section>
@@ -278,7 +278,7 @@ export default function Checkout() {
               ? "Abrindo o PayPal..."
               : error
                 ? "Tentar novamente"
-                : `Pagar com PayPal — $${total.toFixed(2)}`}
+                : `Pagar com PayPal — R$ ${total.toFixed(2)}`}
           </Button>
           {!canCheckout && blockage ? (
             <p className="text-sm text-destructive" role="status">

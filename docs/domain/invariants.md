@@ -15,12 +15,30 @@ PostgreSQL is the source of truth. These invariants are not enforced by Redis, K
 |---|---|
 | `INV-LISTING-EXCLUSIVE-RESERVE` | Two buyers cannot both reserve the same listing. |
 | `INV-LISTING-SOLD-IRREVERSIBLE` | `SOLD` has no outgoing transition. |
+| `INV-LISTING-CHECKOUT-CURRENCY` | Every sellable listing and downstream monetary snapshot is BRL. |
 | `INV-ORDER-TOTAL-COMPOSITION` | `Order.totalAmount` equals the sum of item `priceSnapshot` values. |
 | `INV-PAYMENT-TRUSTED-CONFIRM` | `PAID` comes from PayPal COMPLETED (webhook, capture, or GET), not a client assertion. |
 | `INV-AUTH-OWNERSHIP` | Customers and sellers only act on resources they own. |
 | `INV-SELLER-COMMISSION-DECIMAL` | Commission and balance use `Decimal`, not JavaScript `number`. |
 
 Related IDs below keep this catalog aligned with the architecture narrative. Cite an existing test instead of cloning it.
+
+---
+
+## INV-LISTING-CHECKOUT-CURRENCY
+
+**Statement:** `Listing.price`, order snapshots, PayPal amounts, and seller-ledger amounts are BRL. `Product.referencePriceUsd` is non-checkout catalog reference data and the cs2.sh import never creates listings.
+
+**Why it matters:** A numeric USD reference labeled or captured as BRL charges a different value than the one represented to the buyer.
+
+**Enforced:**
+
+- Schema: `Listing.currency` defaults to `BRL`; `Listing_currency_brl_chk` rejects every other value.
+- HTTP/UI: `createListingDto` accepts only `BRL` and defaults omission to `BRL`; the seller form has no currency selector and buyer-facing prices are labeled `R$`.
+- Integration boundary: cs2.sh writes only `Product.referencePriceUsd` and never synthesizes sellable inventory.
+- Tests: `server/src/modules/listings/__tests__/listings.currency.test.ts`, `server/src/__tests__/postgres.constraints.integration.test.ts`, and `server/src/__tests__/cs2sh.import.integration.test.ts`.
+
+**Related:** `INV-ORDER-TOTAL-COMPOSITION`, `INV-SELLER-COMMISSION-DECIMAL`.
 
 ---
 

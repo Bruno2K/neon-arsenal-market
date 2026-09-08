@@ -347,7 +347,7 @@ export default function ListingDetail() {
           <div className="space-y-4 rounded-md border border-border bg-card p-5">
             <div className="flex items-baseline gap-2">
               <span className="tabular-nums text-3xl font-semibold tracking-tight text-foreground">
-                ${price.toFixed(2)}
+                R$ {price.toFixed(2)}
               </span>
               <span className="text-sm text-muted-foreground">
                 {listing.currency}
@@ -358,7 +358,7 @@ export default function ListingDetail() {
             </p>
             {latestHistory ? (
               <p className="text-sm text-muted-foreground">
-                Última alteração: ${Number(latestHistory.newPrice).toFixed(2)}
+                Última alteração: R$ {Number(latestHistory.newPrice).toFixed(2)}
               </p>
             ) : null}
             <ListingCartCta

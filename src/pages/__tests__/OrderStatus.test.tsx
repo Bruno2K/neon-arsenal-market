@@ -157,7 +157,7 @@ describe("OrderStatusPage", () => {
       }),
     ).toBeTruthy();
     expect(screen.getByText("AK-47 | Redline (Field-Tested)")).toBeTruthy();
-    expect(screen.getAllByText("$105.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("R$ 105.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Pedido Pendente")).toBeTruthy();
     expect(screen.getByText("Pagamento Pendente")).toBeTruthy();
     expect(screen.queryByText("Pagamento confirmado.")).toBeNull();

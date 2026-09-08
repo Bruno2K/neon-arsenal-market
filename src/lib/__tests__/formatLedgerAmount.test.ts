@@ -7,13 +7,13 @@ import {
 
 describe("formatLedgerAmount", () => {
   it("prefixes the API decimal string without Number() rounding", () => {
-    expect(formatLedgerAmount("135.00")).toBe("$135.00");
-    expect(formatLedgerAmount("0.00")).toBe("$0.00");
-    expect(formatLedgerAmount("0.30")).toBe("$0.30");
+    expect(formatLedgerAmount("135.00")).toBe("R$ 135.00");
+    expect(formatLedgerAmount("0.00")).toBe("R$ 0.00");
+    expect(formatLedgerAmount("0.30")).toBe("R$ 0.30");
   });
 
   it("keeps extra fractional digits from the ledger", () => {
-    expect(formatLedgerAmount("90.015")).toBe("$90.015");
+    expect(formatLedgerAmount("90.015")).toBe("R$ 90.015");
   });
 
   it("renders a missing value as an em dash", () => {

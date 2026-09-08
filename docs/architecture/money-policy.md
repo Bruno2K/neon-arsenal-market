@@ -12,11 +12,12 @@ rounding, integer cents, FX, or a refund API.
 |---|---|---|
 | PayPal `OrdersCreate` / capture | **BRL** | `MONEY_CURRENCY` |
 | `SellerTransaction` amounts | **BRL** | Same as PayPal capture |
-| `Order.totalAmount`, `OrderItem.priceSnapshot`, `Listing.price` | treated as BRL at checkout | Snapshot is copied as-is |
-| `Listing.currency` | catalog metadata (schema default `USD`) | Not the ledger currency |
+| `Order.totalAmount`, `OrderItem.priceSnapshot`, `Listing.price` | **BRL** | Snapshot is copied as-is |
+| `Listing.currency` | **BRL only** | API literal + PostgreSQL CHECK (ADR 0022) |
 | `Product.referencePriceUsd` | USD ask (cs2.sh) | Display/reference only (ADR 0014) |
 
-There is no second checkout currency and no FX conversion in application code.
+There is no second checkout currency and no FX conversion in application code. A
+cs2.sh USD reference must never become a sellable listing price automatically.
 
 ## Scale and precision
 
@@ -83,4 +84,5 @@ Services must not re-implement these identities inline.
 ## Related
 
 - `docs/adr/0011-seller-ledger.md`
+- `docs/adr/0022-single-checkout-currency.md`
 - `INV-ORDER-TOTAL-COMPOSITION`, `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-LEDGER-SOURCE`

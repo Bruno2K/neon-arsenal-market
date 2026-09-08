@@ -40,7 +40,7 @@ function listing(): Listing {
     floatValue: 0.25,
     pattern: 123,
     price: 18.5,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -103,7 +103,7 @@ describe("ListingFormDialog", () => {
     fireEvent.change(screen.getByLabelText("Float (0-1)"), {
       target: { value: "0.25" },
     });
-    fireEvent.change(screen.getByLabelText("Preço"), {
+    fireEvent.change(screen.getByLabelText("Preço (BRL)"), {
       target: { value: "18.5" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Criar" }));
@@ -116,7 +116,6 @@ describe("ListingFormDialog", () => {
           floatValue: 0.25,
           pattern: undefined,
           price: 18.5,
-          currency: "USD",
           tradeLockUntil: undefined,
           steamAssetId: undefined,
         },

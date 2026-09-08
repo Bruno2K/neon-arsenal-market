@@ -301,7 +301,7 @@ export default function OrderStatusPage() {
                 </span>
               )}
               <span className="shrink-0 tabular-price text-muted-foreground">
-                ${Number(item.priceSnapshot).toFixed(2)}
+                R$ {Number(item.priceSnapshot).toFixed(2)}
               </span>
             </li>
           ))}
@@ -328,7 +328,7 @@ export default function OrderStatusPage() {
           <div className="flex justify-between pt-1 text-base font-medium text-foreground">
             <dt>Total</dt>
             <dd className="tabular-price">
-              ${orderTotalAmount(order).toFixed(2)}
+              R$ {orderTotalAmount(order).toFixed(2)}
             </dd>
           </div>
         </dl>

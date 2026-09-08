@@ -45,7 +45,7 @@ function listing(status: Listing["status"] = "ACTIVE"): Listing {
     sellerId: "seller-1",
     floatValue: 0.1,
     price: 10,
-    currency: "USD",
+    currency: "BRL",
     status,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
@@ -152,16 +152,16 @@ describe("SellerDashboard", () => {
     renderDashboard("SELLER");
 
     expect(await screen.findByText("Visão geral")).toBeTruthy();
-    expect(screen.getByText("Saldo $135.00 · Comissão 10%")).toBeTruthy();
+    expect(screen.getByText("Saldo R$ 135.00 · Comissão 10%")).toBeTruthy();
     expect(screen.getByText("Saldo")).toBeTruthy();
-    expect(screen.getAllByText("$135.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("R$ 135.00").length).toBeGreaterThan(0);
     expect(screen.getByText("Comissão")).toBeTruthy();
     expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
     expect(screen.getByText("Listings ativos")).toBeTruthy();
     expect(screen.getAllByText("1").length).toBeGreaterThan(0);
     expect(screen.getAllByText("AK-47 | Redline").length).toBeGreaterThan(0);
     expect(screen.queryByText("Receita")).toBeNull();
-    expect(screen.queryByText("$84.00")).toBeNull();
+    expect(screen.queryByText("R$ 84.00")).toBeNull();
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
     expect(screen.queryByText(/CS2 Skin Marketplace/i)).toBeNull();
     expect(getCommissionBalance).toHaveBeenCalled();
@@ -191,9 +191,11 @@ describe("SellerDashboard", () => {
 
     renderDashboard("SELLER");
 
-    expect(await screen.findByText("Saldo $0.00 · Comissão 15%")).toBeTruthy();
-    expect(screen.getAllByText("$0.00").length).toBeGreaterThan(0);
-    expect(screen.queryByText("$100.00")).toBeNull();
+    expect(
+      await screen.findByText("Saldo R$ 0.00 · Comissão 15%"),
+    ).toBeTruthy();
+    expect(screen.getAllByText("R$ 0.00").length).toBeGreaterThan(0);
+    expect(screen.queryByText("R$ 100.00")).toBeNull();
     expect(screen.queryByText("Receita")).toBeNull();
   });
 

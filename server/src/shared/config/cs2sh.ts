@@ -5,8 +5,6 @@
  */
 export const DEFAULT_CS2SH_API_BASE_URL = "https://api.cs2.sh";
 export const DEFAULT_CS2SH_API_TIMEOUT_MS = 60_000;
-export const DEFAULT_CS2SH_DEMO_LISTING_COUNT = 24;
-export const MAX_CS2SH_DEMO_LISTING_COUNT = 100;
 export const CS2SH_CATALOG_UPSERT_CHUNK_SIZE = 500;
 
 export const CS2SH_IDEMPOTENT_RETRY = {
@@ -39,12 +37,4 @@ export function isCs2ShConfigured(): boolean {
 /** Boot-time import. Opt-in; the API stays up if the key is missing. */
 export function isCs2ShImportEnabled(): boolean {
   return process.env.CS2SH_IMPORT === "true";
-}
-
-export function getCs2ShDemoListingCount(): number {
-  const raw = process.env.CS2SH_DEMO_LISTING_COUNT;
-  if (raw === undefined || raw === "") return DEFAULT_CS2SH_DEMO_LISTING_COUNT;
-  const parsed = Number(raw);
-  if (!Number.isInteger(parsed) || parsed < 1) return DEFAULT_CS2SH_DEMO_LISTING_COUNT;
-  return Math.min(parsed, MAX_CS2SH_DEMO_LISTING_COUNT);
 }

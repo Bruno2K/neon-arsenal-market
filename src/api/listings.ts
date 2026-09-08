@@ -58,7 +58,7 @@ export function createListing(body: {
   floatValue: number;
   pattern?: number;
   price: number;
-  currency?: string;
+  currency?: "BRL";
   tradeLockUntil?: string;
   steamAssetId?: string;
 }): Promise<Listing> {

@@ -37,7 +37,7 @@ function listing(
     sellerId: "seller-1",
     floatValue: 0.12345678 as unknown as Listing["floatValue"],
     price: price as unknown as Listing["price"],
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     tradeLockUntil: null,
     steamAssetId: null,
@@ -106,9 +106,9 @@ describe("CartPage", () => {
     cartState.totalItems = 1;
     renderCart();
     expect(await screen.findByText("Finalizar compra")).toBeTruthy();
-    expect(screen.getAllByText("$100.00").length).toBe(2);
-    expect(screen.getByText("$5.00")).toBeTruthy();
-    expect(screen.getByText("$105.00")).toBeTruthy();
+    expect(screen.getAllByText("R$ 100.00").length).toBe(2);
+    expect(screen.getByText("R$ 5.00")).toBeTruthy();
+    expect(screen.getByText("R$ 105.00")).toBeTruthy();
     expect(screen.getByText(PRE_ORDER_HOLD_COPY)).toBeTruthy();
     expect(screen.queryByText(/Reservado para você/)).toBeNull();
     expect(screen.queryByText(/15:00/)).toBeNull();
@@ -166,7 +166,7 @@ describe("CartPage", () => {
     renderCart();
 
     expect(
-      await screen.findByText("Preço atualizado: $210.00 → $230.00"),
+      await screen.findByText("Preço atualizado: R$ 210.00 → R$ 230.00"),
     ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Finalizar compra" })).toBeTruthy();
     expect(cartState.updateListing).toHaveBeenCalled();

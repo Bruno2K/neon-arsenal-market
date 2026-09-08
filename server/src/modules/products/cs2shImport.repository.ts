@@ -7,16 +7,6 @@ export type CatalogUpsertRow = MappedCatalogProduct & {
   referencePriceUsd: string | null;
 };
 
-export type DemoListingUpsertInput = {
-  id: string;
-  productId: string;
-  sellerId: string;
-  price: string;
-  floatValue: string;
-  pattern: number;
-  steamAssetId: string;
-};
-
 function chunk<T>(items: T[], size: number): T[][] {
   const out: T[][] = [];
   for (let i = 0; i < items.length; i += size) {
@@ -73,52 +63,5 @@ export const cs2shImportRepository = {
       written += group.length;
     }
     return written;
-  },
-
-  async findIdsByMarketHashNames(names: string[]): Promise<Map<string, string>> {
-    if (names.length === 0) return new Map();
-    const rows = await prisma.product.findMany({
-      where: { marketHashName: { in: names } },
-      select: { id: true, marketHashName: true },
-    });
-    const map = new Map<string, string>();
-    for (const row of rows) {
-      if (row.marketHashName) map.set(row.marketHashName, row.id);
-    }
-    return map;
-  },
-
-  async listApprovedSellerIds(): Promise<string[]> {
-    const sellers = await prisma.seller.findMany({
-      where: { isApproved: true },
-      orderBy: { createdAt: "asc" },
-      select: { id: true },
-    });
-    return sellers.map((seller) => seller.id);
-  },
-
-  async upsertDemoListing(input: DemoListingUpsertInput): Promise<void> {
-    const price = new Prisma.Decimal(input.price);
-    const floatValue = new Prisma.Decimal(input.floatValue);
-    await prisma.listing.upsert({
-      where: { id: input.id },
-      create: {
-        id: input.id,
-        productId: input.productId,
-        sellerId: input.sellerId,
-        floatValue,
-        pattern: input.pattern,
-        price,
-        currency: "USD",
-        status: "ACTIVE",
-        steamAssetId: input.steamAssetId,
-      },
-      // Re-runs refresh catalog price/float; they must not revive SOLD/RESERVED rows.
-      update: {
-        price,
-        floatValue,
-        pattern: input.pattern,
-      },
-    });
   },
 };

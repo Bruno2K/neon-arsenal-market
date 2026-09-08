@@ -97,8 +97,8 @@ describe("SellerTransactions", () => {
 
     expect(await screen.findByText("Transações")).toBeTruthy();
     expect(screen.getByText("Pago")).toBeTruthy();
-    expect(screen.getByText("$90.00")).toBeTruthy();
-    expect(screen.queryByText("$100.00")).toBeNull();
+    expect(screen.getByText("R$ 90.00")).toBeTruthy();
+    expect(screen.queryByText("R$ 100.00")).toBeNull();
     expect(listCommissionTransactions).toHaveBeenCalled();
   });
 

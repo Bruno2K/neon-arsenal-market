@@ -2,12 +2,12 @@ import { z } from "zod";
 import { CURSOR_MAX_LENGTH } from "../../shared/pagination/cursor.js";
 import { LISTING_STATUSES } from "../../shared/types/roles.js";
 import {
-  CURRENCY_MAX,
   SEARCH_MAX,
   STEAM_ASSET_ID_MAX,
   resourceIdSchema,
 } from "../../shared/validation/httpLimits.js";
 import { LISTING_SORTS } from "./listings.sort.js";
+import { MONEY_CURRENCY } from "../../shared/money/policy.js";
 
 export const createListingDto = z.object({
   productId: resourceIdSchema("Product ID"),
@@ -17,7 +17,7 @@ export const createListingDto = z.object({
     .max(1, "Float value must be between 0 and 1"),
   pattern: z.number().int().positive().optional(),
   price: z.number().positive("Price must be positive"),
-  currency: z.string().min(1).max(CURRENCY_MAX).default("USD"),
+  currency: z.literal(MONEY_CURRENCY).default(MONEY_CURRENCY),
   tradeLockUntil: z.string().datetime().optional().or(z.date().optional()),
   steamAssetId: z.string().max(STEAM_ASSET_ID_MAX).optional(),
 });

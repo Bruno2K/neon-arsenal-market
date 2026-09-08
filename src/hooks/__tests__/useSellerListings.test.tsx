@@ -68,7 +68,7 @@ function listing(overrides: Partial<Listing> = {}): Listing {
     floatValue: 0.25,
     pattern: 123,
     price: 18.5,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),

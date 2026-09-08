@@ -44,7 +44,7 @@ export function PriceHistorySection({
               <li key={entry.id} className="flex justify-between gap-3">
                 <span>{new Date(entry.changedAt).toLocaleDateString()}</span>
                 <span className="tabular-nums">
-                  ${Number(entry.oldPrice).toFixed(2)} → $
+                  R$ {Number(entry.oldPrice).toFixed(2)} → R${" "}
                   {Number(entry.newPrice).toFixed(2)}
                 </span>
               </li>

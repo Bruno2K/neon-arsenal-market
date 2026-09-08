@@ -80,7 +80,7 @@ export default function CartPage() {
                     {listing.pattern ? ` · Pattern ${listing.pattern}` : ""}
                   </p>
                   <p className="mt-1 text-sm tabular-price text-foreground">
-                    ${Number(listing.price).toFixed(2)}
+                    R$ {Number(listing.price).toFixed(2)}
                   </p>
                   <CartListingAlerts line={line} />
                 </div>
@@ -103,15 +103,15 @@ export default function CartPage() {
           <dl className="space-y-2 text-sm">
             <div className="flex justify-between text-muted-foreground">
               <dt>Subtotal</dt>
-              <dd className="tabular-price">${totalPrice.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {totalPrice.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between text-muted-foreground">
               <dt>Taxa de serviço</dt>
-              <dd className="tabular-price">${serviceFee.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {serviceFee.toFixed(2)}</dd>
             </div>
             <div className="flex justify-between border-t border-border pt-2 text-base font-medium text-foreground">
               <dt>Total</dt>
-              <dd className="tabular-price">${total.toFixed(2)}</dd>
+              <dd className="tabular-price">R$ {total.toFixed(2)}</dd>
             </div>
           </dl>
           <ReservationHold phase="pre-order" />

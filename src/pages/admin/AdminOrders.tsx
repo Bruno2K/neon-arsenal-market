@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/table";
 
 function formatMoney(value: number): string {
-  return `$${Number(value).toFixed(2)}`;
+  return `R$ ${Number(value).toFixed(2)}`;
 }
 
 export default function AdminOrders() {

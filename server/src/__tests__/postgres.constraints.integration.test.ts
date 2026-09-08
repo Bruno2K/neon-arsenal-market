@@ -24,6 +24,29 @@ function expectCheckViolation(error: unknown, constraint: string) {
 }
 
 describe("PostgreSQL unique constraints", () => {
+  it("defaults listings to BRL and rejects another checkout currency", async () => {
+    const fixture = await createCheckoutGraph();
+    expect(fixture.listings[0].currency).toBe("BRL");
+
+    let caught: unknown;
+    try {
+      await prisma.listing.create({
+        data: {
+          productId: fixture.product.id,
+          sellerId: fixture.seller.id,
+          floatValue: new Prisma.Decimal("0.20"),
+          price: new Prisma.Decimal("50.00"),
+          currency: "USD",
+          status: "ACTIVE",
+        },
+      });
+    } catch (error) {
+      caught = error;
+    }
+
+    expectCheckViolation(caught, "Listing_currency_brl_chk");
+  });
+
   it("enforces OrderIdempotencyKey(customerId, key)", async () => {
     const customer = await createUser();
     await prisma.orderIdempotencyKey.create({

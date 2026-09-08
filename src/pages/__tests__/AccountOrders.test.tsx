@@ -119,7 +119,7 @@ describe("AccountOrdersPage", () => {
     ).toHaveAttribute("href", "/orders/order-1");
     expect(screen.getByText("Confirmado")).toBeTruthy();
     expect(screen.getByText("Pago")).toBeTruthy();
-    expect(screen.getByText("$105.00")).toBeTruthy();
+    expect(screen.getByText("R$ 105.00")).toBeTruthy();
     expect(
       screen.getByText(new Date(CREATED_AT).toLocaleDateString("pt-BR")),
     ).toBeTruthy();

@@ -31,7 +31,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     productId: "prod-1",
     sellerId: "seller-1",
     price: 299.5,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     floatValue: 0.12345678,
     pattern: 412,
@@ -183,19 +183,19 @@ describe("ListingCard", () => {
     expect(screen.getByText("StatTrak™")).toBeInTheDocument();
   });
 
-  it("formats the listing price with two decimals and a $ prefix", () => {
+  it("formats the listing price with two decimals and an R$ prefix", () => {
     renderCard(makeListing({ price: 299.5 }));
-    expect(screen.getByText("$299.50")).toBeInTheDocument();
+    expect(screen.getByText("R$ 299.50")).toBeInTheDocument();
   });
 
   it("formats whole-dollar prices with two decimals", () => {
     renderCard(makeListing({ price: 100 }));
-    expect(screen.getByText("$100.00")).toBeInTheDocument();
+    expect(screen.getByText("R$ 100.00")).toBeInTheDocument();
   });
 
   it("formats string prices through Number() with two decimals", () => {
     renderCard(makeListing({ price: "49.9" as unknown as number }));
-    expect(screen.getByText("$49.90")).toBeInTheDocument();
+    expect(screen.getByText("R$ 49.90")).toBeInTheDocument();
   });
 
   it("shows float with 8 decimal places", () => {

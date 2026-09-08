@@ -101,7 +101,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     floatValue: 0.14501234,
     pattern: 456,
     price: 22,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     tradeLockUntil: null,
     steamAssetId: null,
@@ -238,8 +238,8 @@ describe("ListingDetail", () => {
     expect(screen.getByText("456")).toBeTruthy();
     expect(screen.getAllByText("StatTrak™").length).toBeGreaterThan(0);
     expect(screen.getAllByText("NeonTrader").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("$22.00").length).toBeGreaterThan(0);
-    expect(screen.getByText(/Última alteração: \$22\.00/)).toBeTruthy();
+    expect(screen.getAllByText("R$ 22.00").length).toBeGreaterThan(0);
+    expect(screen.getByText(/Última alteração: R\$ 22\.00/)).toBeTruthy();
     expect(screen.getByText("Histórico de preços deste listing")).toBeTruthy();
     expect(screen.getByText("Outros listings desta skin")).toBeTruthy();
 

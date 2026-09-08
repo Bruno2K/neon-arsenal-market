@@ -8,7 +8,7 @@ Do not maintain a second conflicting list. When a rule changes, update the catal
 
 ## Listings
 
-IDs: `INV-LISTING-EXCLUSIVE-RESERVE`, `INV-LISTING-SOLD-IRREVERSIBLE`, `INV-LISTING-RESERVATION-TTL`.
+IDs: `INV-LISTING-EXCLUSIVE-RESERVE`, `INV-LISTING-SOLD-IRREVERSIBLE`, `INV-LISTING-RESERVATION-TTL`, `INV-LISTING-CHECKOUT-CURRENCY`.
 
 A listing represents a unique marketplace item.
 
@@ -32,6 +32,7 @@ Rules:
 7. `RESERVED → ACTIVE` is allowed only for rows that are still `RESERVED` and whose `reservationExpiresAt` is in the past (or null, treated as invalid/expired). That release must also clear `reservedByOrderId`.
 8. Payment confirmation must not mark a listing `SOLD` unless it is still `RESERVED`, `reservedByOrderId` matches the paying order, and `reservationExpiresAt` is in the future. If that condition fails, the payment claim must roll back.
 9. A stale capture for an earlier order must not sell a listing that later returned to `ACTIVE` and was reserved by another order.
+10. Every sellable listing, order snapshot, PayPal amount, and ledger amount is BRL. USD from cs2.sh is product reference data only and must not create inventory or enter checkout without an explicit future FX decision.
 
 ## Orders
 

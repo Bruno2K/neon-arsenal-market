@@ -5,7 +5,6 @@ export const emptyListingForm = {
   floatValue: "",
   pattern: "",
   price: "",
-  currency: "USD",
   tradeLockUntil: "",
   steamAssetId: "",
 };
@@ -30,7 +29,6 @@ export function listingToForm(listing: Listing): ListingFormValues {
     floatValue: String(listing.floatValue),
     pattern: listing.pattern ? String(listing.pattern) : "",
     price: String(listing.price),
-    currency: listing.currency,
     tradeLockUntil: listing.tradeLockUntil
       ? new Date(listing.tradeLockUntil).toISOString().slice(0, 16)
       : "",

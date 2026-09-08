@@ -110,7 +110,7 @@ describe("AdminDashboard", () => {
 
     expect(await screen.findByText("Receita")).toBeTruthy();
     expect(screen.getByText("Painel admin")).toBeTruthy();
-    expect(screen.getAllByText("$42.00").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("R$ 42.00").length).toBeGreaterThan(0);
     expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getAllByText("Loja Pendente").length).toBeGreaterThan(0);
     expect(screen.getAllByText("10%").length).toBeGreaterThan(0);

@@ -20,7 +20,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     productId: "awp-asiimov-ft",
     sellerId: "seller-1",
     price: 18.5,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     floatValue: 0.21,
     pattern: 12,

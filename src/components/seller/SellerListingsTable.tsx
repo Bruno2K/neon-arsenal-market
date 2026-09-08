@@ -52,7 +52,7 @@ export function SellerListingsTable({
                   {Number(listing.floatValue).toFixed(8)}
                 </TableCell>
                 <TableCell className="tabular-nums font-medium">
-                  ${Number(listing.price).toFixed(2)}
+                  R$ {Number(listing.price).toFixed(2)}
                 </TableCell>
                 <TableCell>
                   <span

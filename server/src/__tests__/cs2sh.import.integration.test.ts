@@ -10,12 +10,9 @@ import {
   CS2SH_PRICES_UPDATED_FIXTURE,
   CS2SH_SCHEMA_FIXTURE,
 } from "../shared/integrations/cs2sh/__tests__/cs2sh.fixtures.js";
-import { demoListingId } from "../shared/integrations/cs2sh/cs2sh.mapper.js";
 import { prisma } from "../shared/database/index.js";
-import { createSeller } from "./helpers/index.js";
 
 const originalKey = process.env.CS2SH_API_KEY;
-const originalCount = process.env.CS2SH_DEMO_LISTING_COUNT;
 
 function fakeClient(
   prices = CS2SH_PRICES_FIXTURE
@@ -30,8 +27,6 @@ afterEach(() => {
   resetCs2ShImportStateForTests();
   if (originalKey === undefined) delete process.env.CS2SH_API_KEY;
   else process.env.CS2SH_API_KEY = originalKey;
-  if (originalCount === undefined) delete process.env.CS2SH_DEMO_LISTING_COUNT;
-  else process.env.CS2SH_DEMO_LISTING_COUNT = originalCount;
 });
 
 describe("cs2.sh catalog import", () => {
@@ -56,14 +51,11 @@ describe("cs2.sh catalog import", () => {
 
   it("upserts tradable skins idempotently and updates referencePriceUsd", async () => {
     process.env.CS2SH_API_KEY = "test-key";
-    process.env.CS2SH_DEMO_LISTING_COUNT = "2";
-    await createSeller();
-
     const first = await importCs2ShCatalog(fakeClient());
     expect(first.skipped).toBe(false);
     expect(first.productsUpserted).toBe(3);
     expect(first.schemaSkipped).toBe(2);
-    expect(first.listingsUpserted).toBe(2);
+    expect(first.listingsUpserted).toBe(0);
 
     const printstream = await prisma.product.findUnique({
       where: { marketHashName: "USP-S | Printstream (Factory New)" },
@@ -72,12 +64,6 @@ describe("cs2.sh catalog import", () => {
     expect(printstream?.skinName).toBe("Printstream");
     expect(printstream?.referencePriceUsd?.equals(new Prisma.Decimal("144.99"))).toBe(true);
     expect(printstream?.cs2ShGenerationId).toBe("gen-test-1");
-
-    const listingId = demoListingId("StatTrak™ AK-47 | Redline (Field-Tested)");
-    const listing = await prisma.listing.findUnique({ where: { id: listingId } });
-    expect(listing?.currency).toBe("USD");
-    expect(listing?.status).toBe("ACTIVE");
-    expect(listing?.price.equals(new Prisma.Decimal("65.50"))).toBe(true);
 
     const second = await importCs2ShCatalog(fakeClient(CS2SH_PRICES_UPDATED_FIXTURE));
     expect(second.productsUpserted).toBe(3);
@@ -88,7 +74,7 @@ describe("cs2.sh catalog import", () => {
     const listings = await prisma.listing.count({
       where: { id: { startsWith: "listing-cs2sh-" } },
     });
-    expect(listings).toBe(2);
+    expect(listings).toBe(0);
 
     const updated = await prisma.product.findUnique({
       where: { marketHashName: "USP-S | Printstream (Factory New)" },
@@ -96,20 +82,4 @@ describe("cs2.sh catalog import", () => {
     expect(updated?.referencePriceUsd?.equals(new Prisma.Decimal("150.00"))).toBe(true);
   });
 
-  it("does not revive a SOLD demo listing on re-import", async () => {
-    process.env.CS2SH_API_KEY = "test-key";
-    process.env.CS2SH_DEMO_LISTING_COUNT = "1";
-    await createSeller();
-    await importCs2ShCatalog(fakeClient());
-
-    const soldId = demoListingId("StatTrak™ AK-47 | Redline (Field-Tested)");
-    await prisma.listing.update({
-      where: { id: soldId },
-      data: { status: "SOLD", soldAt: new Date() },
-    });
-
-    await importCs2ShCatalog(fakeClient());
-    const listing = await prisma.listing.findUnique({ where: { id: soldId } });
-    expect(listing?.status).toBe("SOLD");
-  });
 });

@@ -23,7 +23,7 @@ function listing(): Listing {
     sellerId: "seller-1",
     floatValue: 0.25,
     price: 18.5,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
