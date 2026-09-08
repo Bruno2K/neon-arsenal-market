@@ -14,7 +14,7 @@ The useful engineering system is SDD plus a validated dependency graph and a lig
 
 The repository is the system of record for AI-assisted engineering. Material work begins at an accepted Specification and continues through Plans and Tasks. External trackers are optional references. Agents read the repository contracts directly, and deterministic tooling validates structure and graph integrity without selecting work or invoking an LLM.
 
-The existing orchestrator will be retired in later reviewable changes after the direct agent harness is documented. No separate orchestrator repository will be created.
+The former orchestrator and its Issue-based helpers were removed after the direct agent harness was documented and validated. No separate orchestrator repository was created.
 
 ## Consequences
 
@@ -23,6 +23,7 @@ The existing orchestrator will be retired in later reviewable changes after the 
 - Token usage is controlled by context-loading rules and bounded Tasks, not by a proxy runtime.
 - GitHub Issues can still be used for human coordination without becoming an authority dependency.
 - Static validation cannot judge whether a decomposition is semantically good; agent review and verification remain necessary.
+- Git history preserves the deleted implementation and catalogs for audit without keeping live compatibility paths.
 
 ## Rejected alternatives
 

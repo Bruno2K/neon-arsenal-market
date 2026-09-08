@@ -37,7 +37,7 @@ Rules:
 
 - use existing API contracts and OpenAPI; do not invent endpoints;
 - do not change server payment, reservation, or auth semantics;
-- preserve brand/visual locks in `docs/frontend-sprint.md` unless the GitHub issue supersedes them;
+- preserve brand/visual locks in `docs/frontend-sprint.md` unless an authoritative Specification or Task supersedes them;
 - add/update UI tests in the same change.
 
 ## Database & Concurrency Reviewer

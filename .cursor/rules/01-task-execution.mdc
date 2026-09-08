@@ -5,7 +5,7 @@ alwaysApply: true
 
 # Task Execution
 
-When the user names a Task, Plan, Specification, external Issue, feature, bug, or roadmap item, resolve it through `docs/agents/harness.md`. Unqualified `next` means validate the repository graph and choose an unambiguously eligible `Ready` Task. Do not invoke the legacy orchestrator unless the user explicitly requests the legacy command.
+When the user names a Task, Plan, Specification, external Issue, feature, bug, or roadmap item, resolve it through `docs/agents/harness.md`. Unqualified `next` means validate the repository graph and choose an unambiguously eligible `Ready` Task.
 
 ## Before coding
 

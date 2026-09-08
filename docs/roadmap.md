@@ -125,7 +125,7 @@ The ECS/Fargate sketch below is a **future option**, not a committed migration. 
 Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → CloudWatch
 ```
 
-Remaining P-back catalog work after this ADR landed as the **C2 skip commit**. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`. Further work is selected from GitHub issues (`python3 scripts/orchestrator/next.py`).
+Remaining P-back catalog work after this ADR landed as the **C2 skip commit**. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`. Further work follows repository Specifications, Plans, and Tasks through `docs/agents/harness.md`.
 
 ## Documentation deliverables
 
@@ -148,17 +148,11 @@ Maintain:
 
 Documentation is part of the implementation whenever a design or operational decision changes.
 
-## Orchestrator
+## Agent harness
 
-There is one control plane. Intake is GitHub issues:
+The repository is the control plane. `AGENTS.md` and `docs/agents/harness.md` define direct Task/Plan/problem/`next` entry. GitHub Issues are optional references, and there is no prompt-generating runtime.
 
-```bash
-python3 scripts/orchestrator/next.py
-```
-
-The parent agent spawns one subagent per selected issue with the role set from `docs/agents/roles.md`. File-disjoint parallelism: at most one backend issue (`server/`) and one frontend issue (`src/`) per wave.
-
-Historical sprint archives: `docs/backend-sprint.md`, `docs/frontend-sprint.md`. Shims still accept `python3 scripts/p-back/next.py` and `python3 scripts/p-front/next.py`.
+Historical human-readable sprint archives remain in `docs/backend-sprint.md` and `docs/frontend-sprint.md`; removed executable catalogs and helpers remain recoverable in Git history.
 
 ## Agent execution rule
 
@@ -166,4 +160,4 @@ Only one roadmap item should normally be in active implementation at a time. Spl
 
 A lower-priority item must not distract the team from a known unresolved correctness problem.
 
-File-disjoint exception: one backend subagent (`server/`) and one frontend subagent (`src/`) may run in the same orchestrator wave.
+File-disjoint exception: independent backend (`server/`) and frontend (`src/`) Tasks may run in parallel when they share no semantic invariant or dependency.

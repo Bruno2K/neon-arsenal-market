@@ -104,9 +104,9 @@ The canonical harness uses Markdown, Git, repository code/tests, and dependency-
 
 Agents may be invoked interactively in Codex, Cursor, or another repository-capable environment. The harness does not call an LLM, own tokens, store credentials, schedule work, or require network access.
 
-## Legacy compatibility
+## Removed interfaces
 
-The existing `scripts/orchestrator/` command and its shims are deprecated adapters during migration. They may still be invoked only when a human explicitly requests the legacy path. Normal `next`, feature, bug, Specification, Plan, and Task requests follow this direct harness.
+The former `scripts/orchestrator/` runtime, shell wrappers, P-back/P-front shims and catalogs, issue-creation helpers, legacy tests, dedicated docs, and provider rule were removed after this harness became canonical. Git history preserves them if historical inspection is needed; do not recreate compatibility shims.
 
 External Issues remain optional references for coordination and historical lookup.
 
