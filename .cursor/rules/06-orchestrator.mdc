@@ -1,21 +1,23 @@
 ---
-description: Unified GitHub-issue orchestrator that spawns role-assigned subagents
-alwaysApply: true
+description: Deprecated compatibility rule for the legacy GitHub-issue orchestrator
+alwaysApply: false
 ---
 
-# Orchestrator
+# Legacy Orchestrator Compatibility
 
-There is **one** engineering orchestrator. It reads **GitHub issues**, not `scripts/p-front/activities.json` or `scripts/p-back/activities.json`.
+ADR 0020 and `docs/agents/harness.md` define direct repository execution as the default. This rule exists only until the legacy scripts are physically removed.
 
-## When the user says `next`, `orquestrador`, or `orchestrator`
+## When the user explicitly requests the legacy command
 
-The parent agent must:
+Only an explicit request such as “run the legacy orchestrator command” activates this compatibility path. Plain `next`, a Task ID, a Plan ID, a feature, or a bug follows the direct harness.
+
+When explicitly activated, the parent agent may:
 
 1. Run `python3 scripts/orchestrator/next.py --json` (add `--prompt` when spawning).
 2. Treat `spawn[]` as the work set. Each entry already has `role`, `requiredRoles`, `subagentType`, `branch`, and `prompt`.
-3. Launch **one Task subagent per `spawn` entry** (`subagentType`, usually `generalPurpose`) with that prompt. Do not implement those issues in the parent.
+3. Treat the output as advisory intake, then reconcile it with authoritative repository Specifications, Plans, and Tasks before implementation.
 4. Parallelize only when tracks are disjoint (`src/` vs `server/`). Default is one backend issue and one frontend issue.
-5. After a subagent returns, do not mark the GitHub issue closed (`gh` is read-only). Do not merge.
+5. Preserve all normal Task scope, verification, and human-approval boundaries.
 
 `--track backend` or `--track frontend` narrows the set. `--issue N` forces a single issue.
 
@@ -27,7 +29,7 @@ Follow `docs/agents/roles.md` and `.cursor/rules/00`–`05`. Verification must c
 
 ## Intake
 
-Source of truth: open GitHub issues.
+Legacy intake: open GitHub issues. These are not the source of truth.
 
 - Done: closed issue, or high-confidence match against `origin/main` commit subjects (listed as `likelyDone`).
 - Busy: open PR that references the issue.

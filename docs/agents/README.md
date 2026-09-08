@@ -12,14 +12,12 @@ Read in this order:
 
 1. `AGENTS.md` — global engineering rules.
 2. `docs/agents/README.md` — team operating model.
-3. `docs/agents/roles.md` — responsibilities and boundaries.
-4. `docs/architecture/current-state.md` — known architectural reality and gaps.
-5. `docs/domain/invariants.md` — canonical invariant ID catalog and enforcement map.
-6. `docs/architecture/domain-invariants.md` — narrative invariant contract (must stay in sync with the catalog).
-7. `docs/roadmap.md` — prioritized backlog.
-8. The relevant source code, schema, migrations, and tests.
-9. The relevant ADRs and operational documentation.
-10. `docs/observability.md` when the task touches logs, traces, metrics or request correlation.
+3. `docs/agents/harness.md` — direct entry, context, execution, and evidence protocol.
+4. The named Specification, Plan, or Task.
+5. `docs/agents/roles.md` — responsibilities and boundaries.
+6. Relevant architecture and invariant documents.
+7. The relevant source code, schema, migrations, and tests.
+8. Relevant ADRs, provider, and operational documentation.
 
 If code and documentation disagree, the agent must inspect the code and flag the documentation as stale. It must not silently invent behavior.
 
@@ -28,6 +26,8 @@ If code and documentation disagree, the agent must inspect the code and flag the
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
 The repository artifact graph is the control plane. An agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles.
+
+Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python command or external tracker is required to start an agent.
 
 The previous Issue-based orchestrator remains as a temporary migration adapter:
 

@@ -62,6 +62,12 @@ SPEC_REF = re.compile(r"^SPEC-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 PLAN_REF = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
 TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
+HARNESS_HEADINGS = (
+    "## Purpose", "## Entry modes", "## Artifact resolution", "## Bootstrap",
+    "## Context budget", "## Execution loop", "## Role lenses", "## Parallelism",
+    "## Evidence and handoff", "## Portability", "## Legacy compatibility",
+    "## Stop conditions",
+)
 
 
 def has_markdown_heading(content: str, heading: str) -> bool:
@@ -94,6 +100,41 @@ def validate_templates(errors: list[str]) -> None:
         for heading in headings:
             if not has_markdown_heading(content, heading):
                 errors.append(f"{path.relative_to(ROOT)} missing required heading: {heading}")
+
+
+def validate_harness(errors: list[str], root: Path = ROOT) -> None:
+    harness = root / "docs" / "agents" / "harness.md"
+    if not harness.is_file():
+        errors.append("missing direct agent harness: docs/agents/harness.md")
+        return
+
+    content = harness.read_text(encoding="utf-8")
+    for heading in HARNESS_HEADINGS:
+        if not has_markdown_heading(content, heading):
+            errors.append(f"docs/agents/harness.md missing required heading: {heading}")
+
+    required_links = (
+        (root / "AGENTS.md", "docs/agents/harness.md"),
+        (root / "docs" / "agents" / "README.md", "harness.md"),
+    )
+    for path, reference in required_links:
+        if not path.is_file() or reference not in path.read_text(encoding="utf-8"):
+            errors.append(f"{path.relative_to(root)} must reference the direct agent harness")
+
+    legacy_command = "scripts/orchestrator/next.py"
+    active_paths = (
+        root / ".cursor" / "rules" / "01-task-execution.mdc",
+        root / "docs" / "agents" / "execution-protocol.md",
+        root / "docs" / "agents" / "context-policy.md",
+    )
+    for path in active_paths:
+        if path.is_file() and legacy_command in path.read_text(encoding="utf-8"):
+            errors.append(f"{path.relative_to(root)} must not require the legacy orchestrator")
+
+    legacy_rule = root / ".cursor" / "rules" / "06-orchestrator.mdc"
+    metadata = parse_frontmatter(legacy_rule.read_text(encoding="utf-8")) if legacy_rule.is_file() else None
+    if metadata is None or metadata.get("alwaysApply", "").lower() != "false":
+        errors.append(".cursor/rules/06-orchestrator.mdc must be inactive by default")
 
 
 def parse_frontmatter(content: str) -> dict[str, str] | None:
@@ -454,6 +495,7 @@ def artifact_references(content: str, prefix: str) -> list[str]:
 def main() -> int:
     errors: list[str] = []
     validate_templates(errors)
+    validate_harness(errors)
     validate_references(errors)
     if errors:
         print("AI Factory artifact validation: FAILED")
@@ -461,7 +503,7 @@ def main() -> int:
         return 1
 
     print("AI Factory artifact validation: PASS")
-    print("- canonical templates: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- task graph: valid\n- internal references: valid")
+    print("- canonical templates: valid\n- direct agent harness: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- task graph: valid\n- internal references: valid")
     return 0
 
 

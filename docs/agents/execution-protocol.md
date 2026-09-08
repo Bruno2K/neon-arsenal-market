@@ -20,15 +20,15 @@ VERIFYING
 ```
 
 ## READY
-Run `python3 scripts/orchestrator/next.py`. Spawn one subagent per selected GitHub issue, with the role set from `docs/agents/roles.md`. Prefer the highest-priority unblocked issues. Do not start multiple dependent roadmap items concurrently. Default wave: at most one backend issue and one frontend issue.
+Resolve the user request through `docs/agents/harness.md`. For a named Task, validate its status and dependencies. For a Plan, identify its next eligible Task. For unqualified `next`, validate the repository graph and choose only an unambiguously eligible `Ready` Task. Do not query GitHub or invoke the legacy orchestrator by default.
 
 ## PLANNING
 Planner reads the mandatory context, identifies the invariant, affected boundaries, acceptance criteria and verification plan. Output is a compact implementation brief.
 
-If the issue is ambiguous, contradictory or materially larger than documented, transition to `HUMAN` rather than inventing requirements.
+If the authoritative artifacts are ambiguous, contradictory, or materially smaller than the requested behavior, transition to `HUMAN` rather than inventing requirements.
 
 ## IMPLEMENTING
-Primary agent works in an isolated branch/worktree. It changes only files within the issue scope unless a directly required dependency is discovered.
+Primary agent works in an isolated branch/worktree. It changes only files within the Task scope unless a directly required dependency is discovered and the Task is replanned.
 
 Do not mix unrelated cleanup, dependency upgrades or architectural experiments into the task.
 
@@ -54,10 +54,10 @@ Only after:
 - handoff is complete.
 
 ## HUMAN
-Use when the decision policy requires approval or when evidence is insufficient. The orchestrator must preserve the blocker and resume from the same task after the decision.
+Use when the decision policy requires approval or when evidence is insufficient. Preserve the blocker in the Task or handoff and resume from the same artifact after the decision.
 
 ## Agent invocation policy
-Do not invoke every role for every issue.
+Do not invoke every role for every Task.
 
 - Simple bug: Primary + Verification.
 - API behavior: Primary + Test + Security when relevant + Verification.

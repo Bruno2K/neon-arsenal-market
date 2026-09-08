@@ -59,6 +59,17 @@ Do not invent missing requirements to make artifacts agree. When artifacts confl
 
 Templates live under `docs/templates/`. Canonical artifact IDs and file naming are defined by the factory authority document at `docs/architecture/ai-engineering-authority.md`.
 
+### Direct agent entry
+
+The canonical execution protocol is `docs/agents/harness.md`. Agents operate directly from repository artifacts:
+
+- a named `TASK-*` authorizes bounded execution when its lifecycle and dependencies permit it;
+- a named `PLAN-*` is continued through its next eligible Task;
+- a described problem is classified by materiality and shaped into the required artifacts before implementation;
+- unqualified `next` means validate the repository graph and select an unambiguously eligible `Ready` Task, not query GitHub or invoke the legacy orchestrator.
+
+If multiple eligible Tasks represent materially different priorities that the repository does not resolve, ask the human to choose. External trackers are optional context only.
+
 ## Before Changing Code
 
 1. Identify the Specification, Plan, or Task that authorizes the work; an external Issue may provide context but is optional.
