@@ -1,81 +1,87 @@
-name: Isolated load test
+name: Ephemeral k6 load test
 
 on:
   workflow_dispatch:
     inputs:
       profile:
-        description: k6 profile to execute
+        description: Read-only k6 profile to execute against an ephemeral API + PostgreSQL
         required: true
         type: choice
         default: smoke
         options:
           - smoke
           - catalog
-          - orders
-          - payment_replay
           - webhook_rejection
       target_rps:
         description: Requests per second for catalog/webhook profiles
         required: true
         type: string
         default: "5"
-      allow_writes:
-        description: Required only for the destructive orders profile
-        required: true
-        type: boolean
-        default: false
-
-# A single mutable database must never receive overlapping load runs.
+# The database is recreated per run; serialization keeps artifacts and runner
+# resources easy to correlate.
 concurrency:
-  group: neon-arsenal-isolated-load-test
+  group: neon-arsenal-ephemeral-load-test
   cancel-in-progress: false
 
 jobs:
   k6:
     name: k6 (${{ inputs.profile }})
     runs-on: ubuntu-latest
-    # This environment deliberately holds the target URL and all write-test
-    # fixtures. It must not point at the public demo or production.
-    environment: load-test
     timeout-minutes: 20
     permissions:
       contents: read
 
     env:
-      BASE_URL: ${{ vars.LOADTEST_BASE_URL }}
+      BASE_URL: http://127.0.0.1:3001
+      DATABASE_URL: postgresql://neon:ci_password@localhost:5432/neon_arsenal_loadtest
+      NODE_ENV: production
+      PORT: "3001"
+      SEED_DEMO_DATA: "true"
+      JWT_SECRET: ephemeral-load-test-access-secret
+      JWT_REFRESH_SECRET: ephemeral-load-test-refresh-secret
       LOAD_PROFILE: ${{ inputs.profile }}
       LOAD_TARGET_RPS: ${{ inputs.target_rps }}
-      ALLOW_WRITES: ${{ inputs.allow_writes && 'true' || 'false' }}
-      CUSTOMER_EMAIL: ${{ secrets.LOADTEST_CUSTOMER_EMAIL }}
-      CUSTOMER_PASSWORD: ${{ secrets.LOADTEST_CUSTOMER_PASSWORD }}
-      ORDER_LISTING_IDS: ${{ secrets.LOADTEST_ORDER_LISTING_IDS }}
-      PAYMENT_ORDER_IDS: ${{ secrets.LOADTEST_PAYMENT_ORDER_IDS }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: neon
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: neon_arsenal_loadtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U neon -d neon_arsenal_loadtest"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Refuse an unsafe target
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install and build API
+        working-directory: server
+        run: |
+          npm ci
+          npx prisma generate
+          npm run test:db:prepare
+          npm run build
+
+      - name: Start ephemeral API
         shell: bash
         run: |
           set -euo pipefail
-          test -n "$BASE_URL" || { echo "Missing load-test environment variable LOADTEST_BASE_URL" >&2; exit 1; }
-          node <<'NODE'
-          const raw = process.env.BASE_URL;
-          let url;
-          try { url = new URL(raw); } catch { throw new Error("LOADTEST_BASE_URL must be an absolute URL"); }
-          const host = url.hostname.toLowerCase();
-          const isolatedName = host.includes("loadtest") || host.includes("load-test") || host.includes("staging");
-          const isLocal = host === "127.0.0.1" || host === "localhost";
-          if (!isolatedName && !isLocal) {
-            throw new Error("Refusing target outside a host named loadtest, load-test, or staging");
-          }
-          console.log(`Validated isolated target host: ${host}`);
-          NODE
-          if [[ "$LOAD_PROFILE" == "orders" && "$ALLOW_WRITES" != "true" ]]; then
-            echo "orders requires the allow_writes checkbox" >&2
-            exit 1
-          fi
+          mkdir -p artifacts/k6
+          (cd server && npm start > ../artifacts/k6/api.log 2>&1 & echo $! > ../artifacts/k6/api.pid)
 
       - name: Wait for API readiness
         shell: bash
@@ -88,6 +94,7 @@ jobs:
             sleep 10
           done
           echo "Timed out waiting for $BASE_URL/ready" >&2
+          cat artifacts/k6/api.log || true
           exit 1
 
       - name: Setup k6
@@ -131,6 +138,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: k6-${{ inputs.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
-          path: artifacts/k6/*.json
+          path: artifacts/k6/
           if-no-files-found: warn
           retention-days: 30
