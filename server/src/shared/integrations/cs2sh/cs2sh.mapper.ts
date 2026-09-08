@@ -3,12 +3,9 @@ import type {
   Cs2ShPricesResponse,
   Cs2ShSchemaItem,
   Cs2ShSchemaResponse,
-  DemoListingCandidate,
   MappedCatalogProduct,
   ReferenceAsk,
 } from "./cs2sh.types.js";
-
-const DEFAULT_DEMO_FLOAT = "0.15000000";
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
@@ -119,38 +116,6 @@ export function mapSchemaCatalog(schema: Cs2ShSchemaResponse): {
   return { generationId, products, skipped };
 }
 
-export function midWearFloat(min: number | null, max: number | null): string {
-  if (min === null || max === null) return DEFAULT_DEMO_FLOAT;
-  const mid = (min + max) / 2;
-  if (!Number.isFinite(mid) || mid < 0) return DEFAULT_DEMO_FLOAT;
-  return mid.toFixed(8);
-}
-
-export function rankDemoListingCandidates(
-  products: MappedCatalogProduct[],
-  prices: Cs2ShPricesResponse,
-  limit: number
-): DemoListingCandidate[] {
-  const priceItems = prices.items ?? {};
-  const ranked: DemoListingCandidate[] = [];
-  for (const product of products) {
-    const ask = selectReferenceAsk(priceItems[product.marketHashName]);
-    if (!ask) continue;
-    ranked.push({
-      marketHashName: product.marketHashName,
-      referencePriceUsd: ask.usd,
-      steamAskVolume: ask.steamAskVolume,
-      floatValue: midWearFloat(product.wearFloatMin, product.wearFloatMax),
-    });
-  }
-  ranked.sort((a, b) => {
-    if (b.steamAskVolume !== a.steamAskVolume) return b.steamAskVolume - a.steamAskVolume;
-    if (a.referencePriceUsd === b.referencePriceUsd) return a.marketHashName.localeCompare(b.marketHashName);
-    return a.referencePriceUsd < b.referencePriceUsd ? 1 : -1;
-  });
-  return ranked.slice(0, Math.max(0, limit));
-}
-
 export function attachReferencePrices(
   products: MappedCatalogProduct[],
   prices: Cs2ShPricesResponse
@@ -162,33 +127,4 @@ export function attachReferencePrices(
     if (ask) byName.set(product.marketHashName, ask.usd);
   }
   return byName;
-}
-
-export function demoListingId(marketHashName: string): string {
-  const slug = marketHashName
-    .normalize("NFKD")
-    .replace(/[™★|]/g, " ")
-    .replace(/[^a-zA-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .toLowerCase()
-    .slice(0, 80);
-  const hash = fnv1aHex(marketHashName);
-  return `listing-cs2sh-${slug}-${hash}`;
-}
-
-export function syntheticPattern(marketHashName: string): number {
-  return (fnv1a(marketHashName) % 999) + 1;
-}
-
-function fnv1a(input: string): number {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < input.length; i += 1) {
-    hash ^= input.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return hash >>> 0;
-}
-
-function fnv1aHex(input: string): string {
-  return fnv1a(input).toString(16).padStart(8, "0");
 }

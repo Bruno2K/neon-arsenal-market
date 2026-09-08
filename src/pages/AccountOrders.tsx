@@ -121,7 +121,7 @@ export default function AccountOrdersPage() {
                   </div>
                 </div>
                 <p className="tabular-price text-lg font-semibold text-foreground sm:text-right">
-                  ${orderTotalAmount(order).toFixed(2)}
+                  R$ {orderTotalAmount(order).toFixed(2)}
                 </p>
               </Link>
             </li>

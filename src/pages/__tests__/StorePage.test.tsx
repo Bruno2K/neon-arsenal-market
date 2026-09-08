@@ -41,7 +41,7 @@ function listing(): Listing {
     productId: "prod-1",
     sellerId: "seller-1",
     price: 10,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     floatValue: 0.1,
     createdAt: "2026-01-01T00:00:00.000Z",

@@ -96,7 +96,7 @@ function listingCreateData(
     floatValue: listing.floatValue,
     pattern: listing.pattern,
     price: listingPrice(product, listing),
-    currency: "USD",
+    currency: "BRL",
     status: listing.status,
     steamAssetId: `7656119800000${String(index).padStart(4, "0")}`,
   };

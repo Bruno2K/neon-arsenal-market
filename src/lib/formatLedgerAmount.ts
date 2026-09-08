@@ -43,13 +43,13 @@ export function scaleDecimalStringBy100(raw: string): string {
   return negative && result !== "0" ? `-${result}` : result;
 }
 
-/** Prefix the API decimal with `$`. Does not round, sum, or coerce through `Number`. */
+/** Prefix the API decimal with `R$`. Does not round, sum, or coerce through `Number`. */
 export function formatLedgerAmount(
   value: string | number | null | undefined,
 ): string {
   const raw = asTrimmedString(value);
   if (raw == null) return "—";
-  return `$${raw}`;
+  return `R$ ${raw}`;
 }
 
 /**

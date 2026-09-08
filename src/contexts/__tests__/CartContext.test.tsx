@@ -26,7 +26,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     productId: "prod-1",
     sellerId: "seller-1",
     price: 150,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     floatValue: 0.15,
     pattern: null,

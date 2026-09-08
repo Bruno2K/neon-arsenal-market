@@ -127,7 +127,12 @@ export const openApiSpec = {
           floatValue: { type: "number", example: 0.14501234 },
           pattern: { type: "integer", nullable: true },
           price: { type: "number", example: 149.99 },
-          currency: { type: "string", example: "USD" },
+          currency: {
+            type: "string",
+            enum: ["BRL"],
+            example: "BRL",
+            description: "Single checkout currency; enforced by API validation and PostgreSQL.",
+          },
           status: { type: "string", enum: ["ACTIVE", "SOLD", "RESERVED", "CANCELED"] },
           tradeLockUntil: { type: "string", format: "date-time", nullable: true },
           reservedAt: { type: "string", format: "date-time", nullable: true },
@@ -214,7 +219,12 @@ export const openApiSpec = {
           generationId: { type: "string", nullable: true },
           productsUpserted: { type: "integer" },
           schemaSkipped: { type: "integer" },
-          listingsUpserted: { type: "integer" },
+          listingsUpserted: {
+            type: "integer",
+            enum: [0],
+            deprecated: true,
+            description: "Compatibility field. cs2.sh imports catalog products only.",
+          },
         },
       },
       Cs2ShImportStatus: {
@@ -409,6 +419,43 @@ export const openApiSpec = {
       },
     },
     "/listings": {
+      post: {
+        tags: ["Listings"],
+        summary: "Create a BRL listing",
+        description:
+          "Authenticated approved sellers create sellable offers in BRL. Currency may be omitted (defaults to BRL) or explicitly set to BRL; every other value is rejected.",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["productId", "floatValue", "price"],
+                properties: {
+                  productId: { type: "string" },
+                  floatValue: { type: "number", minimum: 0, maximum: 1 },
+                  pattern: { type: "integer", minimum: 1 },
+                  price: { type: "number", exclusiveMinimum: 0 },
+                  currency: { type: "string", enum: ["BRL"], default: "BRL" },
+                  tradeLockUntil: { type: "string", format: "date-time" },
+                  steamAssetId: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Listing created",
+            content: {
+              "application/json": { schema: { $ref: "#/components/schemas/Listing" } },
+            },
+          },
+          400: { description: "Invalid listing or non-BRL currency" },
+          401: { description: "Unauthorized" },
+          403: { description: "Seller is not approved" },
+        },
+      },
       get: {
         tags: ["Listings"],
         summary: "Browse listings with filters",

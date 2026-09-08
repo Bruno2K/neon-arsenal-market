@@ -65,10 +65,3 @@ export type ReferenceAsk = {
   usd: string;
   steamAskVolume: number;
 };
-
-export type DemoListingCandidate = {
-  marketHashName: string;
-  referencePriceUsd: string;
-  steamAskVolume: number;
-  floatValue: string;
-};

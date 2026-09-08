@@ -13,13 +13,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
   emptyListingForm,
@@ -34,7 +27,6 @@ export type ListingFormCreateInput = {
   floatValue: number;
   pattern?: number;
   price: number;
-  currency: string;
   tradeLockUntil?: string;
   steamAssetId?: string;
 };
@@ -101,7 +93,6 @@ export function ListingFormDialog({
         floatValue: parsed.value.floatValue,
         pattern: parsed.value.pattern,
         price: parsed.value.price,
-        currency: form.currency,
         tradeLockUntil: form.tradeLockUntil || undefined,
         steamAssetId: form.steamAssetId || undefined,
       },
@@ -187,40 +178,19 @@ export function ListingFormDialog({
               />
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="grid gap-2">
-              <Label htmlFor="price">Preço</Label>
-              <Input
-                id="price"
-                type="number"
-                min="0"
-                step="0.01"
-                value={form.price}
-                onChange={(e) =>
-                  setForm((current) => ({ ...current, price: e.target.value }))
-                }
-                placeholder="0.00"
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="currency" id="currency-label">
-                Moeda
-              </Label>
-              <Select
-                value={form.currency}
-                onValueChange={(value) =>
-                  setForm((current) => ({ ...current, currency: value }))
-                }
-              >
-                <SelectTrigger id="currency" aria-labelledby="currency-label">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="USD">USD</SelectItem>
-                  <SelectItem value="BRL">BRL</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+          <div className="grid gap-2">
+            <Label htmlFor="price">Preço (BRL)</Label>
+            <Input
+              id="price"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(e) =>
+                setForm((current) => ({ ...current, price: e.target.value }))
+              }
+              placeholder="0.00"
+            />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="grid gap-2">

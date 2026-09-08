@@ -81,7 +81,7 @@ function makeListing(overrides: Partial<Listing> = {}): Listing {
     floatValue: 0.14501234,
     pattern: 456,
     price: 22,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     tradeLockUntil: null,
     steamAssetId: null,

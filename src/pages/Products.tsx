@@ -359,7 +359,7 @@ export default function Products() {
 
           <fieldset className="space-y-1.5">
             <legend className="text-xs text-muted-foreground">
-              Faixa de Preço (USD)
+              Faixa de Preço (BRL)
             </legend>
             <div className="flex items-center gap-2">
               <Label htmlFor="minPrice" className="sr-only">

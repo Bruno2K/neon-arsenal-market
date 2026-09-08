@@ -136,11 +136,11 @@ Render **web services have no SSH/shell**. Do not plan on `npm run import:cs2sh`
 | `CS2SH_API_KEY` | Bearer token. Required for import. Never commit. |
 | `CS2SH_IMPORT=true` | After listen, start one in-process import. Without a key, logs and skips. Does not block `/ready`. |
 | unset / not `true` | No boot import. Use ADMIN POST (Render) or `cd server && npm run import:cs2sh` (local). |
-| `CS2SH_DEMO_LISTING_COUNT` | How many demo listings to upsert (default 24, max 100). |
 
 `POST` without a key is **503**. A second `POST` while this process is still importing is **409**. Restart loses in-process status; catalog rows in Postgres remain.
 
-`referencePriceUsd` is **not** a PayPal/ledger amount (ADR 0014). Re-running the import upserts products and refreshes demo listing prices without changing listing `status`.
+`referencePriceUsd` is **not** a PayPal/ledger amount (ADR 0014/0022).
+Re-running the import upserts products only; it never creates or reprices listings.
 
 ## Inspect payments and reservations
 

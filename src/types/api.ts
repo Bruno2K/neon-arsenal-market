@@ -93,7 +93,7 @@ export interface Listing {
   floatValue: number;
   pattern?: number | null;
   price: number;
-  currency: string;
+  currency: "BRL";
   status: "ACTIVE" | "SOLD" | "RESERVED" | "CANCELED";
   tradeLockUntil?: string | null;
   reservedAt?: string | null;

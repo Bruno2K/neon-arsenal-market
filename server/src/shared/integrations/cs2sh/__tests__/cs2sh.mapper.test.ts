@@ -1,13 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   attachReferencePrices,
-  demoListingId,
   formatAskUsd,
   isImportableSkin,
   mapSchemaCatalog,
   mapSchemaItem,
-  midWearFloat,
-  rankDemoListingCandidates,
   selectReferenceAsk,
 } from "../cs2sh.mapper.js";
 import { CS2SH_PRICES_FIXTURE, CS2SH_SCHEMA_FIXTURE } from "./cs2sh.fixtures.js";
@@ -69,16 +66,6 @@ describe("cs2.sh catalog mapper", () => {
     expect(formatAskUsd(null)).toBeNull();
   });
 
-  it("ranks demo listings by steam ask_volume then ask", () => {
-    const { products } = mapSchemaCatalog(CS2SH_SCHEMA_FIXTURE);
-    const ranked = rankDemoListingCandidates(products, CS2SH_PRICES_FIXTURE, 2);
-    expect(ranked.map((row) => row.marketHashName)).toEqual([
-      "StatTrak™ AK-47 | Redline (Field-Tested)",
-      "USP-S | Printstream (Factory New)",
-    ]);
-    expect(ranked[0]?.referencePriceUsd).toBe("65.50");
-  });
-
   it("attaches reference prices by market_hash_name", () => {
     const { products } = mapSchemaCatalog(CS2SH_SCHEMA_FIXTURE);
     const prices = attachReferencePrices(products, CS2SH_PRICES_FIXTURE);
@@ -86,14 +73,4 @@ describe("cs2.sh catalog mapper", () => {
     expect(prices.get("M4A4 | Howl (Factory New)")).toBe("3800.00");
   });
 
-  it("uses the mid wear float when a range exists", () => {
-    expect(midWearFloat(0, 0.07)).toBe("0.03500000");
-    expect(midWearFloat(null, null)).toBe("0.15000000");
-  });
-
-  it("builds a deterministic listing id", () => {
-    const name = "USP-S | Printstream (Factory New)";
-    expect(demoListingId(name)).toBe(demoListingId(name));
-    expect(demoListingId(name).startsWith("listing-cs2sh-")).toBe(true);
-  });
 });

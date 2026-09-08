@@ -17,7 +17,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { Seller } from "@/types/api";
 
 function formatMoney(value: string | number): string {
-  return `$${Number(value).toFixed(2)}`;
+  return `R$ ${Number(value).toFixed(2)}`;
 }
 
 function formatCommission(rate: Seller["commissionRate"]): string {

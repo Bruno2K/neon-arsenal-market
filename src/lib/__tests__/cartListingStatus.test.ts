@@ -16,7 +16,7 @@ function listing(overrides: Partial<Listing> = {}): Listing {
     productId: "prod-1",
     sellerId: "seller-1",
     price: 210,
-    currency: "USD",
+    currency: "BRL",
     status: "ACTIVE",
     floatValue: 0.15,
     pattern: null,
@@ -52,7 +52,7 @@ const idleQuery = {
 describe("cartListingStatus", () => {
   it("formats names and money with Number()", () => {
     expect(cartListingName(listing())).toBe("AK-47 | Neon Rider");
-    expect(formatCartMoney("210.5" as unknown as number)).toBe("$210.50");
+    expect(formatCartMoney("210.5" as unknown as number)).toBe("R$ 210.50");
   });
 
   it("treats SOLD, RESERVED, CANCELED and trade lock as not purchasable", () => {
@@ -103,8 +103,8 @@ describe("cartListingStatus", () => {
     expect(line.kind).toBe("price-changed");
     expect(line.purchasable).toBe(true);
     expect(line.blockage).toBeNull();
-    expect(formatCartMoney(line.previousPrice)).toBe("$210.00");
-    expect(formatCartMoney(line.currentPrice)).toBe("$230.00");
+    expect(formatCartMoney(line.previousPrice)).toBe("R$ 210.00");
+    expect(formatCartMoney(line.currentPrice)).toBe("R$ 230.00");
     expect(cartLinesArePayable([line])).toBe(true);
   });
 

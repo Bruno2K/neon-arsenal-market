@@ -30,7 +30,7 @@ function statusCopy(
   if (last.skipped) {
     return "A última tentativa pulou o import: a chave da API cs2.sh não está configurada.";
   }
-  return `Última importação neste processo: ${last.productsUpserted} produtos e ${last.listingsUpserted} listings demo.`;
+  return `Última importação neste processo: ${last.productsUpserted} produtos; nenhum listing é criado pelo catálogo.`;
 }
 
 export function Cs2ShCatalogImportCard() {

@@ -175,7 +175,7 @@ export function ListingCard({
         )}
         <div className="mt-auto flex items-center justify-between gap-2 border-t border-border pt-2">
           <span className="tabular-nums text-base font-semibold text-foreground">
-            ${price.toFixed(2)}
+            R$ {price.toFixed(2)}
           </span>
           <ListingCartCta listing={listing} variant="card" source={source} />
         </div>

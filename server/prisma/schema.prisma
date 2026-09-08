@@ -215,7 +215,8 @@ model Listing {
   floatValue           Decimal
   pattern              Int?
   price                Decimal
-  currency             String    @default("USD")
+  /// Checkout denomination. PostgreSQL constrains this to BRL (ADR 0022).
+  currency             String    @default("BRL")
   status               ListingStatus @default(ACTIVE)
   tradeLockUntil       DateTime?
   reservedAt           DateTime?

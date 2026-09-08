@@ -4,6 +4,10 @@
 
 Accepted
 
+Amended by [ADR 0022](./0022-single-checkout-currency.md): `Listing.currency`
+remains text rather than a Prisma enum, but a PostgreSQL CHECK constrains the
+current single-currency checkout contract to BRL.
+
 ## Context
 
 Issue #41. Role, order fulfillment, payment, listing, webhook processing, payment-link claim, and order-idempotency claim fields were `TEXT` with comments listing allowed values. TypeScript unions and Zod tuples duplicated those labels, but PostgreSQL accepted any string. A bug, raw query, or missed validation could persist `CANCELLED` on a listing (the listing machine uses `CANCELED`) or an invented payment status.

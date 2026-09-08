@@ -132,7 +132,7 @@ export default function SellerOrdersPage() {
                 </div>
                 <div className="flex flex-col items-start gap-2 sm:items-end">
                   <p className="tabular-nums text-lg font-semibold">
-                    ${orderTotal(order).toFixed(2)}
+                    R$ {orderTotal(order).toFixed(2)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {order.items?.length ?? 0}{" "}

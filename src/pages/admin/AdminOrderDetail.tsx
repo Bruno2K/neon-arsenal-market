@@ -9,7 +9,7 @@ import { isOrderAccessError, orderItemLabel } from "@/lib/orderPaymentView";
 import { orderStatusLabel, paymentStatusLabel } from "@/lib/userFacingApiError";
 
 function formatMoney(value: number): string {
-  return `$${Number(value).toFixed(2)}`;
+  return `R$ ${Number(value).toFixed(2)}`;
 }
 
 export default function AdminOrderDetail() {

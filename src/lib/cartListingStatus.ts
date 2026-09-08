@@ -12,7 +12,7 @@ export function cartListingName(listing: {
 }
 
 export function formatCartMoney(value: Listing["price"] | number): string {
-  return `$${Number(value).toFixed(2)}`;
+  return `R$ ${Number(value).toFixed(2)}`;
 }
 
 export function isListingTradeLocked(

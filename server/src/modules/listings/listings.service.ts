@@ -123,7 +123,7 @@ export const listingsService = {
       floatValue: input.floatValue,
       pattern: input.pattern,
       price: input.price,
-      currency: input.currency || "USD",
+      currency: input.currency,
       tradeLockUntil: input.tradeLockUntil
         ? typeof input.tradeLockUntil === "string"
           ? new Date(input.tradeLockUntil)
