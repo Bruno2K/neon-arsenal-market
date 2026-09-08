@@ -34,7 +34,6 @@ jobs:
     env:
       BASE_URL: http://127.0.0.1:3001
       DATABASE_URL: postgresql://neon:ci_password@localhost:5432/neon_arsenal_loadtest
-      NODE_ENV: production
       PORT: "3001"
       SEED_DEMO_DATA: "true"
       JWT_SECRET: ephemeral-load-test-access-secret
@@ -81,7 +80,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts/k6
-          (cd server && npm start > ../artifacts/k6/api.log 2>&1 & echo $! > ../artifacts/k6/api.pid)
+          (cd server && NODE_ENV=production npm start > ../artifacts/k6/api.log 2>&1 & echo $! > ../artifacts/k6/api.pid)
 
       - name: Wait for API readiness
         shell: bash
