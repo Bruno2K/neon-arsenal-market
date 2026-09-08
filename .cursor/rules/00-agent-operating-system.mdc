@@ -1,5 +1,5 @@
 ---
-description: Core operating system for autonomous engineering work in Neon Arsenal Market
+description: Guardrails for human-directed, AI-assisted engineering in Neon Arsenal Market
 alwaysApply: true
 ---
 
@@ -15,7 +15,7 @@ For non-trivial work, start with:
 2. `docs/architecture/ai-engineering-authority.md`
 3. the relevant agent protocol/rules
 4. the relevant architecture and invariant documents
-5. the authoritative GitHub Issue, Specification, Plan, or Task
+5. the authoritative Specification, Plan, or Task, plus an external Issue when one exists
 6. relevant source, schema, migrations, tests, and provider documentation
 
 Do not load the entire repository unnecessarily. Follow the context policy and search before opening large files.
@@ -25,10 +25,10 @@ Do not load the entire repository unnecessarily. Follow the context policy and s
 Use the repository's persistent engineering artifact chain:
 
 ```text
-Intent → Specification → Plan → Task → Implementation → Verification → Evaluation → Memory
+Intent → Specification → Plan → Task → Implementation → Evidence
 ```
 
-For material work, the Specification is the contract for what must be true; the Plan explains how; Tasks define bounded execution units. GitHub Issues provide intake/tracking but do not replace a material Specification.
+For material work, the Specification is the contract for what must be true; the Plan explains how; Tasks define bounded execution units. GitHub Issues are optional intake/tracking references and do not replace a material Specification.
 
 Use the authority model at `docs/architecture/ai-engineering-authority.md` to resolve conflicts. Never invent requirements to make artifacts agree.
 
@@ -47,13 +47,13 @@ Typical role selection:
 - architecture: Planner + Backend + Architecture + Test + Verification
 - infrastructure: Planner + Infra/Backend + Security + Reliability + Verification
 
-The unified orchestrator (`python3 scripts/orchestrator/next.py`) selects GitHub issues and spawns one subagent per selected issue with that role set. Inside a spawned subagent, switch perspective between implementation, testing, review, and verification. Do not pretend extra products exist. Verification is not a self-congratulatory summary; it must challenge the implementation against acceptance criteria and invariants.
+Select a `Ready` Task from the validated repository graph whose dependencies are `Done`, then apply the minimum role set required by its risk. A single agent may switch perspective between implementation, testing, review, and verification. There is no parent orchestration runtime. Verification must challenge the implementation against acceptance criteria and invariants.
 
 ## Required workflow
 
-For a requested issue or feature:
+For requested work:
 
-1. Identify the exact issue and acceptance criteria.
+1. Identify the authoritative artifact and acceptance criteria; shape a new request through the materiality rule when needed.
 2. Classify risk and select roles.
 3. Load minimum relevant context.
 4. Determine the authoritative artifact chain; for material work, require a Specification.
@@ -63,7 +63,7 @@ For a requested issue or feature:
 8. Add or update tests that prove behavior and failure modes.
 9. Review the diff against architecture and invariants.
 10. Run targeted verification, then broader checks when justified.
-11. Run artifact validation with `python3 scripts/ai-factory/validate.py` when artifact contracts are affected.
+11. Run documentation validation with `python3 scripts/docs/validate_contracts.py` when artifact contracts are affected.
 12. Report exact commands/results and remaining risks.
 13. Commit only when the task's completion criteria are satisfied.
 
@@ -71,7 +71,7 @@ Do not mark work complete merely because TypeScript compiles or a happy-path tes
 
 ## Autonomy boundaries
 
-Proceed autonomously for scoped, reversible, convention-backed changes with clear acceptance criteria.
+Proceed without unnecessary interruption for scoped, reversible, convention-backed changes with clear acceptance criteria and explicit user authority.
 
 Stop and request human direction for:
 

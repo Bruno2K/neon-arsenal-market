@@ -1,11 +1,11 @@
 ---
 id: SPEC-0001
 status: Accepted
-version: 1
+version: 2
 source_issue: "#173"
 owner: "AI Engineering Factory"
 created: 2026-09-06
-updated: 2026-09-06
+updated: 2026-09-08
 ---
 
 # [SPEC-0001] — Specification System
@@ -31,7 +31,7 @@ Establish a repository-native Specification artifact that becomes the authoritat
 - Planner
 - Implementation agent
 - Verification agent
-- GitHub Issue/PR workflow
+- Optional external tracker and PR workflow
 - CI artifact validator
 
 ## Scope
@@ -39,7 +39,7 @@ Establish a repository-native Specification artifact that becomes the authoritat
 - Define the canonical Specification structure and metadata.
 - Require stable Specification IDs and lifecycle status.
 - Make acceptance criteria independently verifiable.
-- Preserve traceability from Issue through downstream factory artifacts.
+- Preserve traceability through repository-native downstream artifacts.
 - Allow future planning, convergence, evaluation, and memory systems to reference the Specification deterministically.
 
 ## Non-goals
@@ -82,12 +82,11 @@ Specification frontmatter must contain:
 - `id`
 - `status`
 - `version`
-- `source_issue`
 - `owner`
 - `created`
 - `updated`
 
-The `source_issue` value must use the canonical GitHub Issue reference format `#<number>`.
+`source_issue` is optional. When present, it must use the canonical GitHub Issue reference format `#<number>`.
 
 The title must contain the same canonical `SPEC-*` identifier as the frontmatter.
 
@@ -121,13 +120,13 @@ For this phase, repository validation is the required evidence that the structur
 
 ## Backward Compatibility
 
-The Specification system is additive. Existing GitHub Issue → agent → verification → PR workflows remain valid while material changes progressively adopt the Specification contract.
+The Specification system remains compatible with existing GitHub references, but material work does not depend on a tracker or on a particular agent runtime.
 
 Existing ADRs, invariant documents, code, and tests remain authoritative for their defined concerns.
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` — A material Specification has stable `SPEC-*` identity, lifecycle status, version, owner, source issue, and timestamps. **Evidence:** static check
+- [ ] `AC-01` — A material Specification has stable `SPEC-*` identity, lifecycle status, version, owner, and timestamps; an external Issue reference is optional. **Evidence:** static check
 - [ ] `AC-02` — The canonical Specification contains problem, goal, scope, rules, invariants, contracts, failure/security concerns, acceptance criteria, verification strategy, and traceability. **Evidence:** static check
 - [ ] `AC-03` — Each material acceptance criterion identifies an evidence class that an independent verifier can inspect. **Evidence:** static check
 - [ ] `AC-04` — A Specification's frontmatter ID matches its canonical title ID and its status is one of `Proposed`, `Accepted`, or `Superseded`. **Evidence:** static check
@@ -139,7 +138,7 @@ Existing ADRs, invariant documents, code, and tests remain authoritative for the
 - Run `python3 scripts/ai-factory/validate.py`.
 - Confirm `SPEC-0001` is discovered under `docs/specs/`.
 - Confirm malformed metadata, mismatched title/frontmatter IDs, invalid statuses, and missing evidence-bearing acceptance criteria fail validation.
-- In F2.2/F2.3, create Issue ↔ Spec traceability and convert a real Neon Arsenal business flow to this contract.
+- Verify that a Specification without `source_issue` passes and a malformed supplied reference fails.
 
 ## Decisions / References
 
@@ -151,10 +150,10 @@ Existing ADRs, invariant documents, code, and tests remain authoritative for the
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Issue: `#173`
+- External tracker: `#173` (optional)
 - Spec: `SPEC-0001`
 - Plan: pending F3
 - Tasks: `F2.1`
@@ -166,3 +165,4 @@ GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE �
 ## Change History
 
 - `v1` — Initial accepted Specification system contract — 2026-09-06
+- `v2` — Made external tracker metadata optional and repository artifacts authoritative — 2026-09-08

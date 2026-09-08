@@ -28,12 +28,12 @@ Work should generally follow this order:
 
 Do not add complexity merely to make the project look more sophisticated.
 
-## AI-Native Artifact Hierarchy
+## AI-Assisted Engineering Contract
 
-For non-trivial work, the repository uses a persistent artifact chain:
+For material work, the repository uses a focused evidence chain:
 
 ```text
-Intent → Specification → Plan → Task → Implementation → Verification → Evaluation → Memory
+Intent → Specification → Plan → Task → Implementation → Evidence
 ```
 
 Authority by concern:
@@ -44,24 +44,34 @@ Authority by concern:
 - **Current implementation:** source code
 - **Acceptance evidence:** tests, static checks, integration/runtime evidence
 - **Agent procedure:** this file + `.cursor/rules/`
-- **Operational/engineering learning:** Engineering Memory (`docs/memory/`)
-- **Issue tracking/intake:** GitHub Issues; an Issue is not a substitute for a material Specification
+- **Optional external tracking:** GitHub Issues or another tracker may reference artifacts, but never authorize material work by themselves
 
-Materiality rule: create a Specification before implementation when a change affects business behavior, public API contracts, database schema/state, security, payment semantics, concurrency, reliability guarantees, architecture boundaries, or a significant user-visible workflow. Small, reversible, convention-backed changes may remain Issue + Task driven.
+Materiality rule: create a Specification before implementation when a change affects business behavior, public API contracts, database schema/state, security, payment semantics, concurrency, reliability guarantees, architecture boundaries, or a significant user-visible workflow. Small, reversible, convention-backed changes may be implemented directly with proportionate tests and PR evidence.
 
 Traceability for material changes must be recoverable as:
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
 Do not invent missing requirements to make artifacts agree. When artifacts conflict, protect security, data integrity, and explicit invariants first; inspect code and tests; escalate material ambiguity to a human; then update the stale artifact after the decision is made.
 
-Templates live under `docs/templates/`. Canonical artifact IDs and file naming are defined by the factory authority document at `docs/architecture/ai-engineering-authority.md`.
+Templates live under `docs/templates/`. Canonical artifact IDs and file naming are defined by `docs/architecture/ai-engineering-authority.md`.
+
+### Direct agent entry
+
+The canonical execution protocol is `docs/agents/harness.md`. Agents operate directly from repository artifacts:
+
+- a named `TASK-*` authorizes bounded execution when its lifecycle and dependencies permit it;
+- a named `PLAN-*` is continued through its next eligible Task;
+- a described problem is classified by materiality and shaped into the required artifacts before implementation;
+- unqualified `next` means validate the repository graph and select an unambiguously eligible `Ready` Task, not query GitHub or invoke the legacy orchestrator.
+
+If multiple eligible Tasks represent materially different priorities that the repository does not resolve, ask the human to choose. External trackers are optional context only.
 
 ## Before Changing Code
 
-1. Identify the Issue, Specification, Plan, or Task that authorizes the work.
+1. Identify the explicit user request or the Specification, Plan, or Task that authorizes the work; material product changes require the repository artifacts defined below, while an external Issue is optional context.
 2. Read `docs/architecture/ai-engineering-authority.md` for material changes and artifact conflicts.
 3. Load only the relevant architecture, invariant, role, execution, and provider documentation required by the task. Do not read every agent document by default.
 4. Read the relevant existing module, service, repository, schema, migration, and tests.
@@ -367,7 +377,7 @@ For every non-trivial task, follow this sequence:
 ### 2. Plan
 
 - For material changes, ensure a SPEC exists before implementation.
-- Create or follow a PLAN and TASK graph when the work spans multiple files, concerns, or agents.
+- Create or follow a PLAN and TASK graph when material work has real ordering, dependency, handoff, or safe-parallelism needs; file count alone is not a reason.
 - State a concise implementation plan before broad edits.
 - For changes involving concurrency, payments, transactions, or infrastructure, explicitly identify the consistency and failure model.
 
@@ -389,7 +399,7 @@ Run the most relevant checks available:
 - integration tests
 - build
 - migration validation
-- artifact validation via `python3 scripts/ai-factory/validate.py`
+- documentation contract validation via `python3 scripts/docs/validate_contracts.py`
 
 If a check cannot be run, say so instead of claiming success.
 
@@ -413,10 +423,10 @@ Before finishing, inspect the diff and ask:
 For material work, completion means more than green tests:
 
 ```text
-Implementation → Verification → Convergence → Evaluation → Memory
+Implementation → Review → Verification → Evaluation → Evidence
 ```
 
-These later artifacts may be lightweight until their dedicated factory phases are implemented, but the agent must not claim completion without recording the evidence required by the current task.
+Evaluation is a required reasoning stage for material work and follows the rubric in `docs/agents/harness.md`; it is not a mandatory artifact type. Evidence may live in tests, checks, a PR description, or `docs/verification/` when durable explanation adds interview or operational value. Promote validated reusable learning into its owning ADR, invariant, test, runbook, or stable agent guidance rather than creating a separate memory artifact by default. The human remains accountable for requirements, trade-offs, review, and acceptance.
 
 ## Rules for AI-Generated Code
 
@@ -490,4 +500,4 @@ The main roadmap for this project prioritizes:
 
 Do not start a lower-priority initiative while a higher-priority correctness issue is known and unresolved, unless explicitly requested.
 
-Unified orchestrator (GitHub issues → role-assigned subagents): `python3 scripts/orchestrator/next.py`. Unqualified `next` means this command. Do not implement AWS/Terraform while ADR 0007 keeps Render. Historical shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).
+Agents select work from validated repository Specifications, Plans, and Tasks through `docs/agents/harness.md`. There is no runtime orchestrator. Do not implement AWS/Terraform while ADR 0007 keeps Render.

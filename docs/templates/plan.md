@@ -21,7 +21,7 @@ A Plan becomes executable only when it is `Ready`, its source Specification is `
 ## Source
 
 - Specification: `SPEC-EXAMPLE-001` v1
-- Issue: `#...`
+- External tracker: `#...` (optional)
 - Planning task: `...`
 
 The Plan derives implementation work from the Specification. It may narrow implementation choices but must not add, remove, or reinterpret acceptance criteria.
@@ -54,11 +54,11 @@ Describe schema, migration, transaction, locking, constraint, rollback, and reco
 
 ## Task Graph
 
-Use stable node labels and explicit directed edges. F3.1 defines only the Plan-side graph. F3.2 will define canonical Task identity and dependency representation; do not preempt that contract here.
+Use canonical `TASK-*` IDs and explicit directed edges when the Plan contains multiple dependent Tasks. For a single-task Plan, state `Single Task — no dependency graph`. The repository validator rejects missing dependencies, self-dependencies, cycles, and executable tasks whose predecessors are not `Done`.
 
 ```text
-Task A → Task B → Task D
-       ↘ Task C ↗
+TASK-A → TASK-B → TASK-D
+       ↘ TASK-C ↗
 ```
 
 State which nodes may run in parallel and why their files and invariants do not overlap. Default to sequential execution.
@@ -90,17 +90,15 @@ Define observable conditions proving all planned work and verification are compl
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
-- Issue: `#...`
+- External tracker: `#...` (optional)
 - Specification: `SPEC-EXAMPLE-001` v1
 - Plan: `PLAN-EXAMPLE-001` v1
-- Tasks: pending F3.2
+- Tasks: `TASK-...`
 - PR: pending
-- Verification/Convergence: pending
-- Evaluation: pending
-- Memory: pending
+- Evidence: pending
 
 ## Change History
 

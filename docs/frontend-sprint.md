@@ -1,6 +1,6 @@
 # Frontend — brand locks (P-front archive)
 
-The F0 visual rebuild is complete. Brand, visual, and seller IA locks below still apply. **New product work is allowed when an open GitHub issue asks for it** and the API already exists.
+The F0 visual rebuild is complete. Brand, visual, and seller IA locks below still apply. New product work is allowed when an authoritative Task or explicit human request asks for it and the API already exists.
 
 ## Locked decisions
 
@@ -10,24 +10,18 @@ The F0 visual rebuild is complete. Brand, visual, and seller IA locks below stil
 | Visual | **Dark editorial**. No neon glow, scan-lines, grid-pattern, or global uppercase headings. |
 | Seller IA | Keep both routes. `/seller/listings` = unique-item CRUD. `/seller/products` = **read-only** Product catalog (`listProducts`). Seller cannot create/update/delete Product (API is ADMIN-only). |
 
-## Out of scope (unless a GitHub issue explicitly requires it)
+## Out of scope (unless an authoritative artifact explicitly requires it)
 
 - Inventing routes or fields that have no existing API
 - Any change under `server/`, Prisma, auth/payment/reservation semantics
 - Weakening CORS, rate limits, auth, or tests
 - Inventing environment variables
 
-The original F0 rebuild freeze (no search/reviews/history) does **not** block later GitHub issues that use existing endpoints.
+The original F0 rebuild freeze (no search/reviews/history) does **not** block later authoritative Tasks that use existing endpoints.
 
 ## How this sprint is executed
 
-Brand/visual/seller locks in this file still apply. The **executable queue is GitHub issues**, not `activities.json`.
-
-1. Run `python3 scripts/orchestrator/next.py --track frontend --prompt`.
-2. The parent agent spawns the printed subagent(s).
-3. Human reviews the draft PR.
-
-`python3 scripts/p-front/next.py` is a shim. Optional bulk issue creation (`python3 scripts/p-front/create-issues.py`) remains write-only metadata; agents must not treat JSON as intake.
+Brand/visual/seller locks in this file still apply. Execution follows `docs/agents/harness.md`: name a Task or Plan, describe the work, or use direct `next` semantics. External Issues are optional context.
 
 ## Inventory (current app)
 
@@ -61,17 +55,8 @@ S2 owns `ListingCard` / `ProductCard`. S1 and S3 wait for S2 to merge. D1/D2 mus
 
 ## Activities
 
-See `scripts/p-front/activities.json` for the **completed rebuild** acceptance archive. Status is not edited in this file.
-
-Compute the next GitHub issue with:
-
-```bash
-python3 scripts/orchestrator/next.py --track frontend
-```
-
-Done = GitHub issue closed, or equivalent work already on `origin/main`.
-In progress = an open PR that references the issue.
+The graph and inventory in this document preserve the human-readable **completed rebuild** archive. Full removed catalog history remains available in Git. Current state comes from repository Tasks and verification evidence.
 
 ## Parallelism with backend
 
-Backend work uses the same orchestrator (`--track backend`). A backend subagent and a frontend subagent may run at the same time only while PRs stay disjoint (`src/` vs `server/`).
+Backend and frontend Tasks may run at the same time only when dependencies, allowed files, and affected invariants are disjoint under the harness parallelism rules.

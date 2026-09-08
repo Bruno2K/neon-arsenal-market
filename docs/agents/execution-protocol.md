@@ -14,21 +14,23 @@ TESTING
 REVIEWING
   ↓
 VERIFYING
-  ├── PASS → DONE
+  ↓
+EVALUATING
+  ├── PASS → RECORDING → DONE
   ├── FAIL → IMPLEMENTING
   └── BLOCKED → HUMAN
 ```
 
 ## READY
-Run `python3 scripts/orchestrator/next.py`. Spawn one subagent per selected GitHub issue, with the role set from `docs/agents/roles.md`. Prefer the highest-priority unblocked issues. Do not start multiple dependent roadmap items concurrently. Default wave: at most one backend issue and one frontend issue.
+Resolve the user request through `docs/agents/harness.md`. For a named Task, validate its status and dependencies. For a Plan, identify its next eligible Task. For unqualified `next`, validate the repository graph and choose only an unambiguously eligible `Ready` Task. Do not query GitHub or invoke the legacy orchestrator by default.
 
 ## PLANNING
 Planner reads the mandatory context, identifies the invariant, affected boundaries, acceptance criteria and verification plan. Output is a compact implementation brief.
 
-If the issue is ambiguous, contradictory or materially larger than documented, transition to `HUMAN` rather than inventing requirements.
+If the authoritative artifacts are ambiguous, contradictory, or materially smaller than the requested behavior, transition to `HUMAN` rather than inventing requirements.
 
 ## IMPLEMENTING
-Primary agent works in an isolated branch/worktree. It changes only files within the issue scope unless a directly required dependency is discovered.
+Primary agent works in an isolated branch/worktree. It changes only files within the Task scope unless a directly required dependency is discovered and the Task is replanned.
 
 Do not mix unrelated cleanup, dependency upgrades or architectural experiments into the task.
 
@@ -45,19 +47,28 @@ Reviewers should not duplicate the implementation agent's repository exploration
 ## VERIFYING
 Verification independently executes the agreed checks and confirms the acceptance criteria. If verification fails, return to `IMPLEMENTING` with the exact failure evidence.
 
+## EVALUATING
+Apply the risk-proportionate evaluation contract in `docs/agents/harness.md`. Material work must meet the rubric threshold with cited evidence; deterministic checks passing does not erase an architectural, security, or invariant failure.
+
+The evaluator routes the workflow: pass advances to `RECORDING`, a correctable failure returns to `IMPLEMENTING`, and ambiguity or exhausted retry budget moves to `HUMAN`.
+
+## RECORDING
+Persist the evidence needed to review or resume the work. Use the PR description for ordinary work and a Task, verification note, ADR, invariant, or runbook only when that durable authority is justified. Promote validated reusable learning according to the harness memory policy.
+
 ## DONE
 Only after:
 - acceptance criteria are satisfied;
 - tests/checks have executed successfully;
+- evaluation has met the applicable threshold;
 - review risks are resolved or explicitly accepted;
 - relevant docs/ADRs are updated;
 - handoff is complete.
 
 ## HUMAN
-Use when the decision policy requires approval or when evidence is insufficient. The orchestrator must preserve the blocker and resume from the same task after the decision.
+Use when the decision policy requires approval or when evidence is insufficient. Preserve the blocker in the Task or handoff and resume from the same artifact after the decision.
 
 ## Agent invocation policy
-Do not invoke every role for every issue.
+Do not invoke every role for every Task.
 
 - Simple bug: Primary + Verification.
 - API behavior: Primary + Test + Security when relevant + Verification.

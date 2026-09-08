@@ -2,29 +2,15 @@
 
 ## Purpose
 
-Define how Neon Arsenal agents interpret and reconcile requirements, architecture decisions, invariants, implementation, tests, runtime evidence, and historical knowledge.
+Define how human-directed coding agents interpret and reconcile requirements, architecture decisions, invariants, implementation, and evidence. The purpose is to strengthen the backend portfolio case study, not to build an autonomous software factory.
 
 ## Artifact hierarchy
 
 ```text
-Intent
-  ↓
-Specification
-  ↓
-Plan
-  ↓
-Task
-  ↓
-Implementation
-  ↓
-Verification
-  ↓
-Evaluation
-  ↓
-Memory
+Intent → Specification → Plan → Task → Implementation → Evidence
 ```
 
-GitHub Issues are the operational intake and tracking layer. They are not a substitute for a material Specification.
+The repository is the durable engineering system of record. GitHub Issues or other trackers are optional intake and coordination layers; they may reference canonical artifacts but are not required and do not replace a material Specification.
 
 ## Authority by concern
 
@@ -35,7 +21,6 @@ GitHub Issues are the operational intake and tracking layer. They are not a subs
 | Business invariant | Domain invariant catalog + tests/schema | Defines truths that must survive refactors, retries, races, and crashes. |
 | Current implementation | Code | Describes executable behavior today; disagreement with docs is a defect to resolve, not permission to invent behavior. |
 | Acceptance evidence | Tests/checks/runtime evidence | Proves whether a requirement is satisfied. |
-| Operational learning | Engineering Memory | Reusable context; never overrides current code, spec, ADR, or invariant evidence automatically. |
 | Agent procedure | `AGENTS.md` + `.cursor/rules/` | Defines how agents operate, not what product behavior should be. |
 
 ## Conflict resolution
@@ -50,16 +35,20 @@ GitHub Issues are the operational intake and tracking layer. They are not a subs
 
 A Specification is required when a change affects business behavior, public API contracts, database schema/state, security guarantees, payment semantics, concurrency, reliability, architecture boundaries, or user-visible workflow beyond a trivial isolated fix.
 
-Small reversible changes may use the existing Issue + task workflow until the specification threshold is triggered.
+Small reversible changes may use a normal scoped PR with proportionate tests and evidence until the Specification threshold is triggered.
 
 ## Traceability
 
 Material work should be traceable as:
 
-`Issue → SPEC → PLAN → TASK(S) → PR → CONVERGENCE → EVALUATION`
+`SPEC → PLAN → TASK(S) → PR → EVIDENCE`
 
-Later phases may append `MEMORY` references to the chain.
+Evidence means executed tests and checks, acceptance mapping, review findings, and any durable verification note justified by the risk. A PR may contain all required evidence; separate evaluation and memory artifacts are not required.
+
+Historical artifacts may retain the former longer chain. They are preserved records, not the active workflow.
+
+External tracker references may be attached to any artifact as metadata, without becoming a required node in the chain.
 
 ## Non-goals
 
-This document does not introduce microservices, queues, new databases, LLM-vendor dependencies, or a second orchestration system. The existing modular monolith remains the application architecture.
+This document does not introduce microservices, queues, new databases, LLM-vendor dependencies, an orchestration system, or an agent platform. The existing modular monolith remains the application architecture, and backend engineering evidence remains the portfolio's primary outcome.

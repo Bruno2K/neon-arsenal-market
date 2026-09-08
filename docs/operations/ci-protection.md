@@ -7,7 +7,7 @@ Production remains Render (`render.yaml`, ADR 0007). This document does not add 
 
 | Job | Checks |
 |---|---|
-| `factory` | `python3 scripts/ai-factory/validate.py` and its tests |
+| `documentation-contracts` | `python3 scripts/docs/validate_contracts.py` and its focused tests |
 | `frontend` | lint, `tsc --noEmit`, unit tests |
 | `backend` | Prisma generate + migrate, typecheck, unit, integration (Postgres 16) |
 | `contract` | `cd server && npm run test:contract` — OpenAPI vs real HTTP handlers |
@@ -32,7 +32,7 @@ Dependabot opens PRs. It does not auto-merge. Reviewers still run the same CI.
 
 These #69 items stay human/admin work. Agents must not invent them:
 
-1. **GitHub branch protection and required checks** — enabling rules, required status checks, required reviews, or conversation resolution needs org/admin write. Suggested required checks once an admin can apply them: `AI Factory (artifact validation)`, `Frontend (lint · typecheck · test)`, `Backend (typecheck · unit · integration)`, `Contract (OpenAPI)`, `Security (npm audit)`, `Build check`.
+1. **GitHub branch protection and required checks** — enabling rules, required status checks, required reviews, or conversation resolution needs org/admin write. Suggested required checks once an admin can apply them: `Documentation contracts`, `Frontend (lint · typecheck · test)`, `Backend (typecheck · unit · integration)`, `Contract (OpenAPI)`, `Security (npm audit)`, `Build check`.
 2. **Controlled production promotion** — the repository now has a manual, ephemeral GitHub Actions load-test workflow (`docs/operations/load-test-ci.md`), but it is deliberately not a production deploy workflow. Production deploys follow Render auto-deploy / dashboard rollback (`docs/operations/runbook.md`).
 3. **Container registry / deploy-time image CVE gate** — `server/Dockerfile` is built by Render. There is no GHCR/ECR push. CI now runs a **filesystem** Trivy job on `server/` (report-only). A failing image gate still needs a registry or a Render-side scanner; do not invent one.
 4. **AWS / Terraform / ECS promotion** — blocked while ADR 0007 selects Render.

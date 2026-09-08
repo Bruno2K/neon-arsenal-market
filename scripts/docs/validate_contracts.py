@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate structural contracts of Neon Arsenal AI Factory artifacts."""
+"""Validate repository documentation contracts without running an AI agent."""
 from __future__ import annotations
 
 import re
@@ -33,18 +33,16 @@ TEMPLATES = {
         "## Expected Evidence", "## Stop Conditions", "## Traceability",
         "## Change History",
     ],
-    "evaluation.md": ["## Execution", "## Outcome", "## Software Quality", "## Agent Execution Quality", "## Evidence", "## Findings", "## Learning Candidates"],
-    "memory.md": ["## Status", "## Confidence", "## Statement", "## Evidence", "## Affected Areas", "## Last Verified", "## Agent Guidance"],
 }
 
 ID_PATTERNS = {
     k: re.compile(rf"^{p}-[A-Z0-9][A-Z0-9._-]*$")
-    for k, p in {"specs": "SPEC", "plans": "PLAN", "tasks": "TASK", "evaluations": "EVAL", "memory": "MEM"}.items()
+    for k, p in {"specs": "SPEC", "plans": "PLAN", "tasks": "TASK"}.items()
 }
 ID_PATTERNS["plans"] = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 ID_PATTERNS["tasks"] = re.compile(r"^TASK-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 
-FRONTMATTER_REQUIRED = ("id", "status", "version", "source_issue", "owner", "created", "updated")
+FRONTMATTER_REQUIRED = ("id", "status", "version", "owner", "created", "updated")
 VALID_SPEC_STATUSES = {"Proposed", "Accepted", "Superseded"}
 PLAN_FRONTMATTER_REQUIRED = (
     "id", "status", "version", "source_spec", "source_spec_version",
@@ -52,7 +50,7 @@ PLAN_FRONTMATTER_REQUIRED = (
 )
 VALID_PLAN_STATUSES = {"Draft", "Ready", "Superseded"}
 TASK_FRONTMATTER_REQUIRED = (
-    "id", "status", "version", "source_issue", "source_spec",
+    "id", "status", "version", "source_spec",
     "source_spec_version", "source_plan", "source_plan_version",
     "baseline_revision", "owner", "created", "updated",
 )
@@ -61,7 +59,19 @@ GITHUB_ISSUE_REF = re.compile(r"^#[1-9][0-9]*$")
 SPEC_REF = re.compile(r"^SPEC-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 PLAN_REF = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
-TRACEABILITY_CHAIN = "GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
+TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → EVIDENCE"
+LEGACY_TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
+HARNESS_HEADINGS = (
+    "## Purpose", "## Entry modes", "## Artifact resolution", "## Bootstrap",
+    "## Context budget", "## Execution loop", "## Tool contract", "## Role lenses",
+    "## Evaluation contract", "## Parallelism", "## State and memory",
+    "## AgentOps evidence", "## Evidence and handoff", "## Portability",
+    "## Removed interfaces", "## Stop conditions",
+)
+PR_TEMPLATE_HEADINGS = (
+    "## Authority and intent", "## Change", "## Risk and failure model",
+    "## Verification evidence", "## Evaluation", "## AgentOps and handoff",
+)
 
 
 def has_markdown_heading(content: str, heading: str) -> bool:
@@ -95,6 +105,36 @@ def validate_templates(errors: list[str]) -> None:
             if not has_markdown_heading(content, heading):
                 errors.append(f"{path.relative_to(ROOT)} missing required heading: {heading}")
 
+
+def validate_harness(errors: list[str], root: Path = ROOT) -> None:
+    harness = root / "docs" / "agents" / "harness.md"
+    if not harness.is_file():
+        errors.append("missing direct agent harness: docs/agents/harness.md")
+        return
+
+    content = harness.read_text(encoding="utf-8")
+    for heading in HARNESS_HEADINGS:
+        if not has_markdown_heading(content, heading):
+            errors.append(f"docs/agents/harness.md missing required heading: {heading}")
+
+    required_links = (
+        (root / "AGENTS.md", "docs/agents/harness.md"),
+        (root / "docs" / "agents" / "README.md", "harness.md"),
+    )
+    for path, reference in required_links:
+        if not path.is_file() or reference not in path.read_text(encoding="utf-8"):
+            errors.append(f"{path.relative_to(root)} must reference the direct agent harness")
+
+    pr_template = root / ".github" / "pull_request_template.md"
+    if not pr_template.is_file():
+        errors.append("missing agentic evidence surface: .github/pull_request_template.md")
+    else:
+        pr_content = pr_template.read_text(encoding="utf-8")
+        for heading in PR_TEMPLATE_HEADINGS:
+            if not has_markdown_heading(pr_content, heading):
+                errors.append(
+                    f".github/pull_request_template.md missing required heading: {heading}"
+                )
 
 def parse_frontmatter(content: str) -> dict[str, str] | None:
     match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
@@ -141,7 +181,10 @@ def validate_artifacts(kind: str, errors: list[str]) -> set[str]:
 
 def validate_spec(path: Path, content: str, title_id: str, errors: list[str]) -> None:
     frontmatter = parse_frontmatter(content)
-    relative = path.relative_to(ROOT)
+    try:
+        relative: Path | str = path.relative_to(ROOT)
+    except ValueError:
+        relative = path
     if frontmatter is None:
         errors.append(f"{relative} has no YAML frontmatter")
         return
@@ -167,7 +210,7 @@ def validate_spec(path: Path, content: str, title_id: str, errors: list[str]) ->
     if re.search(r"^\s*- \[ \] `AC-[^`]+`.*\*\*Evidence:\*\*\s*(?:test|static check|integration|runtime|manual review)\s*$", content, re.MULTILINE) is None:
         errors.append(f"{relative} must contain at least one unchecked acceptance criterion with an Evidence class")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
 
@@ -208,7 +251,7 @@ def validate_plan(path: Path, content: str, title_id: str, errors: list[str]) ->
         if not has_markdown_heading(content, heading):
             errors.append(f"{relative} missing required Plan heading: {heading}")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
     if status != "Ready" or not source_spec or not frontmatter.get("source_spec_version"):
@@ -324,7 +367,7 @@ def validate_task(path: Path, content: str, title_id: str, errors: list[str]) ->
         if not has_markdown_heading(content, heading):
             errors.append(f"{relative} missing required Task heading: {heading}")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
     acceptance_section = markdown_section(content, "## Acceptance Criteria")
@@ -361,14 +404,74 @@ def validate_task(path: Path, content: str, title_id: str, errors: list[str]) ->
         errors.append(f"{relative} is {status} but source Plan {source_plan} is not Ready")
 
 
+def task_dependencies(content: str) -> list[str]:
+    """Return canonical Task dependencies declared in the Dependencies section."""
+    section = markdown_section(content, "## Dependencies")
+    normalized = section.replace("`", "").strip().rstrip(".")
+    if normalized == "None":
+        return []
+    return artifact_references(section, "TASK-")
+
+
+def validate_task_graph(errors: list[str], task_dir: Path | None = None) -> None:
+    """Validate dependency references, executable ordering, and cycles."""
+    directory = task_dir or ROOT / "docs" / "tasks"
+    tasks: dict[str, tuple[Path, str, list[str]]] = {}
+
+    for path in sorted(directory.glob("*.md")):
+        content = path.read_text(encoding="utf-8")
+        metadata = parse_frontmatter(content) or {}
+        task_id = metadata.get("id")
+        if not task_id:
+            continue
+        section = markdown_section(content, "## Dependencies")
+        normalized = section.replace("`", "").strip().rstrip(".")
+        dependencies = task_dependencies(content)
+        if not dependencies and normalized != "None":
+            errors.append(f"{path} must declare Task IDs or None in Dependencies")
+        tasks[task_id] = (path, metadata.get("status", ""), dependencies)
+
+    for task_id, (path, status, dependencies) in tasks.items():
+        for dependency in dependencies:
+            if dependency == task_id:
+                errors.append(f"{path} cannot depend on itself: {task_id}")
+            elif dependency not in tasks:
+                errors.append(f"{path} references missing Task dependency: {dependency}")
+            elif status in {"Ready", "InProgress", "Done"} and tasks[dependency][1] != "Done":
+                errors.append(
+                    f"{path} is {status} but dependency {dependency} is {tasks[dependency][1] or '<missing>'}, not Done"
+                )
+
+    state: dict[str, int] = {}
+    reported_cycles: set[tuple[str, ...]] = set()
+
+    def visit(task_id: str, trail: list[str]) -> None:
+        state[task_id] = 1
+        for dependency in tasks[task_id][2]:
+            if dependency not in tasks:
+                continue
+            if state.get(dependency, 0) == 0:
+                visit(dependency, [*trail, dependency])
+            elif state.get(dependency) == 1:
+                start = trail.index(dependency) if dependency in trail else 0
+                cycle = tuple([*trail[start:], dependency])
+                if cycle not in reported_cycles:
+                    reported_cycles.add(cycle)
+                    errors.append(f"Task dependency cycle detected: {' -> '.join(cycle)}")
+        state[task_id] = 2
+
+    for task_id in sorted(tasks):
+        if state.get(task_id, 0) == 0:
+            visit(task_id, [task_id])
+
+
 def validate_references(errors: list[str]) -> None:
     known = {
         "SPEC-": validate_artifacts("specs", errors),
         "PLAN-": validate_artifacts("plans", errors),
         "TASK-": validate_artifacts("tasks", errors),
     }
-    validate_artifacts("evaluations", errors)
-    validate_artifacts("memory", errors)
+    validate_task_graph(errors)
 
     for path in sorted((ROOT / "docs").glob("**/*.md")):
         if "templates" in path.parts:
@@ -386,17 +489,23 @@ def artifact_references(content: str, prefix: str) -> list[str]:
     return sorted({value.rstrip("._-") for value in raw})
 
 
+def has_supported_traceability_chain(content: str) -> bool:
+    """Accept the focused active chain while preserving committed history."""
+    return TRACEABILITY_CHAIN in content or LEGACY_TRACEABILITY_CHAIN in content
+
+
 def main() -> int:
     errors: list[str] = []
     validate_templates(errors)
+    validate_harness(errors)
     validate_references(errors)
     if errors:
-        print("AI Factory artifact validation: FAILED")
+        print("Documentation contract validation: FAILED")
         print("\n".join(f"- {e}" for e in errors))
         return 1
 
-    print("AI Factory artifact validation: PASS")
-    print("- canonical templates: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- internal references: valid")
+    print("Documentation contract validation: PASS")
+    print("- canonical templates: valid\n- direct agent harness: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- task graph: valid\n- internal references: valid")
     return 0
 
 

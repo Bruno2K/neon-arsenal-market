@@ -8,7 +8,7 @@ Give each agent the minimum context required to make a correct decision. Context
 2. `docs/agents/README.md`
 3. The role file or role section relevant to the task
 4. The specific architecture/invariant document named by the task
-5. The GitHub issue
+5. The optional external Issue, when one was supplied
 6. Directly relevant source files
 7. Relevant tests, schema and migrations
 8. ADRs or operational docs only when the task touches those concerns
@@ -40,7 +40,7 @@ Use filename/symbol/term search before opening large files. Prefer targeted rang
 
 ## Context tiers
 ### Tier 0 — always
-`AGENTS.md`, `docs/agents/README.md`, GitHub issue.
+`AGENTS.md` and the named Specification, Plan, or Task. Load an external Issue only when it exists and adds relevant context.
 
 ### Tier 1 — task-local
 Relevant role, architecture, invariants, source, tests, schema/migrations.
@@ -63,7 +63,7 @@ If those answers are known, implement or review instead of continuing to explore
 
 ## Handoff compression
 Every handoff should fit comfortably in a short message and contain:
-- task/issue;
+- Task and optional external Issue;
 - files changed or inspected;
 - invariant protected;
 - decision made;

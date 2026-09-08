@@ -7,8 +7,8 @@ on:
     branches: [main]
 
 jobs:
-  factory:
-    name: AI Factory (artifact validation)
+  documentation-contracts:
+    name: Documentation contracts
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -21,11 +21,11 @@ jobs:
         with:
           python-version: '3.12'
 
-      - name: Validate factory artifacts
-        run: python3 scripts/ai-factory/validate.py
+      - name: Validate documentation contracts
+        run: python3 scripts/docs/validate_contracts.py
 
       - name: Test validator
-        run: python3 scripts/ai-factory/test_validate.py
+        run: python3 tests/tooling/test_docs_contracts.py
 
   # ─────────────────────────────────────────────
   # Frontend: lint + typecheck + unit tests

@@ -136,7 +136,7 @@ All SPEC-0005 acceptance criteria have mapped tests or static evidence. Unit and
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 - Issue: `#58`

@@ -80,7 +80,7 @@ python scripts/ai-factory/validate.py
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 

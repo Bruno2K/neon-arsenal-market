@@ -1,6 +1,6 @@
 ---
 id: TASK-0008
-status: Ready
+status: Done
 version: 1
 source_issue: "#62"
 source_spec: SPEC-0008
@@ -8,16 +8,16 @@ source_spec_version: 1
 source_plan: PLAN-0005
 source_plan_version: 1
 baseline_revision: 27c94eb46d24353aee866852236c83134a89702e
-owner: "Neon Arsenal Engineering"
+owner: Neon Arsenal Engineering
 created: 2026-09-06
-updated: 2026-09-08
+updated: 2026-09-06
 ---
 
 # [TASK-0008] — Operational dashboard definitions
 
 ## Status
 
-`Ready`
+`Done`.
 
 ## Source
 
@@ -37,7 +37,9 @@ Out of scope: Grafana/Prometheus server, new instruments, `src/`, payment semant
 
 ## Allowed Files
 
-Only dashboard, observability documentation and JSON catalog paths named in Scope.
+- `docs/operations/dashboards.md`
+- `docs/operations/dashboards/neon-arsenal-api.json`
+- `docs/observability.md`
 
 ## Preconditions
 
@@ -45,10 +47,10 @@ Worktree from `origin/main` at PLAN-0005 `baseline_revision`. `SPEC-0008` Accept
 
 ## Acceptance Criteria
 
-- [ ] `AC-01`: Six dashboard groups exist and cite only existing instruments **Evidence:** static check
-- [ ] AC-02: JSON catalog lists every meter name, type, unit, and allowed attributes
-- [ ] AC-03: Critical traces and `app.outcome` values are named
-- [ ] AC-04: Dual `http.route` prefixes (`/` and `/api/v1`) are documented
+- [x] `AC-01` Six dashboard groups exist and cite only existing instruments. **Evidence:** static check
+- [x] `AC-02` JSON catalog lists every meter name, type, unit, and allowed attributes. **Evidence:** static check
+- [x] `AC-03` Critical traces and `app.outcome` values are named. **Evidence:** static check
+- [x] `AC-04` Dual `http.route` prefixes (`/` and `/api/v1`) are documented. **Evidence:** manual review
 
 ## Dependencies
 
@@ -70,12 +72,13 @@ Dashboard markdown and JSON exist. Factory validation passes after TASK-0009 art
 
 ## Stop Conditions
 
-Stop if a new telemetry instrument, dashboard server, or payment runtime change is required.
+- Stop if documentation requires an instrument that does not exist.
+- Stop before adding runtime infrastructure, payment changes, or files outside `Allowed Files`.
 
 ## Traceability
 
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 
-- 2026-09-08 — Migrated to the task artifact contract.
+- 2026-09-06 — v1 — Operational-dashboard Task completed.

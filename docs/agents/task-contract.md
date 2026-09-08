@@ -6,9 +6,9 @@ A Task is the smallest reviewable unit authorized for execution. It translates o
 
 ## Required identity
 
-Every file under `docs/tasks/` uses `TASK-<DOMAIN>-<NUMBER>` in both frontmatter and title. The frontmatter records `status`, `version`, source Issue, Specification and Plan versions, immutable Git baseline, one `owner`, and creation/update dates.
+Every file under `docs/tasks/` uses `TASK-<DOMAIN>-<NUMBER>` in both frontmatter and title. The frontmatter records `status`, `version`, Specification and Plan versions, immutable Git baseline, one `owner`, and creation/update dates. `source_issue` is optional external-tracker metadata.
 
-The canonical template is [`../templates/task.md`](../templates/task.md). The factory validator checks the machine-readable structure.
+The canonical template is [`../templates/task.md`](../templates/task.md). The documentation validator checks the machine-readable structure.
 
 ## Lifecycle
 
@@ -32,13 +32,13 @@ A Task must define one concrete objective, explicit scope and exclusions, allowe
 
 The owner may edit only the listed files. If another file becomes necessary, the owner stops and returns the Task to planning. Each Task has one owner at a time; reviewers report findings without silently expanding or rewriting its contract.
 
-Dependencies use canonical Task IDs or `None`. A Task becomes `Ready` only after its dependencies are `Done`. Dependency ordering and safe runnable selection are enforced by the orchestrator phase that follows this contract.
+Dependencies use canonical Task IDs or `None`. A Task becomes `Ready` only after its dependencies are `Done`. The repository validator enforces reference integrity, ordering, and acyclicity; an agent selects work by reading the validated graph directly.
 
 ## Verification and closure
 
 The verification command must be executable from the repository root. Evidence records the exact result rather than a claim of success. A Task can become `Done` only when all acceptance criteria are checked, the command succeeds, the diff stays within `Allowed Files`, and the traceability chain is recoverable:
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → EVIDENCE`
 
 ## Version policy
 

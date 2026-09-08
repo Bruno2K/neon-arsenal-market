@@ -2,7 +2,7 @@
 
 ## Objective
 
-This repository uses AI coding agents as an autonomous engineering team. The team exists to move the project toward production-oriented Senior Backend Engineer evidence without accumulating speculative complexity.
+This repository uses AI coding agents as tools in a human-directed engineering workflow. The goal is to produce interview-ready evidence of Senior Backend judgment without accumulating speculative complexity or presenting agent infrastructure as the product.
 
 The agents must optimize for **correctness, small diffs, verification, and useful engineering evidence** rather than code volume.
 
@@ -12,14 +12,12 @@ Read in this order:
 
 1. `AGENTS.md` — global engineering rules.
 2. `docs/agents/README.md` — team operating model.
-3. `docs/agents/roles.md` — responsibilities and boundaries.
-4. `docs/architecture/current-state.md` — known architectural reality and gaps.
-5. `docs/domain/invariants.md` — canonical invariant ID catalog and enforcement map.
-6. `docs/architecture/domain-invariants.md` — narrative invariant contract (must stay in sync with the catalog).
-7. `docs/roadmap.md` — prioritized backlog.
-8. The relevant source code, schema, migrations, and tests.
-9. The relevant ADRs and operational documentation.
-10. `docs/observability.md` when the task touches logs, traces, metrics or request correlation.
+3. `docs/agents/harness.md` — direct entry, context, execution, and evidence protocol.
+4. The named Specification, Plan, or Task.
+5. `docs/agents/roles.md` — responsibilities and boundaries.
+6. Relevant architecture and invariant documents.
+7. The relevant source code, schema, migrations, and tests.
+8. Relevant ADRs, provider, and operational documentation.
 
 If code and documentation disagree, the agent must inspect the code and flag the documentation as stale. It must not silently invent behavior.
 
@@ -27,15 +25,26 @@ If code and documentation disagree, the agent must inspect the code and flag the
 
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
-There is **one** orchestrator. It reads GitHub issues and spawns role-assigned subagents:
+When work is decomposed into repository Tasks, their graph is the control plane: an agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles. Small reversible requests may proceed directly with proportionate checks and PR evidence.
 
-```bash
-python3 scripts/orchestrator/next.py --prompt
-```
+Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python prompt generator, parent orchestrator, or external tracker is required to start an agent. File-disjoint Tasks may run in parallel only under the harness's semantic-independence rules.
 
-File-disjoint tracks may still run in the same wave (one backend issue on `server/` and one frontend issue on `src/`). Historical P-back / P-front JSON catalogs are archives. Shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).
+## Agentic engineering coverage
 
-Do not hand-paste issue prompts. Unqualified `next` means the unified orchestrator.
+The repository implements the disciplines as one proportional system rather than as separate products:
+
+- **Specification-Driven Development:** Specifications define material behavior and acceptance.
+- **Context Engineering:** the context policy and Task `Required Context` sections enforce progressive disclosure.
+- **Harness Engineering:** persistent instructions, isolation, CI, tests, documentation validation, retry limits, and human gates constrain execution.
+- **Graph Engineering:** Plans and Tasks express state, dependencies, branching outcomes, termination, and safe parallelism.
+- **Tool Engineering:** the harness defines bounded, least-privilege, retry-aware tool contracts; MCP is optional.
+- **Agent Engineering:** roles are scoped reasoning lenses, selected by risk instead of permanent autonomous workers.
+- **Evaluation Engineering:** deterministic checks plus the material-work rubric decide convergence and route failures back into the workflow.
+- **State and Memory Engineering:** active artifacts, Git, evidence, and handoffs hold state; validated learning is promoted into ADRs, invariants, tests, runbooks, or stable guidance.
+- **Observability / AgentOps:** PRs and handoffs record retries, tool failures, human gates, recovery, and available cost/runtime signals in proportion to autonomy.
+- **Security, Governance, and HITL:** the decision policy, sandbox, protected secrets, bounded retries, review ownership, and explicit human stop conditions limit impact.
+
+This coverage does not make the agent workflow the product. It exists to improve the correctness, reviewability, and interview evidence of Neon Arsenal.
 
 Recommended roles:
 
@@ -50,7 +59,7 @@ Recommended roles:
 
 Do not run all roles for every task. Select the minimum set required by the risk profile.
 
-## Task lifecycle
+## Task lifecycle for decomposed work
 
 ```text
 Backlog
@@ -106,9 +115,9 @@ Every agent that finishes work must leave a compact handoff containing:
 
 The next agent should trust the handoff only as a navigation aid; it must verify critical claims against the repository.
 
-## Autonomous decision policy
+## Bounded decision policy
 
-Agents may autonomously:
+Within an explicit user request, agents may:
 
 - implement scoped roadmap tasks;
 - add or modify tests;

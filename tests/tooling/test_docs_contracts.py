@@ -1,34 +1,62 @@
 #!/usr/bin/env python3
-"""Smoke/unit tests for the dependency-free AI Factory validator."""
+"""Smoke/unit tests for the dependency-free documentation validator."""
 from __future__ import annotations
 
 import subprocess
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
-from validate import (
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "docs"))
+
+from validate_contracts import (
     ID_PATTERNS,
+    HARNESS_HEADINGS,
+    LEGACY_TRACEABILITY_CHAIN,
+    PR_TEMPLATE_HEADINGS,
     TEMPLATES,
     TRACEABILITY_CHAIN,
     artifact_references,
     has_markdown_heading,
     validate_plan,
+    validate_harness,
+    validate_spec,
     validate_task,
+    validate_task_graph,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
-VALIDATOR = ROOT / "scripts" / "ai-factory" / "validate.py"
+VALIDATOR = ROOT / "scripts" / "docs" / "validate_contracts.py"
 
 
 class ValidatorTests(unittest.TestCase):
+    def valid_spec(self, **overrides: str) -> str:
+        metadata = {
+            "id": "SPEC-TEST-001",
+            "status": "Accepted",
+            "version": "1",
+            "owner": "test",
+            "created": "2026-09-08",
+            "updated": "2026-09-08",
+        }
+        metadata.update(overrides)
+        frontmatter = "\n".join(f"{key}: {value}" for key, value in metadata.items())
+        sections = []
+        for heading in TEMPLATES["spec.md"]:
+            body = "Content."
+            if heading == "## Acceptance Criteria":
+                body = "- [ ] `AC-01` Measurable outcome. **Evidence:** static check"
+            sections.append(f"{heading}\n\n{body}")
+        return f"---\n{frontmatter}\n---\n\n# [SPEC-TEST-001] — Test\n\n" + "\n\n".join(sections) + f"\n\n{TRACEABILITY_CHAIN}\n"
+
     def valid_plan(self, **overrides: str) -> str:
         metadata = {
             "id": "PLAN-TEST-001",
             "status": "Ready",
             "version": "1",
             "source_spec": "SPEC-0001",
-            "source_spec_version": "1",
+            "source_spec_version": "2",
             "baseline_revision": "232c2922eca1eadc7deccf4d6509da0430566010",
             "owner": "test",
             "created": "2026-09-06",
@@ -62,7 +90,7 @@ class ValidatorTests(unittest.TestCase):
             if heading == "## Acceptance Criteria":
                 body = "- [ ] `AC-01` Measurable outcome. **Evidence:** static check"
             elif heading == "## Verification Command":
-                body = "```bash\npython scripts/ai-factory/validate.py\n```"
+                body = "```bash\npython scripts/docs/validate_contracts.py\n```"
             sections.append(f"{heading}\n\n{body}")
         return f"---\n{frontmatter}\n---\n\n# [TASK-TEST-001] — Test\n\n" + "\n\n".join(sections) + f"\n\n{TRACEABILITY_CHAIN}\n"
 
@@ -71,8 +99,6 @@ class ValidatorTests(unittest.TestCase):
             "specs": "SPEC-ORDERS-001",
             "plans": "PLAN-ORDERS-001",
             "tasks": "TASK-ORDERS-001",
-            "evaluations": "EVAL-ORDERS-001",
-            "memory": "MEM-ORDERS-001",
         }
         for kind, value in valid.items():
             self.assertRegex(value, ID_PATTERNS[kind])
@@ -100,6 +126,50 @@ class ValidatorTests(unittest.TestCase):
             for heading in headings:
                 self.assertIn(heading, content)
 
+    def test_current_and_historical_traceability_are_supported(self) -> None:
+        errors: list[str] = []
+        validate_spec(
+            Path("legacy-spec.md"),
+            self.valid_spec().replace(TRACEABILITY_CHAIN, LEGACY_TRACEABILITY_CHAIN),
+            "SPEC-TEST-001",
+            errors,
+        )
+        self.assertEqual(errors, [])
+
+    def test_direct_harness_contract_is_enforced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs" / "agents").mkdir(parents=True)
+            (root / ".cursor" / "rules").mkdir(parents=True)
+            (root / ".github").mkdir(parents=True)
+            harness = "# Direct Agent Harness\n\n" + "\n\n".join(
+                f"{heading}\n\nContent." for heading in HARNESS_HEADINGS
+            )
+            (root / "docs" / "agents" / "harness.md").write_text(harness, encoding="utf-8")
+            (root / "AGENTS.md").write_text("docs/agents/harness.md\n", encoding="utf-8")
+            (root / "docs" / "agents" / "README.md").write_text("harness.md\n", encoding="utf-8")
+            (root / "docs" / "agents" / "execution-protocol.md").write_text("Direct.\n", encoding="utf-8")
+            (root / "docs" / "agents" / "context-policy.md").write_text("Direct.\n", encoding="utf-8")
+            (root / ".cursor" / "rules" / "01-task-execution.mdc").write_text("Direct.\n", encoding="utf-8")
+            pr_template = "\n\n".join(f"{heading}\n\nContent." for heading in PR_TEMPLATE_HEADINGS)
+            (root / ".github" / "pull_request_template.md").write_text(
+                pr_template, encoding="utf-8"
+            )
+
+            errors: list[str] = []
+            validate_harness(errors, root)
+            self.assertEqual(errors, [])
+
+            (root / ".github" / "pull_request_template.md").write_text(
+                pr_template.replace("## Evaluation", "## Review"), encoding="utf-8"
+            )
+            errors = []
+            validate_harness(errors, root)
+            self.assertIn(
+                ".github/pull_request_template.md missing required heading: ## Evaluation",
+                errors,
+            )
+
     def test_valid_ready_plan_matches_accepted_source_version(self) -> None:
         errors: list[str] = []
         validate_plan(Path("plan.md"), self.valid_plan(), "PLAN-TEST-001", errors)
@@ -114,11 +184,11 @@ class ValidatorTests(unittest.TestCase):
         errors = []
         validate_plan(
             Path("plan.md"),
-            self.valid_plan(source_spec_version="2"),
+            self.valid_plan(source_spec_version="1"),
             "PLAN-TEST-001",
             errors,
         )
-        self.assertTrue(any("does not match SPEC-0001 version 1" in error for error in errors))
+        self.assertTrue(any("does not match SPEC-0001 version 2" in error for error in errors))
 
     def test_ready_plan_requires_an_accepted_source_specification(self) -> None:
         errors: list[str] = []
@@ -208,6 +278,41 @@ class ValidatorTests(unittest.TestCase):
         validate_task(Path("task.md"), self.valid_task(), "TASK-TEST-001", errors)
         self.assertEqual(errors, [])
 
+    def test_task_does_not_require_external_issue(self) -> None:
+        errors: list[str] = []
+        content = self.valid_task().replace('source_issue: "#106"\n', "")
+        validate_task(Path("task.md"), content, "TASK-TEST-001", errors)
+        self.assertEqual(errors, [])
+
+        errors = []
+        validate_task(
+            Path("task.md"),
+            self.valid_task(source_issue='"issue-106"'),
+            "TASK-TEST-001",
+            errors,
+        )
+        self.assertIn(
+            "task.md has invalid source_issue; expected canonical GitHub Issue reference #<number>: issue-106",
+            errors,
+        )
+
+    def test_specification_does_not_require_external_issue(self) -> None:
+        errors: list[str] = []
+        validate_spec(Path("spec.md"), self.valid_spec(), "SPEC-TEST-001", errors)
+        self.assertEqual(errors, [])
+
+        errors = []
+        validate_spec(
+            Path("spec.md"),
+            self.valid_spec(source_issue='"issue-12"'),
+            "SPEC-TEST-001",
+            errors,
+        )
+        self.assertIn(
+            "spec.md has invalid source_issue; expected canonical GitHub Issue reference #<number>: issue-12",
+            errors,
+        )
+
     def test_executable_task_requires_ready_source_plan(self) -> None:
         errors: list[str] = []
         validate_task(
@@ -234,13 +339,37 @@ class ValidatorTests(unittest.TestCase):
         errors: list[str] = []
         content = self.valid_task(owner="").replace("## Allowed Files", "## Files")
         content = content.replace(
-            "```bash\npython scripts/ai-factory/validate.py\n```",
+            "```bash\npython scripts/docs/validate_contracts.py\n```",
             "```bash\n...\n```",
         )
         validate_task(Path("task.md"), content, "TASK-TEST-001", errors)
         self.assertIn("task.md missing required Task frontmatter field: owner", errors)
         self.assertIn("task.md missing required Task heading: ## Allowed Files", errors)
         self.assertIn("task.md must contain an exact fenced verification command", errors)
+
+    def test_task_graph_rejects_missing_blocked_and_cyclic_dependencies(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            task_dir = Path(directory)
+
+            def write_task(task_id: str, status: str, dependencies: str) -> None:
+                (task_dir / f"{task_id}.md").write_text(
+                    f"---\nid: {task_id}\nstatus: {status}\n---\n\n"
+                    f"# [{task_id}] — Test\n\n## Dependencies\n\n{dependencies}\n",
+                    encoding="utf-8",
+                )
+
+            write_task("TASK-A", "Ready", "`TASK-B`")
+            write_task("TASK-B", "Blocked", "`TASK-A`")
+            write_task("TASK-C", "Blocked", "`TASK-MISSING`")
+            write_task("TASK-D", "Blocked", "`TASK-D`")
+
+            errors: list[str] = []
+            validate_task_graph(errors, task_dir)
+
+            self.assertTrue(any("TASK-B is Blocked, not Done" in error for error in errors))
+            self.assertTrue(any("references missing Task dependency: TASK-MISSING" in error for error in errors))
+            self.assertTrue(any("cannot depend on itself: TASK-D" in error for error in errors))
+            self.assertTrue(any("Task dependency cycle detected" in error for error in errors))
 
     def test_repository_validation_passes(self) -> None:
         result = subprocess.run(
@@ -251,7 +380,7 @@ class ValidatorTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("AI Factory artifact validation: PASS", result.stdout)
+        self.assertIn("Documentation contract validation: PASS", result.stdout)
 
 
 if __name__ == "__main__":

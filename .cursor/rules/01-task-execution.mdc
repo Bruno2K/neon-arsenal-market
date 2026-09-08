@@ -1,15 +1,15 @@
 ---
-description: Issue-driven task planning and execution
+description: Repository-artifact-driven task planning and execution
 alwaysApply: true
 ---
 
 # Task Execution
 
-When the user names a GitHub issue, feature, bug, roadmap item, or says `next` / `orquestrador`, treat it as an engineering task and follow the repository's agent protocol. Unqualified `next` means: run `python3 scripts/orchestrator/next.py` and spawn the printed subagents.
+When the user names a Task, Plan, Specification, external Issue, feature, bug, or roadmap item, resolve it through `docs/agents/harness.md`. Unqualified `next` means validate the repository graph and choose an unambiguously eligible `Ready` Task.
 
 ## Before coding
 
-- Identify the exact issue/task.
+- Identify the exact authoritative artifact or shape the request into one.
 - Read its acceptance criteria and constraints.
 - Check the relevant roadmap item.
 - Classify the task by risk and domain.
@@ -17,11 +17,11 @@ When the user names a GitHub issue, feature, bug, roadmap item, or says `next` /
 - Read relevant architecture and invariant documents.
 - Search for existing implementations, tests, migrations, and related abstractions.
 
-For non-trivial work, present a concise plan before making broad changes. Do not ask for confirmation merely because a plan is needed; proceed when the task is within autonomous boundaries.
+For non-trivial work, present a concise plan before making broad changes. Do not ask for confirmation merely because a plan is needed; proceed when the task is within the user's request and documented boundaries.
 
 ## During coding
 
-- Keep changes scoped to the issue.
+- Keep changes scoped to the Task.
 - Preserve existing public behavior unless the task requires a change.
 - Prefer the smallest correct design.
 - Do not refactor unrelated code.
@@ -34,11 +34,11 @@ For non-trivial work, present a concise plan before making broad changes. Do not
 
 Use a dedicated branch/worktree when the environment supports it. Do not rewrite shared history. Do not force-push unless explicitly authorized.
 
-If the user asks for a commit, commit only the scoped changes after verification. Use a clear conventional commit message and include the issue number when appropriate.
+If the user asks for a commit, commit only the scoped changes after verification. Use a clear conventional commit message and include an external Issue number only when one exists.
 
 Do not claim that a commit, test, deployment, or CI run happened unless you actually performed or observed it.
 
-## Issue completion
+## Task completion
 
 A task is not complete until:
 
@@ -49,4 +49,4 @@ A task is not complete until:
 - remaining risks are known;
 - completion evidence is reported.
 
-If the issue is ambiguous in a way that affects correctness, stop and ask for clarification. If the ambiguity is safely resolvable from existing repository conventions, resolve it without unnecessary interruption.
+If authority or required behavior is ambiguous in a way that affects correctness, stop and ask for clarification. If the ambiguity is safely resolvable from existing repository conventions, resolve it without unnecessary interruption.

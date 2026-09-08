@@ -171,7 +171,7 @@ The final implementation must be traceable from each material acceptance criteri
 Material changes must preserve this chain:
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 ### Traceability metadata
@@ -185,7 +185,7 @@ GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE �
 - Evaluation: pending
 - Memory: pending
 
-The frontmatter `source_issue` must use the canonical GitHub Issue reference format `#<number>` and identify the material Issue that authorized this Specification.
+When present, `source_issue` uses the canonical GitHub Issue reference format `#<number>` as optional external-tracker metadata.
 
 ## Change History
 
