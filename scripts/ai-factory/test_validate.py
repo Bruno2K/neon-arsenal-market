@@ -10,11 +10,13 @@ from pathlib import Path
 
 from validate import (
     ID_PATTERNS,
+    HARNESS_HEADINGS,
     TEMPLATES,
     TRACEABILITY_CHAIN,
     artifact_references,
     has_markdown_heading,
     validate_plan,
+    validate_harness,
     validate_spec,
     validate_task,
     validate_task_graph,
@@ -121,6 +123,36 @@ class ValidatorTests(unittest.TestCase):
             content = path.read_text(encoding="utf-8")
             for heading in headings:
                 self.assertIn(heading, content)
+
+    def test_direct_harness_contract_is_enforced(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "docs" / "agents").mkdir(parents=True)
+            (root / ".cursor" / "rules").mkdir(parents=True)
+            harness = "# Direct Agent Harness\n\n" + "\n\n".join(
+                f"{heading}\n\nContent." for heading in HARNESS_HEADINGS
+            )
+            (root / "docs" / "agents" / "harness.md").write_text(harness, encoding="utf-8")
+            (root / "AGENTS.md").write_text("docs/agents/harness.md\n", encoding="utf-8")
+            (root / "docs" / "agents" / "README.md").write_text("harness.md\n", encoding="utf-8")
+            (root / "docs" / "agents" / "execution-protocol.md").write_text("Direct.\n", encoding="utf-8")
+            (root / "docs" / "agents" / "context-policy.md").write_text("Direct.\n", encoding="utf-8")
+            (root / ".cursor" / "rules" / "01-task-execution.mdc").write_text("Direct.\n", encoding="utf-8")
+            legacy_rule = root / ".cursor" / "rules" / "06-orchestrator.mdc"
+            legacy_rule.write_text("---\nalwaysApply: false\n---\n", encoding="utf-8")
+
+            errors: list[str] = []
+            validate_harness(errors, root)
+            self.assertEqual(errors, [])
+
+            (root / "docs" / "agents" / "execution-protocol.md").write_text(
+                "Run scripts/orchestrator/next.py.\n", encoding="utf-8"
+            )
+            legacy_rule.write_text("---\nalwaysApply: true\n---\n", encoding="utf-8")
+            errors = []
+            validate_harness(errors, root)
+            self.assertTrue(any("must not require the legacy orchestrator" in error for error in errors))
+            self.assertIn(".cursor/rules/06-orchestrator.mdc must be inactive by default", errors)
 
     def test_valid_ready_plan_matches_accepted_source_version(self) -> None:
         errors: list[str] = []
