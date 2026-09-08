@@ -1,30 +1,29 @@
 ---
-id: TASK-DOMAIN-001
-status: Blocked
+id: TASK-ID
+status: Ready
 version: 1
-source_issue: "#123"
-source_spec: SPEC-DOMAIN-001
+source_issue: "#..."
+source_spec: SPEC-ID
 source_spec_version: 1
-source_plan: PLAN-DOMAIN-001
+source_plan: PLAN-ID
 source_plan_version: 1
 baseline_revision: 0000000000000000000000000000000000000000
-owner: ROLE_OR_PERSON
+owner: "Neon Arsenal Engineering"
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
 ---
 
-# [TASK-DOMAIN-001] — Imperative action with one concrete outcome
+# [TASK-ID] — Action
 
 ## Status
 
-`Blocked | Ready | InProgress | Done | Superseded`
+`Ready`
 
 ## Source
 
-- GitHub Issue: #123
-- Specification: SPEC-DOMAIN-001 v1
-- Plan: PLAN-DOMAIN-001 v1
-- Plan node: NODE-ID
+- Specification: [SPEC-ID]
+- Plan: [PLAN-ID]
+- Issue: #...
 
 ## Objective
 
@@ -32,12 +31,11 @@ One concrete outcome.
 
 ## Scope
 
-Describe the bounded change and its explicit exclusions.
+Files/modules expected to change. Unrelated cleanup is out of scope.
 
 ## Allowed Files
 
-- `path/to/file`
-- `path/to/directory/**`
+The paths explicitly named in Scope. Stop if another path is required.
 
 ## Preconditions
 
@@ -45,12 +43,12 @@ What must already be true.
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` Source criterion or measurable outcome. **Evidence:** test
-- [ ] `AC-02` Source criterion or measurable outcome. **Evidence:** static check
+- [ ] AC-01: ...
+- [ ] AC-02: ...
 
 ## Dependencies
 
-- TASK-DOMAIN-000, or `None`.
+Upstream task IDs.
 
 ## Risks
 
@@ -64,19 +62,16 @@ Specific risks for this task.
 
 ## Expected Evidence
 
-- Changed files and resulting behavior.
-- Exact command results.
-- Remaining limitations or risks.
+What the agent must report after execution.
 
 ## Stop Conditions
 
-- Stop if a source artifact changes version or conflicts with this Task.
-- Stop before editing a file outside `Allowed Files` and return to planning.
+Missing precondition, scope expansion, or evidence that contradicts the Plan.
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 
 ## Change History
 
-- YYYY-MM-DD — v1 — Task created in `Blocked` or `Ready` state.
+- YYYY-MM-DD — Created.
