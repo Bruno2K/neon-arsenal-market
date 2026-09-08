@@ -1,13 +1,13 @@
 ---
 id: TASK-0010
 status: Ready
-version: 1
+version: 2
 source_issue: "#55"
 source_spec: SPEC-0009
-source_spec_version: 1
+source_spec_version: 2
 source_plan: PLAN-0006
-source_plan_version: 1
-baseline_revision: 624f14a0ed3bbd8a2671e1fcace0f70866ab9106
+source_plan_version: 2
+baseline_revision: bb829f41e320be915d9633e637071011701e4dc1
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
 updated: 2026-09-08
@@ -21,9 +21,9 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009`
-- Plan: `PLAN-0006`
-- Issue: #55
+- Specification: `SPEC-0009` v2
+- Plan: `PLAN-0006` v2
+- External tracker: #55 (optional)
 
 ## Objective
 
@@ -52,7 +52,7 @@ Deliver safe k6 profiles plus correlated capacity evidence from an isolated prod
 
 ## Dependencies
 
-None for the harness. Isolated runtime environment is required for final evidence.
+None
 
 ## Risks
 
@@ -61,14 +61,15 @@ Accidental mutation of shared data; external PayPal side effects; mistaking clie
 ## Verification Command
 
 ```bash
-python3 scripts/ai-factory/validate.py
+python scripts/docs/validate_contracts.py
+python tests/tooling/test_docs_contracts.py
 k6 inspect load-tests/k6/neon-arsenal.js
 k6 run load-tests/k6/neon-arsenal.js
 ```
 
 ## Expected Evidence
 
-Factory validation exits 0; k6 inspection succeeds; each profile has a JSON summary and synchronized API/PostgreSQL evidence; post-run invariants remain valid.
+Documentation contract validation exits 0; k6 inspection succeeds; each profile has a JSON summary and synchronized API/PostgreSQL evidence; post-run invariants remain valid.
 
 ## Stop Conditions
 
@@ -76,8 +77,9 @@ Stop if the target is not disposable, writes could reach shared data, PayPal cap
 
 ## Traceability
 
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 
 ## Change History
 
-- 2026-09-08 — Migrated to the task artifact contract.
+- 2026-09-08 — v2 — Migrated dependencies, validation commands, baseline and traceability to the direct-agent documentation contract.
+- 2026-09-08 — v1 — Migrated to the task artifact contract.

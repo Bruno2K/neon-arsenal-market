@@ -1,7 +1,7 @@
 ---
 id: SPEC-0009
 status: Accepted
-version: 1
+version: 2
 source_issue: "#55"
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
@@ -109,7 +109,8 @@ No runtime, API, schema, deploy or client behavior changes. This adds an operato
 
 - `k6 inspect load-tests/k6/neon-arsenal.js`
 - `k6 run` for each profile against an isolated production-like deployment.
-- `python3 scripts/ai-factory/validate.py`
+- `python scripts/docs/validate_contracts.py`
+- `python tests/tooling/test_docs_contracts.py`
 - Existing backend typecheck/unit/integration suite; diff review proves no runtime change.
 - Provider/API/PG charts and SQL snapshots over the same UTC window.
 
@@ -121,18 +122,17 @@ No runtime, API, schema, deploy or client behavior changes. This adds an operato
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
-- Issue: `#55`
+- External tracker: `#55` (optional)
 - Spec: `SPEC-0009`
-- Plan: `PLAN-0006`
-- Tasks: `TASK-0010`
+- Plan: `PLAN-0006` v2
+- Tasks: `TASK-0010` v2
 - PR: pending
-- Verification/Convergence: pending runtime evidence
-- Evaluation: pending
-- Memory: pending
+- Evidence: pending runtime evidence
 
 ## Change History
 
+- `v2` — Migrated validation commands and traceability to the direct-agent documentation contract — 2026-09-08
 - `v1` — Accepted harness and evidence contract — 2026-09-07
