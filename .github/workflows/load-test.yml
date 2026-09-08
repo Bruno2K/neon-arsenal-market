@@ -1,0 +1,136 @@
+name: Isolated load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: k6 profile to execute
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - catalog
+          - orders
+          - payment_replay
+          - webhook_rejection
+      target_rps:
+        description: Requests per second for catalog/webhook profiles
+        required: true
+        type: string
+        default: "5"
+      allow_writes:
+        description: Required only for the destructive orders profile
+        required: true
+        type: boolean
+        default: false
+
+# A single mutable database must never receive overlapping load runs.
+concurrency:
+  group: neon-arsenal-isolated-load-test
+  cancel-in-progress: false
+
+jobs:
+  k6:
+    name: k6 (${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    # This environment deliberately holds the target URL and all write-test
+    # fixtures. It must not point at the public demo or production.
+    environment: load-test
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      BASE_URL: ${{ vars.LOADTEST_BASE_URL }}
+      LOAD_PROFILE: ${{ inputs.profile }}
+      LOAD_TARGET_RPS: ${{ inputs.target_rps }}
+      ALLOW_WRITES: ${{ inputs.allow_writes && 'true' || 'false' }}
+      CUSTOMER_EMAIL: ${{ secrets.LOADTEST_CUSTOMER_EMAIL }}
+      CUSTOMER_PASSWORD: ${{ secrets.LOADTEST_CUSTOMER_PASSWORD }}
+      ORDER_LISTING_IDS: ${{ secrets.LOADTEST_ORDER_LISTING_IDS }}
+      PAYMENT_ORDER_IDS: ${{ secrets.LOADTEST_PAYMENT_ORDER_IDS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Refuse an unsafe target
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$BASE_URL" || { echo "Missing load-test environment variable LOADTEST_BASE_URL" >&2; exit 1; }
+          node <<'NODE'
+          const raw = process.env.BASE_URL;
+          let url;
+          try { url = new URL(raw); } catch { throw new Error("LOADTEST_BASE_URL must be an absolute URL"); }
+          const host = url.hostname.toLowerCase();
+          const isolatedName = host.includes("loadtest") || host.includes("load-test") || host.includes("staging");
+          const isLocal = host === "127.0.0.1" || host === "localhost";
+          if (!isolatedName && !isLocal) {
+            throw new Error("Refusing target outside a host named loadtest, load-test, or staging");
+          }
+          console.log(`Validated isolated target host: ${host}`);
+          NODE
+          if [[ "$LOAD_PROFILE" == "orders" && "$ALLOW_WRITES" != "true" ]]; then
+            echo "orders requires the allow_writes checkbox" >&2
+            exit 1
+          fi
+
+      - name: Wait for API readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 10 "$BASE_URL/ready" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for $BASE_URL/ready" >&2
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/k6
+          export RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export LOAD_SUMMARY_PATH="artifacts/k6/${LOAD_PROFILE}-${RUN_ID}.json"
+          k6 run load-tests/k6/neon-arsenal.js
+
+      - name: Publish run summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary_file=$(find artifacts/k6 -maxdepth 1 -name '*.json' -print -quit || true)
+          if [[ -z "$summary_file" ]]; then
+            echo "## k6" >> "$GITHUB_STEP_SUMMARY"
+            echo "No JSON summary was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "## k6 — ${LOAD_PROFILE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Target: \`${BASE_URL}\`" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '
+            .metrics as $m |
+            [
+              ["requests", ($m.http_reqs.values.count // "n/a")],
+              ["rps", ($m.http_reqs.values.rate // "n/a")],
+              ["p95 ms", ($m.http_req_duration.values["p(95)"] // "n/a")],
+              ["p99 ms", ($m.http_req_duration.values["p(99)"] // "n/a")],
+              ["http failure rate", ($m.http_req_failed.values.rate // "n/a")]
+            ] | .[] | "| " + .[0] + " | " + (.[1] | tostring) + " |"' "$summary_file" \
+            | { echo "| Metric | Value |"; echo "| --- | ---: |"; cat; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload k6 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ inputs.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/k6/*.json
+          if-no-files-found: warn
+          retention-days: 30
