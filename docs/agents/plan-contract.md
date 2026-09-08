@@ -42,7 +42,7 @@ The graph is directed and acyclic. Each edge means the successor cannot begin un
 
 Parallel nodes are allowed only when they have disjoint write scopes, do not mutate the same invariant or database state, and neither consumes the other's output. One task has one owner at a time.
 
-F3.1 records stable Plan-side node labels and dependency edges. F3.2 owns the canonical Task identity, lifecycle, metadata, and dependency representation. Until that contract is accepted, Plan nodes are decomposition labels rather than executable Task artifacts.
+Plan nodes use canonical Task IDs once Tasks exist. The Task contract owns lifecycle and dependency representation, and the repository validator enforces the static graph before execution.
 
 ## Completeness rules
 
@@ -52,6 +52,6 @@ The Planner does not implement. Discovery that changes accepted behavior, archit
 
 ## Validation
 
-`python scripts/ai-factory/validate.py` validates Plan identity, metadata, lifecycle values, baseline revision, required sections, source reference format, numeric versions, and canonical traceability. Cross-reference validation rejects a missing source Specification. A `Ready` Plan additionally requires an `Accepted` source at the exact declared version.
+`python scripts/ai-factory/validate.py` validates Plan identity, metadata, lifecycle values, baseline revision, required sections, source reference format, numeric versions, canonical traceability, and the Task dependency graph. Cross-reference validation rejects a missing source Specification. A `Ready` Plan additionally requires an `Accepted` source at the exact declared version.
 
 Structural validation cannot prove that the decomposition is correct or that a source Specification is substantively accepted. Review and later planner/convergence phases provide that evidence.

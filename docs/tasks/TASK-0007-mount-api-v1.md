@@ -87,7 +87,7 @@ Commands exit 0. Versioning unit tests cover AC-01–AC-04, AC-06, AC-07. Policy
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 

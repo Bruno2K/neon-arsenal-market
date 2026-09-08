@@ -59,7 +59,7 @@ Architecture docs, ADR 0016, `server/src/shared/architecture/*`, and factory art
 
 ## Dependencies
 
-`PLAN-0003` Ready.
+None.
 
 ## Risks
 
@@ -84,7 +84,7 @@ Validator PASS. Unit suite PASS including `moduleBoundaries.test.ts`. Integratio
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 

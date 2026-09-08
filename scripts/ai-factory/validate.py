@@ -44,7 +44,7 @@ ID_PATTERNS = {
 ID_PATTERNS["plans"] = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 ID_PATTERNS["tasks"] = re.compile(r"^TASK-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 
-FRONTMATTER_REQUIRED = ("id", "status", "version", "source_issue", "owner", "created", "updated")
+FRONTMATTER_REQUIRED = ("id", "status", "version", "owner", "created", "updated")
 VALID_SPEC_STATUSES = {"Proposed", "Accepted", "Superseded"}
 PLAN_FRONTMATTER_REQUIRED = (
     "id", "status", "version", "source_spec", "source_spec_version",
@@ -52,7 +52,7 @@ PLAN_FRONTMATTER_REQUIRED = (
 )
 VALID_PLAN_STATUSES = {"Draft", "Ready", "Superseded"}
 TASK_FRONTMATTER_REQUIRED = (
-    "id", "status", "version", "source_issue", "source_spec",
+    "id", "status", "version", "source_spec",
     "source_spec_version", "source_plan", "source_plan_version",
     "baseline_revision", "owner", "created", "updated",
 )
@@ -61,7 +61,7 @@ GITHUB_ISSUE_REF = re.compile(r"^#[1-9][0-9]*$")
 SPEC_REF = re.compile(r"^SPEC-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 PLAN_REF = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
-TRACEABILITY_CHAIN = "GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
+TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
 
 
 def has_markdown_heading(content: str, heading: str) -> bool:
@@ -141,7 +141,10 @@ def validate_artifacts(kind: str, errors: list[str]) -> set[str]:
 
 def validate_spec(path: Path, content: str, title_id: str, errors: list[str]) -> None:
     frontmatter = parse_frontmatter(content)
-    relative = path.relative_to(ROOT)
+    try:
+        relative: Path | str = path.relative_to(ROOT)
+    except ValueError:
+        relative = path
     if frontmatter is None:
         errors.append(f"{relative} has no YAML frontmatter")
         return
@@ -361,6 +364,67 @@ def validate_task(path: Path, content: str, title_id: str, errors: list[str]) ->
         errors.append(f"{relative} is {status} but source Plan {source_plan} is not Ready")
 
 
+def task_dependencies(content: str) -> list[str]:
+    """Return canonical Task dependencies declared in the Dependencies section."""
+    section = markdown_section(content, "## Dependencies")
+    normalized = section.replace("`", "").strip().rstrip(".")
+    if normalized == "None":
+        return []
+    return artifact_references(section, "TASK-")
+
+
+def validate_task_graph(errors: list[str], task_dir: Path | None = None) -> None:
+    """Validate dependency references, executable ordering, and cycles."""
+    directory = task_dir or ROOT / "docs" / "tasks"
+    tasks: dict[str, tuple[Path, str, list[str]]] = {}
+
+    for path in sorted(directory.glob("*.md")):
+        content = path.read_text(encoding="utf-8")
+        metadata = parse_frontmatter(content) or {}
+        task_id = metadata.get("id")
+        if not task_id:
+            continue
+        section = markdown_section(content, "## Dependencies")
+        normalized = section.replace("`", "").strip().rstrip(".")
+        dependencies = task_dependencies(content)
+        if not dependencies and normalized != "None":
+            errors.append(f"{path} must declare Task IDs or None in Dependencies")
+        tasks[task_id] = (path, metadata.get("status", ""), dependencies)
+
+    for task_id, (path, status, dependencies) in tasks.items():
+        for dependency in dependencies:
+            if dependency == task_id:
+                errors.append(f"{path} cannot depend on itself: {task_id}")
+            elif dependency not in tasks:
+                errors.append(f"{path} references missing Task dependency: {dependency}")
+            elif status in {"Ready", "InProgress", "Done"} and tasks[dependency][1] != "Done":
+                errors.append(
+                    f"{path} is {status} but dependency {dependency} is {tasks[dependency][1] or '<missing>'}, not Done"
+                )
+
+    state: dict[str, int] = {}
+    reported_cycles: set[tuple[str, ...]] = set()
+
+    def visit(task_id: str, trail: list[str]) -> None:
+        state[task_id] = 1
+        for dependency in tasks[task_id][2]:
+            if dependency not in tasks:
+                continue
+            if state.get(dependency, 0) == 0:
+                visit(dependency, [*trail, dependency])
+            elif state.get(dependency) == 1:
+                start = trail.index(dependency) if dependency in trail else 0
+                cycle = tuple([*trail[start:], dependency])
+                if cycle not in reported_cycles:
+                    reported_cycles.add(cycle)
+                    errors.append(f"Task dependency cycle detected: {' -> '.join(cycle)}")
+        state[task_id] = 2
+
+    for task_id in sorted(tasks):
+        if state.get(task_id, 0) == 0:
+            visit(task_id, [task_id])
+
+
 def validate_references(errors: list[str]) -> None:
     known = {
         "SPEC-": validate_artifacts("specs", errors),
@@ -369,6 +433,7 @@ def validate_references(errors: list[str]) -> None:
     }
     validate_artifacts("evaluations", errors)
     validate_artifacts("memory", errors)
+    validate_task_graph(errors)
 
     for path in sorted((ROOT / "docs").glob("**/*.md")):
         if "templates" in path.parts:
@@ -396,7 +461,7 @@ def main() -> int:
         return 1
 
     print("AI Factory artifact validation: PASS")
-    print("- canonical templates: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- internal references: valid")
+    print("- canonical templates: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- task graph: valid\n- internal references: valid")
     return 0
 
 

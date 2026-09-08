@@ -114,7 +114,7 @@ Dashboard + SLO docs exist, cite only real instruments, include diagnosis and er
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 - Issue: `#62` / `#63`

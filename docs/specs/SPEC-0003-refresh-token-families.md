@@ -102,7 +102,7 @@ Run `npm --prefix server run test:unit -- src/modules/auth/__tests__/auth.servic
 
 ## Traceability
 
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 
 - Issue: #57 (family subset; password/throttle behavior remains governed by ADR 0015)
 - Spec: SPEC-0003 v1

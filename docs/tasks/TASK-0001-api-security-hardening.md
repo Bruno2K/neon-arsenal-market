@@ -91,7 +91,7 @@ Commands exit 0. Tests named in PLAN-0002 cover AC-01–AC-10. Checklist file ex
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 

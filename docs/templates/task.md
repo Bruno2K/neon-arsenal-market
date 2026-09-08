@@ -2,7 +2,6 @@
 id: TASK-DOMAIN-001
 status: Blocked
 version: 1
-source_issue: "#123"
 source_spec: SPEC-DOMAIN-001
 source_spec_version: 1
 source_plan: PLAN-DOMAIN-001
@@ -21,7 +20,7 @@ updated: YYYY-MM-DD
 
 ## Source
 
-- GitHub Issue: #123
+- External tracker: #123 (optional)
 - Specification: SPEC-DOMAIN-001 v1
 - Plan: PLAN-DOMAIN-001 v1
 - Plan node: NODE-ID
@@ -50,7 +49,7 @@ What must already be true.
 
 ## Dependencies
 
-- TASK-DOMAIN-000, or `None`.
+- `TASK-DOMAIN-000`, or `None`.
 
 ## Risks
 
@@ -75,7 +74,7 @@ Specific risks for this task.
 
 ## Traceability
 
-`GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
 ## Change History
 

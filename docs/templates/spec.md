@@ -2,7 +2,6 @@
 id: SPEC-EXAMPLE-001
 status: Proposed
 version: 1
-source_issue: "#..."
 owner: "team"
 created: YYYY-MM-DD
 updated: YYYY-MM-DD
@@ -120,12 +119,12 @@ Reference relevant ADRs, current architecture, invariant catalog, provider docum
 Material changes must preserve this chain:
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 ### Traceability metadata
 
-- Issue: `#...`
+- External tracker: `#...` (optional)
 - Spec: `SPEC-...`
 - Plan: `PLAN-...`
 - Tasks: `TASK-...`
@@ -134,7 +133,7 @@ GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE �
 - Evaluation: `EVAL-...`
 - Memory: `MEM-...`
 
-The frontmatter `source_issue` must use the canonical GitHub Issue reference format `#<number>` and identify the material Issue that authorized this Specification.
+When present, `source_issue` must use the canonical GitHub Issue reference format `#<number>`. The Specification remains authoritative without an external tracker.
 
 ## Change History
 

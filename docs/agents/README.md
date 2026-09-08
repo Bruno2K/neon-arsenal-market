@@ -27,7 +27,9 @@ If code and documentation disagree, the agent must inspect the code and flag the
 
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
-There is **one** orchestrator. It reads GitHub issues and spawns role-assigned subagents:
+The repository artifact graph is the control plane. An agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles.
+
+The previous Issue-based orchestrator remains as a temporary migration adapter:
 
 ```bash
 python3 scripts/orchestrator/next.py --prompt
@@ -35,7 +37,7 @@ python3 scripts/orchestrator/next.py --prompt
 
 File-disjoint tracks may still run in the same wave (one backend issue on `server/` and one frontend issue on `src/`). Historical P-back / P-front JSON catalogs are archives. Shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).
 
-Do not hand-paste issue prompts. Unqualified `next` means the unified orchestrator.
+It is not authoritative and is not required for normal work. Its files will be removed only after the direct harness documentation is complete.
 
 Recommended roles:
 

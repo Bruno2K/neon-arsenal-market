@@ -159,7 +159,7 @@ The final implementation must be traceable from each material acceptance criteri
 Material changes must preserve this chain:
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 ### Traceability metadata

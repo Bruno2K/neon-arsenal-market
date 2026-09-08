@@ -145,7 +145,7 @@ Stop if the accepted Specification changes from v1, a Favorite operation needs t
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 - Issue: `#106`
