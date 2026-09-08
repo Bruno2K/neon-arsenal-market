@@ -29,6 +29,23 @@ When work is decomposed into repository Tasks, their graph is the control plane:
 
 Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python prompt generator, parent orchestrator, or external tracker is required to start an agent. File-disjoint Tasks may run in parallel only under the harness's semantic-independence rules.
 
+## Agentic engineering coverage
+
+The repository implements the disciplines as one proportional system rather than as separate products:
+
+- **Specification-Driven Development:** Specifications define material behavior and acceptance.
+- **Context Engineering:** the context policy and Task `Required Context` sections enforce progressive disclosure.
+- **Harness Engineering:** persistent instructions, isolation, CI, tests, documentation validation, retry limits, and human gates constrain execution.
+- **Graph Engineering:** Plans and Tasks express state, dependencies, branching outcomes, termination, and safe parallelism.
+- **Tool Engineering:** the harness defines bounded, least-privilege, retry-aware tool contracts; MCP is optional.
+- **Agent Engineering:** roles are scoped reasoning lenses, selected by risk instead of permanent autonomous workers.
+- **Evaluation Engineering:** deterministic checks plus the material-work rubric decide convergence and route failures back into the workflow.
+- **State and Memory Engineering:** active artifacts, Git, evidence, and handoffs hold state; validated learning is promoted into ADRs, invariants, tests, runbooks, or stable guidance.
+- **Observability / AgentOps:** PRs and handoffs record retries, tool failures, human gates, recovery, and available cost/runtime signals in proportion to autonomy.
+- **Security, Governance, and HITL:** the decision policy, sandbox, protected secrets, bounded retries, review ownership, and explicit human stop conditions limit impact.
+
+This coverage does not make the agent workflow the product. It exists to improve the correctness, reviewability, and interview evidence of Neon Arsenal.
+
 Recommended roles:
 
 - **Planner** — converts a roadmap item into an implementation plan and acceptance criteria.

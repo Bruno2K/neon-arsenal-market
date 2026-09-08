@@ -423,10 +423,10 @@ Before finishing, inspect the diff and ask:
 For material work, completion means more than green tests:
 
 ```text
-Implementation → Review → Verification → Evidence
+Implementation → Review → Verification → Evaluation → Evidence
 ```
 
-Evidence may live in tests, checks, a PR description, or `docs/verification/` when durable explanation adds interview or operational value. Do not create a separate evaluation or memory artifact by default. The human remains accountable for requirements, trade-offs, review, and acceptance.
+Evaluation is a required reasoning stage for material work and follows the rubric in `docs/agents/harness.md`; it is not a mandatory artifact type. Evidence may live in tests, checks, a PR description, or `docs/verification/` when durable explanation adds interview or operational value. Promote validated reusable learning into its owning ADR, invariant, test, runbook, or stable agent guidance rather than creating a separate memory artifact by default. The human remains accountable for requirements, trade-offs, review, and acceptance.
 
 ## Rules for AI-Generated Code
 

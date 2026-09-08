@@ -15,6 +15,7 @@ from validate_contracts import (
     ID_PATTERNS,
     HARNESS_HEADINGS,
     LEGACY_TRACEABILITY_CHAIN,
+    PR_TEMPLATE_HEADINGS,
     TEMPLATES,
     TRACEABILITY_CHAIN,
     artifact_references,
@@ -140,6 +141,7 @@ class ValidatorTests(unittest.TestCase):
             root = Path(directory)
             (root / "docs" / "agents").mkdir(parents=True)
             (root / ".cursor" / "rules").mkdir(parents=True)
+            (root / ".github").mkdir(parents=True)
             harness = "# Direct Agent Harness\n\n" + "\n\n".join(
                 f"{heading}\n\nContent." for heading in HARNESS_HEADINGS
             )
@@ -149,10 +151,24 @@ class ValidatorTests(unittest.TestCase):
             (root / "docs" / "agents" / "execution-protocol.md").write_text("Direct.\n", encoding="utf-8")
             (root / "docs" / "agents" / "context-policy.md").write_text("Direct.\n", encoding="utf-8")
             (root / ".cursor" / "rules" / "01-task-execution.mdc").write_text("Direct.\n", encoding="utf-8")
+            pr_template = "\n\n".join(f"{heading}\n\nContent." for heading in PR_TEMPLATE_HEADINGS)
+            (root / ".github" / "pull_request_template.md").write_text(
+                pr_template, encoding="utf-8"
+            )
 
             errors: list[str] = []
             validate_harness(errors, root)
             self.assertEqual(errors, [])
+
+            (root / ".github" / "pull_request_template.md").write_text(
+                pr_template.replace("## Evaluation", "## Review"), encoding="utf-8"
+            )
+            errors = []
+            validate_harness(errors, root)
+            self.assertIn(
+                ".github/pull_request_template.md missing required heading: ## Evaluation",
+                errors,
+            )
 
     def test_valid_ready_plan_matches_accepted_source_version(self) -> None:
         errors: list[str] = []

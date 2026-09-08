@@ -63,10 +63,17 @@ TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → EVIDENCE"
 LEGACY_TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
 HARNESS_HEADINGS = (
     "## Purpose", "## Entry modes", "## Artifact resolution", "## Bootstrap",
-    "## Context budget", "## Execution loop", "## Role lenses", "## Parallelism",
-    "## Evidence and handoff", "## Portability", "## Removed interfaces",
-    "## Stop conditions",
+    "## Context budget", "## Execution loop", "## Tool contract", "## Role lenses",
+    "## Evaluation contract", "## Parallelism", "## State and memory",
+    "## AgentOps evidence", "## Evidence and handoff", "## Portability",
+    "## Removed interfaces", "## Stop conditions",
 )
+PR_TEMPLATE_HEADINGS = (
+    "## Authority and intent", "## Change", "## Risk and failure model",
+    "## Verification evidence", "## Evaluation", "## AgentOps and handoff",
+)
+
+
 def has_markdown_heading(content: str, heading: str) -> bool:
     """Match an exact Markdown heading line outside fenced code blocks."""
     in_fence = False
@@ -117,6 +124,17 @@ def validate_harness(errors: list[str], root: Path = ROOT) -> None:
     for path, reference in required_links:
         if not path.is_file() or reference not in path.read_text(encoding="utf-8"):
             errors.append(f"{path.relative_to(root)} must reference the direct agent harness")
+
+    pr_template = root / ".github" / "pull_request_template.md"
+    if not pr_template.is_file():
+        errors.append("missing agentic evidence surface: .github/pull_request_template.md")
+    else:
+        pr_content = pr_template.read_text(encoding="utf-8")
+        for heading in PR_TEMPLATE_HEADINGS:
+            if not has_markdown_heading(pr_content, heading):
+                errors.append(
+                    f".github/pull_request_template.md missing required heading: {heading}"
+                )
 
 def parse_frontmatter(content: str) -> dict[str, str] | None:
     match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
