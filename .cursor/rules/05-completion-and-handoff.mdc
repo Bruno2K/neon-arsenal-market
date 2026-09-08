@@ -9,15 +9,17 @@ Before declaring a task complete, perform a final verification pass.
 
 ## Completion checklist
 
-- [ ] Issue acceptance criteria addressed
+- [ ] Authoritative acceptance criteria addressed
 - [ ] Relevant invariants reviewed
 - [ ] Tests added/updated where behavior changed
 - [ ] Targeted tests executed
 - [ ] Relevant typecheck/lint/build executed
 - [ ] Final diff inspected
+- [ ] Material-work evaluation rubric passed with cited evidence
 - [ ] No unrelated changes
 - [ ] No secrets/debug artifacts
 - [ ] Known risks documented
+- [ ] Reusable learning promoted to its owning authority, or explicitly recorded as none
 
 If any required item is incomplete, do not present the task as fully complete.
 

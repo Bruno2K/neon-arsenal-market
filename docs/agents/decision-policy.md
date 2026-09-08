@@ -44,7 +44,7 @@ Prefer the smallest change that establishes the required invariant. A task shoul
 If implementation reveals a larger architectural problem, finish the safe local fix if possible and create a follow-up issue for the broader change.
 
 ## Review independence
-An implementation agent must not mark its own work as fully verified. Verification must inspect the resulting diff and execute the acceptance checks independently.
+An implementation agent must not mark its own work as verified from self-confidence. Verification is an adversarial stage that reopens the resulting diff, acceptance criteria, failure paths, and executed checks from a reviewer perspective. It may run in the same agent session when no separate reviewer is available, but the human remains the merge authority and high-risk work should use independent review when practical.
 
 ## Evidence rule
 Statements such as "safe", "idempotent", "concurrent", "production-ready" or "tested" require evidence in code, tests, configuration, or executed commands. Never infer these properties from intention alone.

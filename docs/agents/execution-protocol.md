@@ -14,7 +14,9 @@ TESTING
 REVIEWING
   ↓
 VERIFYING
-  ├── PASS → DONE
+  ↓
+EVALUATING
+  ├── PASS → RECORDING → DONE
   ├── FAIL → IMPLEMENTING
   └── BLOCKED → HUMAN
 ```
@@ -45,10 +47,19 @@ Reviewers should not duplicate the implementation agent's repository exploration
 ## VERIFYING
 Verification independently executes the agreed checks and confirms the acceptance criteria. If verification fails, return to `IMPLEMENTING` with the exact failure evidence.
 
+## EVALUATING
+Apply the risk-proportionate evaluation contract in `docs/agents/harness.md`. Material work must meet the rubric threshold with cited evidence; deterministic checks passing does not erase an architectural, security, or invariant failure.
+
+The evaluator routes the workflow: pass advances to `RECORDING`, a correctable failure returns to `IMPLEMENTING`, and ambiguity or exhausted retry budget moves to `HUMAN`.
+
+## RECORDING
+Persist the evidence needed to review or resume the work. Use the PR description for ordinary work and a Task, verification note, ADR, invariant, or runbook only when that durable authority is justified. Promote validated reusable learning according to the harness memory policy.
+
 ## DONE
 Only after:
 - acceptance criteria are satisfied;
 - tests/checks have executed successfully;
+- evaluation has met the applicable threshold;
 - review risks are resolved or explicitly accepted;
 - relevant docs/ADRs are updated;
 - handoff is complete.
