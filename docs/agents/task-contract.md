@@ -8,7 +8,7 @@ A Task is the smallest reviewable unit authorized for execution. It translates o
 
 Every file under `docs/tasks/` uses `TASK-<DOMAIN>-<NUMBER>` in both frontmatter and title. The frontmatter records `status`, `version`, Specification and Plan versions, immutable Git baseline, one `owner`, and creation/update dates. `source_issue` is optional external-tracker metadata.
 
-The canonical template is [`../templates/task.md`](../templates/task.md). The factory validator checks the machine-readable structure.
+The canonical template is [`../templates/task.md`](../templates/task.md). The documentation validator checks the machine-readable structure.
 
 ## Lifecycle
 
@@ -38,7 +38,7 @@ Dependencies use canonical Task IDs or `None`. A Task becomes `Ready` only after
 
 The verification command must be executable from the repository root. Evidence records the exact result rather than a claim of success. A Task can become `Done` only when all acceptance criteria are checked, the command succeeds, the diff stays within `Allowed Files`, and the traceability chain is recoverable:
 
-`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → EVIDENCE`
 
 ## Version policy
 

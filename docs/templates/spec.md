@@ -119,7 +119,7 @@ Reference relevant ADRs, current architecture, invariant catalog, provider docum
 Material changes must preserve this chain:
 
 ```text
-SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
 ### Traceability metadata
@@ -129,9 +129,7 @@ SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION →
 - Plan: `PLAN-...`
 - Tasks: `TASK-...`
 - PR: `#...`
-- Verification/Convergence: `...`
-- Evaluation: `EVAL-...`
-- Memory: `MEM-...`
+- Evidence: tests, checks, PR, or `docs/verification/...`
 
 When present, `source_issue` must use the canonical GitHub Issue reference format `#<number>`. The Specification remains authoritative without an external tracker.
 

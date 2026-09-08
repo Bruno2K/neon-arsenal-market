@@ -21,6 +21,12 @@ The project focuses primarily on the backend and its business rules, including:
 - Automated testing and CI
 - Optional OpenTelemetry traces and metrics
 
+## Engineering Case Study
+
+This repository is also an interview-oriented proof of concept for Senior Backend engineering in a high-scale commerce context. Its flagship stories are concurrent purchase of a unique listing, reliable payment confirmation, and evidence-based operation and performance. AI agents assist bounded implementation and review; the project owner remains accountable for requirements, architecture, trade-offs, and acceptance.
+
+See [`docs/portfolio/mercado-livre-backend-poc.md`](docs/portfolio/mercado-livre-backend-poc.md) for the positioning, evidence targets, and public Mercado Livre engineering references. The project does not claim to reproduce Mercado Livre's private internal process or production scale.
+
 ## Architecture
 
 The backend is organized by domain modules using a layered structure:

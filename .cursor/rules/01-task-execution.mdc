@@ -17,7 +17,7 @@ When the user names a Task, Plan, Specification, external Issue, feature, bug, o
 - Read relevant architecture and invariant documents.
 - Search for existing implementations, tests, migrations, and related abstractions.
 
-For non-trivial work, present a concise plan before making broad changes. Do not ask for confirmation merely because a plan is needed; proceed when the task is within autonomous boundaries.
+For non-trivial work, present a concise plan before making broad changes. Do not ask for confirmation merely because a plan is needed; proceed when the task is within the user's request and documented boundaries.
 
 ## During coding
 

@@ -60,4 +60,4 @@ Commit:
 - <sha, if created>
 ```
 
-If blocked, clearly state the decision required from the human and why autonomous execution cannot safely continue.
+If blocked, clearly state the decision required from the human and why execution cannot safely continue within the authorized boundary.

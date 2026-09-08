@@ -74,7 +74,7 @@ Specific risks for this task.
 
 ## Traceability
 
-`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
+`SPEC → PLAN → TASK(S) → PR → EVIDENCE`
 
 ## Change History
 
