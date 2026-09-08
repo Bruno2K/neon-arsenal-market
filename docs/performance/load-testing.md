@@ -2,8 +2,8 @@
 
 Contract: `SPEC-0009`. Harness: `load-tests/k6/neon-arsenal.js`. Issue: #55.
 
-For the GitHub Actions + isolated Render execution path, including the exact
-dashboard-only setup, see `docs/operations/load-test-ci.md`.
+For the no-card GitHub Actions execution path, see
+`docs/operations/load-test-ci.md`.
 
 ## Safety gate
 
