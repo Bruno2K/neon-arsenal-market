@@ -1,13 +1,13 @@
 ---
 id: PLAN-0006
 status: Ready
-version: 1
+version: 2
 source_spec: SPEC-0009
-source_spec_version: 1
-baseline_revision: 624f14a0ed3bbd8a2671e1fcace0f70866ab9106
+source_spec_version: 2
+baseline_revision: bb829f41e320be915d9633e637071011701e4dc1
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-08
 ---
 
 # [PLAN-0006] — k6 load testing and capacity evidence
@@ -18,10 +18,10 @@ updated: 2026-09-07
 
 ## Source
 
-- Specification: `SPEC-0009` v1
-- Issue: `#55`
+- Specification: `SPEC-0009` v2
+- External tracker: `#55` (optional)
 - Planning task: performance evidence before infrastructure expansion
-- Baseline: `624f14a0ed3bbd8a2671e1fcace0f70866ab9106`
+- Baseline: `bb829f41e320be915d9633e637071011701e4dc1`
 
 ## Current State
 
@@ -52,7 +52,7 @@ No schema change. The opt-in orders profile mutates disposable fixture rows thro
 1. Accept `SPEC-0009` and bind this Ready Plan to the exact baseline.
 2. Implement profiles, checks, thresholds, input gates and JSON summary.
 3. Document environment/resource capture and reporting.
-4. Validate static factory rules and k6 script inspection when the binary is available.
+4. Validate documentation contracts and inspect the k6 script when the binary is available.
 5. Deploy/provision an isolated production-like target and run all profiles three times.
 6. Update capacity evidence and evaluate whether an ADR 0018/0019 review is triggered.
 
@@ -71,7 +71,8 @@ The sequence is intentionally serial because architecture conclusions depend on 
 ## Verification Strategy
 
 ```bash
-python3 scripts/ai-factory/validate.py
+python scripts/docs/validate_contracts.py
+python tests/tooling/test_docs_contracts.py
 k6 inspect load-tests/k6/neon-arsenal.js
 k6 run load-tests/k6/neon-arsenal.js
 ```
@@ -103,18 +104,17 @@ Harness/docs are reviewed and inspect successfully; all five profiles run agains
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
-- Issue: `#55`
-- Specification: `SPEC-0009` v1
-- Plan: `PLAN-0006` v1
-- Tasks: `TASK-0010`
+- External tracker: `#55` (optional)
+- Specification: `SPEC-0009` v2
+- Plan: `PLAN-0006` v2
+- Tasks: `TASK-0010` v2
 - PR: pending
-- Verification/Convergence: pending isolated runtime
-- Evaluation: pending
-- Memory: pending
+- Evidence: pending isolated runtime
 
 ## Change History
 
+- `v2` — Migrated validation commands, baseline and traceability to the direct-agent documentation contract — 2026-09-08
 - `v1` — Ready plan for SPEC-0009 — 2026-09-07
