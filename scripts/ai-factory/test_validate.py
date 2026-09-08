@@ -14,6 +14,7 @@ from validate import (
     artifact_references,
     has_markdown_heading,
     validate_plan,
+    validate_task,
 )
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -38,6 +39,33 @@ class ValidatorTests(unittest.TestCase):
         headings = "\n\n".join(f"{heading}\n\nContent." for heading in TEMPLATES["plan.md"])
         return f"---\n{frontmatter}\n---\n\n# [PLAN-TEST-001] — Test\n\n{headings}\n\n{TRACEABILITY_CHAIN}\n"
 
+    def valid_task(self, **overrides: str) -> str:
+        metadata = {
+            "id": "TASK-TEST-001",
+            "status": "Blocked",
+            "version": "1",
+            "source_issue": '"#106"',
+            "source_spec": "SPEC-0004",
+            "source_spec_version": "1",
+            "source_plan": "PLAN-0001",
+            "source_plan_version": "1",
+            "baseline_revision": "aced10e53c76df40debb25fc5d07c74a0a7b5424",
+            "owner": "test",
+            "created": "2026-09-07",
+            "updated": "2026-09-07",
+        }
+        metadata.update(overrides)
+        frontmatter = "\n".join(f"{key}: {value}" for key, value in metadata.items())
+        sections = []
+        for heading in TEMPLATES["task.md"]:
+            body = "Content."
+            if heading == "## Acceptance Criteria":
+                body = "- [ ] `AC-01` Measurable outcome. **Evidence:** static check"
+            elif heading == "## Verification Command":
+                body = "```bash\npython scripts/ai-factory/validate.py\n```"
+            sections.append(f"{heading}\n\n{body}")
+        return f"---\n{frontmatter}\n---\n\n# [TASK-TEST-001] — Test\n\n" + "\n\n".join(sections) + f"\n\n{TRACEABILITY_CHAIN}\n"
+
     def test_canonical_id_patterns(self) -> None:
         valid = {
             "specs": "SPEC-ORDERS-001",
@@ -52,6 +80,7 @@ class ValidatorTests(unittest.TestCase):
         self.assertNotRegex("SPEC-orders-001", ID_PATTERNS["specs"])
         self.assertNotRegex("ORDER-001", ID_PATTERNS["specs"])
         self.assertNotRegex("PLAN-ORDERS-", ID_PATTERNS["plans"])
+        self.assertNotRegex("TASK-ORDERS-", ID_PATTERNS["tasks"])
 
     def test_artifact_reference_extraction_trims_paths_and_punctuation(self) -> None:
         content = "docs/plans/PLAN-0001-plan.md references PLAN-0001."
@@ -173,6 +202,45 @@ class ValidatorTests(unittest.TestCase):
         )
         validate_plan(Path("plan.md"), fenced_only, "PLAN-TEST-001", errors)
         self.assertIn("plan.md missing required Plan heading: ## Database", errors)
+
+    def test_valid_blocked_task_matches_draft_plan_version(self) -> None:
+        errors: list[str] = []
+        validate_task(Path("task.md"), self.valid_task(), "TASK-TEST-001", errors)
+        self.assertEqual(errors, [])
+
+    def test_executable_task_requires_ready_source_plan(self) -> None:
+        errors: list[str] = []
+        validate_task(
+            Path("task.md"),
+            self.valid_task(status="Ready"),
+            "TASK-TEST-001",
+            errors,
+        )
+        self.assertIn("task.md is Ready but source Plan PLAN-0001 is not Ready", errors)
+
+    def test_task_rejects_source_drift_and_incomplete_done_state(self) -> None:
+        errors: list[str] = []
+        content = self.valid_task(
+            status="Done",
+            source_plan_version="2",
+            source_spec_version="2",
+        )
+        validate_task(Path("task.md"), content, "TASK-TEST-001", errors)
+        self.assertIn("task.md is Done but has unchecked acceptance criteria", errors)
+        self.assertTrue(any("source_plan_version 2 does not match PLAN-0001 version 1" in error for error in errors))
+        self.assertTrue(any("source_spec_version 2 does not match PLAN-0001" in error for error in errors))
+
+    def test_task_requires_exact_command_and_contract_sections(self) -> None:
+        errors: list[str] = []
+        content = self.valid_task(owner="").replace("## Allowed Files", "## Files")
+        content = content.replace(
+            "```bash\npython scripts/ai-factory/validate.py\n```",
+            "```bash\n...\n```",
+        )
+        validate_task(Path("task.md"), content, "TASK-TEST-001", errors)
+        self.assertIn("task.md missing required Task frontmatter field: owner", errors)
+        self.assertIn("task.md missing required Task heading: ## Allowed Files", errors)
+        self.assertIn("task.md must contain an exact fenced verification command", errors)
 
     def test_repository_validation_passes(self) -> None:
         result = subprocess.run(

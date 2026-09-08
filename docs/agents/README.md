@@ -76,6 +76,8 @@ A task must have one clear owner at a time. Reviewers do not rewrite the impleme
 
 Material work follows the repository-native Plan contract in [`plan-contract.md`](plan-contract.md) and the canonical template in [`../templates/plan.md`](../templates/plan.md). A `Ready` Plan is bound to one accepted Specification version; executors stop and replan when that source changes materially.
 
+Executable work follows the repository-native Task contract in [`task-contract.md`](task-contract.md) and the canonical template in [`../templates/task.md`](../templates/task.md). A `Ready` Task is bound to one `Ready` Plan version, has one owner, and defines its allowed files and exact verification command.
+
 ## Token-efficiency rules
 
 1. Start with the smallest relevant context. Do not load the whole repository.
