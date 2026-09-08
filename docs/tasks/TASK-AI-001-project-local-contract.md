@@ -2,9 +2,9 @@
 id: TASK-AI-001
 status: Done
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
-source_plan: PLAN-0006
+source_plan: PLAN-0009
 source_plan_version: 1
 baseline_revision: 168842cba79048d132153022b5af9d21f33134d8
 owner: Neon Arsenal Engineering
@@ -20,8 +20,8 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
-- Plan: `PLAN-0006` v1
+- Specification: `SPEC-0010` v1
+- Plan: `PLAN-0009` v1
 - External tracker: None
 
 ## Objective
@@ -49,7 +49,7 @@ Update AI engineering documentation, templates, existing traceability declaratio
 
 ## Preconditions
 
-`SPEC-0009` is Accepted, `PLAN-0006` is Ready, and the baseline commit resolves locally.
+`SPEC-0010` is Accepted, `PLAN-0009` is Ready, and the baseline commit resolves locally.
 
 ## Acceptance Criteria
 

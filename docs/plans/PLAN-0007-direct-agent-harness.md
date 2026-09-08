@@ -2,7 +2,7 @@
 id: PLAN-0007
 status: Ready
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
 baseline_revision: a40539921540417b88c56eddf2eee0eee6575565
 owner: "Neon Arsenal Engineering"
@@ -18,7 +18,7 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - ADR: `ADR 0020`
 - External tracker: None
 - Baseline: `a40539921540417b88c56eddf2eee0eee6575565`
@@ -78,7 +78,7 @@ Run Python compilation, artifact validation, validator tests, focused searches f
 
 ## Dependencies
 
-- `SPEC-0009` Accepted: satisfied.
+- `SPEC-0010` Accepted: satisfied.
 - `TASK-AI-001` Done: satisfied.
 - ADR 0020 Accepted: satisfied.
 
@@ -98,7 +98,7 @@ The direct harness is canonical, active instructions no longer require Issues or
 SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - Plan: `PLAN-0007` v1
 - Task: `TASK-AI-002`
 - PR: pending

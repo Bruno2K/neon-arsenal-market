@@ -1,8 +1,8 @@
 ---
-id: PLAN-0006
+id: PLAN-0009
 status: Ready
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
 baseline_revision: 168842cba79048d132153022b5af9d21f33134d8
 owner: "Neon Arsenal Engineering"
@@ -10,7 +10,7 @@ created: 2026-09-08
 updated: 2026-09-08
 ---
 
-# [PLAN-0006] — Establish the project-local AI engineering contract
+# [PLAN-0009] — Establish the project-local AI engineering contract
 
 ## Status
 
@@ -18,7 +18,7 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - External tracker: None
 - Baseline: `168842cba79048d132153022b5af9d21f33134d8`
 
@@ -79,7 +79,7 @@ Run the validator, validator unit suite, Python compilation, and diff whitespace
 ## Dependencies
 
 - Human acceptance of the optimized removal plan: satisfied.
-- `SPEC-0009` Accepted: satisfied.
+- `SPEC-0010` Accepted: satisfied.
 - Baseline commit available locally: satisfied.
 
 ## Stop Conditions
@@ -98,8 +98,8 @@ The canonical chain is project-local, Issue metadata is optional, graph failures
 SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Specification: `SPEC-0009` v1
-- Plan: `PLAN-0006` v1
+- Specification: `SPEC-0010` v1
+- Plan: `PLAN-0009` v1
 - Task: `TASK-AI-001`
 - PR: pending
 - Verification/Convergence: `docs/verification/ai-engineering-contract-v1.md`

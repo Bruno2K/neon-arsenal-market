@@ -2,7 +2,7 @@
 
 ## Scope
 
-Verification of `PLAN-0007` and `TASK-AI-002` under `SPEC-0009`. The change establishes the provider-neutral repository harness and aligns active agent instructions without removing legacy files.
+Verification of `PLAN-0007` and `TASK-AI-002` under `SPEC-0010`. The change establishes the provider-neutral repository harness and aligns active agent instructions without removing legacy files.
 
 ## Evidence
 

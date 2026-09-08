@@ -2,7 +2,7 @@
 id: PLAN-0008
 status: Ready
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
 baseline_revision: 7ad34cf1ff859115339913961b612269eaa65c9a
 owner: "Neon Arsenal Engineering"
@@ -18,7 +18,7 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - ADR: `ADR 0020`
 - External tracker: None
 - Baseline: `7ad34cf1ff859115339913961b612269eaa65c9a`
@@ -100,7 +100,7 @@ All retired paths are absent, active instructions use only the direct harness, v
 SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - Plan: `PLAN-0008` v1
 - Task: `TASK-AI-003`
 - PR: pending

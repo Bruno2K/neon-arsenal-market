@@ -1,5 +1,5 @@
 ---
-id: SPEC-0009
+id: SPEC-0010
 status: Accepted
 version: 1
 owner: "Neon Arsenal Engineering"
@@ -7,7 +7,7 @@ created: 2026-09-08
 updated: 2026-09-08
 ---
 
-# [SPEC-0009] — Project-local AI engineering contract
+# [SPEC-0010] — Project-local AI engineering contract
 
 ## Status
 
@@ -123,8 +123,8 @@ Existing valid `source_issue` values remain accepted. Existing Issue-based workf
 SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
-- Specification: `SPEC-0009` v1
-- Plan: `PLAN-0006` v1
+- Specification: `SPEC-0010` v1
+- Plan: `PLAN-0009` v1
 - Task: `TASK-AI-001`
 - PR: pending
 - Verification/Convergence: `docs/verification/ai-engineering-contract-v1.md`

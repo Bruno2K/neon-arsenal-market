@@ -2,7 +2,7 @@
 id: TASK-AI-003
 status: Done
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
 source_plan: PLAN-0008
 source_plan_version: 1
@@ -20,7 +20,7 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - Plan: `PLAN-0008` v1
 - ADR: `ADR 0020`
 - External tracker: None
@@ -63,7 +63,7 @@ Delete the old orchestrator system, align maintained guidance with the direct ha
 
 ## Preconditions
 
-`SPEC-0009` is Accepted, `PLAN-0008` is Ready, `TASK-AI-002` is Done, and the direct harness validates at the baseline.
+`SPEC-0010` is Accepted, `PLAN-0008` is Ready, `TASK-AI-002` is Done, and the direct harness validates at the baseline.
 
 ## Acceptance Criteria
 

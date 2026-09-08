@@ -1,0 +1,142 @@
+name: Ephemeral k6 load test
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: Read-only k6 profile to execute against an ephemeral API + PostgreSQL
+        required: true
+        type: choice
+        default: smoke
+        options:
+          - smoke
+          - catalog
+          - webhook_rejection
+      target_rps:
+        description: Requests per second for catalog/webhook profiles
+        required: true
+        type: string
+        default: "5"
+# The database is recreated per run; serialization keeps artifacts and runner
+# resources easy to correlate.
+concurrency:
+  group: neon-arsenal-ephemeral-load-test
+  cancel-in-progress: false
+
+jobs:
+  k6:
+    name: k6 (${{ inputs.profile }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+
+    env:
+      BASE_URL: http://127.0.0.1:3001
+      DATABASE_URL: postgresql://neon:ci_password@localhost:5432/neon_arsenal_loadtest
+      PORT: "3001"
+      SEED_DEMO_DATA: "true"
+      JWT_SECRET: ephemeral-load-test-access-secret
+      JWT_REFRESH_SECRET: ephemeral-load-test-refresh-secret
+      LOAD_PROFILE: ${{ inputs.profile }}
+      LOAD_TARGET_RPS: ${{ inputs.target_rps }}
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: neon
+          POSTGRES_PASSWORD: ci_password
+          POSTGRES_DB: neon_arsenal_loadtest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U neon -d neon_arsenal_loadtest"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: server/package-lock.json
+
+      - name: Install and build API
+        working-directory: server
+        run: |
+          npm ci
+          npx prisma generate
+          npm run test:db:prepare
+          npm run build
+
+      - name: Start ephemeral API
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/k6
+          (cd server && NODE_ENV=production npm start > ../artifacts/k6/api.log 2>&1 & echo $! > ../artifacts/k6/api.pid)
+
+      - name: Wait for API readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..30}; do
+            if curl --fail --silent --show-error --max-time 10 "$BASE_URL/ready" > /dev/null; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Timed out waiting for $BASE_URL/ready" >&2
+          cat artifacts/k6/api.log || true
+          exit 1
+
+      - name: Setup k6
+        uses: grafana/setup-k6-action@v1
+
+      - name: Run k6 profile
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts/k6
+          export RUN_ID="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          export LOAD_SUMMARY_PATH="artifacts/k6/${LOAD_PROFILE}-${RUN_ID}.json"
+          k6 run load-tests/k6/neon-arsenal.js
+
+      - name: Publish run summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          summary_file=$(find artifacts/k6 -maxdepth 1 -name '*.json' -print -quit || true)
+          if [[ -z "$summary_file" ]]; then
+            echo "## k6" >> "$GITHUB_STEP_SUMMARY"
+            echo "No JSON summary was generated." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          echo "## k6 — ${LOAD_PROFILE}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Target: \`${BASE_URL}\`" >> "$GITHUB_STEP_SUMMARY"
+          jq -r '
+            .metrics as $m |
+            [
+              ["requests", ($m.http_reqs.values.count // "n/a")],
+              ["rps", ($m.http_reqs.values.rate // "n/a")],
+              ["p95 ms", ($m.http_req_duration.values["p(95)"] // "n/a")],
+              ["p99 ms", ($m.http_req_duration.values["p(99)"] // "n/a")],
+              ["http failure rate", ($m.http_req_failed.values.rate // "n/a")]
+            ] | .[] | "| " + .[0] + " | " + (.[1] | tostring) + " |"' "$summary_file" \
+            | { echo "| Metric | Value |"; echo "| --- | ---: |"; cat; } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload k6 evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: k6-${{ inputs.profile }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/k6/
+          if-no-files-found: warn
+          retention-days: 30

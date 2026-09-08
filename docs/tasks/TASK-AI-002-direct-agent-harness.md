@@ -2,7 +2,7 @@
 id: TASK-AI-002
 status: Done
 version: 1
-source_spec: SPEC-0009
+source_spec: SPEC-0010
 source_spec_version: 1
 source_plan: PLAN-0007
 source_plan_version: 1
@@ -20,7 +20,7 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v1
+- Specification: `SPEC-0010` v1
 - Plan: `PLAN-0007` v1
 - ADR: `ADR 0020`
 - External tracker: None
@@ -50,7 +50,7 @@ Create the harness contract, align active agent guidance, retain legacy orchestr
 
 ## Preconditions
 
-`SPEC-0009` is Accepted, `PLAN-0007` is Ready, `TASK-AI-001` is Done, and the baseline resolves locally.
+`SPEC-0010` is Accepted, `PLAN-0007` is Ready, `TASK-AI-001` is Done, and the baseline resolves locally.
 
 ## Acceptance Criteria
 

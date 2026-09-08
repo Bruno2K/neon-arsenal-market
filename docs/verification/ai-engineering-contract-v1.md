@@ -2,7 +2,7 @@
 
 ## Scope
 
-Verification of `SPEC-0009`, `PLAN-0006`, and `TASK-AI-001`. The change is limited to AI engineering artifacts, agent guidance, templates, and deterministic validation.
+Verification of `SPEC-0010`, `PLAN-0009`, and `TASK-AI-001`. The change is limited to AI engineering artifacts, agent guidance, templates, and deterministic validation.
 
 ## Evidence
 
@@ -14,10 +14,10 @@ Verification of `SPEC-0009`, `PLAN-0006`, and `TASK-AI-001`. The change is limit
 
 ## Acceptance mapping
 
-- `SPEC-0009 AC-01` and `AC-02`: unit tests cover omitted and malformed `source_issue` for Specifications and Tasks.
-- `SPEC-0009 AC-03`: unit tests cover missing, self, cyclic, and unfinished Task dependencies.
-- `SPEC-0009 AC-04`: authority documents, contracts, templates, and existing artifacts use the project-local canonical chain.
-- `SPEC-0009 AC-05`: repository-wide validation passes and the changed-path review confirms no product behavior change.
+- `SPEC-0010 AC-01` and `AC-02`: unit tests cover omitted and malformed `source_issue` for Specifications and Tasks.
+- `SPEC-0010 AC-03`: unit tests cover missing, self, cyclic, and unfinished Task dependencies.
+- `SPEC-0010 AC-04`: authority documents, contracts, templates, and existing artifacts use the project-local canonical chain.
+- `SPEC-0010 AC-05`: repository-wide validation passes and the changed-path review confirms no product behavior change.
 
 ## Result
 

@@ -2,7 +2,7 @@
 
 ## Scope
 
-Verification of `PLAN-0008` and `TASK-AI-003` under `SPEC-0009`. The change removes the former orchestration system after the direct harness became canonical.
+Verification of `PLAN-0008` and `TASK-AI-003` under `SPEC-0010`. The change removes the former orchestration system after the direct harness became canonical.
 
 ## Removed surfaces
 
