@@ -45,14 +45,14 @@ Authority by concern:
 - **Acceptance evidence:** tests, static checks, integration/runtime evidence
 - **Agent procedure:** this file + `.cursor/rules/`
 - **Operational/engineering learning:** Engineering Memory (`docs/memory/`)
-- **Issue tracking/intake:** GitHub Issues; an Issue is not a substitute for a material Specification
+- **Optional external tracking:** GitHub Issues or another tracker may reference artifacts, but never authorize material work by themselves
 
-Materiality rule: create a Specification before implementation when a change affects business behavior, public API contracts, database schema/state, security, payment semantics, concurrency, reliability guarantees, architecture boundaries, or a significant user-visible workflow. Small, reversible, convention-backed changes may remain Issue + Task driven.
+Materiality rule: create a Specification before implementation when a change affects business behavior, public API contracts, database schema/state, security, payment semantics, concurrency, reliability guarantees, architecture boundaries, or a significant user-visible workflow. Small, reversible, convention-backed changes may remain Task driven without a Specification.
 
 Traceability for material changes must be recoverable as:
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 Do not invent missing requirements to make artifacts agree. When artifacts conflict, protect security, data integrity, and explicit invariants first; inspect code and tests; escalate material ambiguity to a human; then update the stale artifact after the decision is made.
@@ -61,7 +61,7 @@ Templates live under `docs/templates/`. Canonical artifact IDs and file naming a
 
 ## Before Changing Code
 
-1. Identify the Issue, Specification, Plan, or Task that authorizes the work.
+1. Identify the Specification, Plan, or Task that authorizes the work; an external Issue may provide context but is optional.
 2. Read `docs/architecture/ai-engineering-authority.md` for material changes and artifact conflicts.
 3. Load only the relevant architecture, invariant, role, execution, and provider documentation required by the task. Do not read every agent document by default.
 4. Read the relevant existing module, service, repository, schema, migration, and tests.
@@ -490,4 +490,4 @@ The main roadmap for this project prioritizes:
 
 Do not start a lower-priority initiative while a higher-priority correctness issue is known and unresolved, unless explicitly requested.
 
-Unified orchestrator (GitHub issues → role-assigned subagents): `python3 scripts/orchestrator/next.py`. Unqualified `next` means this command. Do not implement AWS/Terraform while ADR 0007 keeps Render. Historical shims: `python3 scripts/p-back/next.py` (`--track backend`), `python3 scripts/p-front/next.py` (`--track frontend`).
+Agents select work from validated repository Plans and Tasks. The legacy Issue-based command `python3 scripts/orchestrator/next.py` remains temporarily available during migration but is not authoritative or required. Do not implement AWS/Terraform while ADR 0007 keeps Render.

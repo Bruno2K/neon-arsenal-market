@@ -24,7 +24,7 @@ Evaluation
 Memory
 ```
 
-GitHub Issues are the operational intake and tracking layer. They are not a substitute for a material Specification.
+The repository is the durable engineering system of record. GitHub Issues or other trackers are optional intake and coordination layers; they may reference canonical artifacts but are not required and do not replace a material Specification.
 
 ## Authority by concern
 
@@ -50,15 +50,15 @@ GitHub Issues are the operational intake and tracking layer. They are not a subs
 
 A Specification is required when a change affects business behavior, public API contracts, database schema/state, security guarantees, payment semantics, concurrency, reliability, architecture boundaries, or user-visible workflow beyond a trivial isolated fix.
 
-Small reversible changes may use the existing Issue + task workflow until the specification threshold is triggered.
+Small reversible changes may use a Task directly until the specification threshold is triggered.
 
 ## Traceability
 
 Material work should be traceable as:
 
-`Issue → SPEC → PLAN → TASK(S) → PR → CONVERGENCE → EVALUATION`
+`SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY`
 
-Later phases may append `MEMORY` references to the chain.
+External tracker references may be attached to any artifact as metadata, without becoming a required node in the chain.
 
 ## Non-goals
 

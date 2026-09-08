@@ -127,7 +127,7 @@ All SPEC-0007 acceptance criteria have mapped tests or static/diff evidence. Uni
 ## Traceability
 
 ```text
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 ```
 
 - Issue: `#60`

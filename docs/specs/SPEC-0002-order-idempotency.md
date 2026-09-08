@@ -106,7 +106,7 @@ Run `npm --prefix server run test:unit -- src/modules/orders/__tests__/orders.se
 
 ## Traceability
 
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 
 - Issue: #5 (original behavior); related client integration: #82
 - Spec: SPEC-0002 v1

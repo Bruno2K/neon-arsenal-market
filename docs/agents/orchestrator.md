@@ -1,5 +1,7 @@
 # Agent Orchestrator Contract
 
+> Deprecated migration contract. ADR 0020 makes repository-native Specifications, Plans, and Tasks authoritative. This document describes the legacy adapter until its physical removal.
+
 ## Purpose
 
 The orchestrator is an engineering control plane around the repository. It coordinates scoped AI-agent work without becoming part of the Neon Arsenal application architecture.

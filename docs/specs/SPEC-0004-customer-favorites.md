@@ -108,7 +108,7 @@ Before acceptance: approve proposed response/error shapes and repeated DELETE se
 
 ## Traceability
 
-GitHub Issue → SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
 
 - Issue: #106
 - Spec: SPEC-0004 v1

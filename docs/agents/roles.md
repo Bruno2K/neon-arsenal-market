@@ -1,6 +1,6 @@
 # Agent Roles
 
-The roles below are logical responsibilities. They do not require separate AI products or separate repositories. A single orchestrator can invoke different role prompts sequentially.
+The roles below are logical responsibilities. They do not require separate AI products, separate repositories, or an orchestrator. A single coding agent can apply different review perspectives sequentially.
 
 ## Planner
 
