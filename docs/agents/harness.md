@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository is the agent harness. Any coding agent with repository access can work safely by reading the same durable artifacts and running the same deterministic checks. No agent vendor, GitHub Issue, prompt generator, model API, or parent orchestrator is required.
+This repository supplies guardrails for human-directed, AI-assisted development. Any coding agent with repository access can read the same durable artifacts and run the same deterministic checks. No agent vendor, GitHub Issue, prompt generator, model API, or parent orchestrator is required. The human owns material requirements, trade-offs, review, and acceptance.
 
 ## Entry modes
 
@@ -29,7 +29,7 @@ Accepted SPEC → Ready PLAN → Ready/InProgress TASK → code and tests → ve
 - Task decides the bounded objective, owner, allowed files, dependencies, and verification command.
 - Code describes current executable behavior; disagreement with an authoritative artifact is a defect to resolve.
 
-Never manufacture a missing link just to begin coding. Small reversible work may be Task-only when the materiality rule permits it.
+Never manufacture a missing link just to begin coding. Small reversible work may use a normal scoped PR with proportionate tests when the materiality rule permits it.
 
 ## Bootstrap
 
@@ -39,7 +39,7 @@ For an executable Task:
 2. Read the named Task and its source Plan and Specification.
 3. Read only the architecture, invariant, role, provider, and operational documents referenced by those artifacts or implicated by the risk.
 4. Search for the owning implementation and closest tests before opening broad directories.
-5. Run `python scripts/ai-factory/validate.py` before broad edits when artifact state may have changed.
+5. Run `python scripts/docs/validate_contracts.py` before broad edits when artifact state may have changed.
 6. Confirm Task status, source versions, dependencies, baseline, and allowed-file boundary.
 
 Do not load every document by default.
@@ -86,7 +86,7 @@ The static graph validator proves reference and lifecycle ordering. It does not 
 
 ## Evidence and handoff
 
-Completion records:
+Completion evidence records:
 
 - artifact IDs and exact versions;
 - files changed;
@@ -96,7 +96,7 @@ Completion records:
 - unresolved risks and unverified surfaces;
 - next eligible Task, when known.
 
-Use `docs/agents/handoff-template.md`. Never claim a check ran when it did not, and never treat a chat summary as durable evidence.
+Use `docs/agents/handoff-template.md` when another person or agent will continue the work. Otherwise, the PR description and executed checks may be sufficient. Never claim a check ran when it did not, and never treat a chat summary as durable evidence.
 
 ## Portability
 

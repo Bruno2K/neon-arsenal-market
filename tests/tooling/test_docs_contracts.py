@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Smoke/unit tests for the dependency-free AI Factory validator."""
+"""Smoke/unit tests for the dependency-free documentation validator."""
 from __future__ import annotations
 
 import subprocess
@@ -8,10 +8,13 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from validate import (
+ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(ROOT / "scripts" / "docs"))
+
+from validate_contracts import (
     ID_PATTERNS,
     HARNESS_HEADINGS,
-    RETIRED_ORCHESTRATOR_PATHS,
+    LEGACY_TRACEABILITY_CHAIN,
     TEMPLATES,
     TRACEABILITY_CHAIN,
     artifact_references,
@@ -23,8 +26,7 @@ from validate import (
     validate_task_graph,
 )
 
-ROOT = Path(__file__).resolve().parents[2]
-VALIDATOR = ROOT / "scripts" / "ai-factory" / "validate.py"
+VALIDATOR = ROOT / "scripts" / "docs" / "validate_contracts.py"
 
 
 class ValidatorTests(unittest.TestCase):
@@ -87,7 +89,7 @@ class ValidatorTests(unittest.TestCase):
             if heading == "## Acceptance Criteria":
                 body = "- [ ] `AC-01` Measurable outcome. **Evidence:** static check"
             elif heading == "## Verification Command":
-                body = "```bash\npython scripts/ai-factory/validate.py\n```"
+                body = "```bash\npython scripts/docs/validate_contracts.py\n```"
             sections.append(f"{heading}\n\n{body}")
         return f"---\n{frontmatter}\n---\n\n# [TASK-TEST-001] — Test\n\n" + "\n\n".join(sections) + f"\n\n{TRACEABILITY_CHAIN}\n"
 
@@ -96,8 +98,6 @@ class ValidatorTests(unittest.TestCase):
             "specs": "SPEC-ORDERS-001",
             "plans": "PLAN-ORDERS-001",
             "tasks": "TASK-ORDERS-001",
-            "evaluations": "EVAL-ORDERS-001",
-            "memory": "MEM-ORDERS-001",
         }
         for kind, value in valid.items():
             self.assertRegex(value, ID_PATTERNS[kind])
@@ -125,6 +125,16 @@ class ValidatorTests(unittest.TestCase):
             for heading in headings:
                 self.assertIn(heading, content)
 
+    def test_current_and_historical_traceability_are_supported(self) -> None:
+        errors: list[str] = []
+        validate_spec(
+            Path("legacy-spec.md"),
+            self.valid_spec().replace(TRACEABILITY_CHAIN, LEGACY_TRACEABILITY_CHAIN),
+            "SPEC-TEST-001",
+            errors,
+        )
+        self.assertEqual(errors, [])
+
     def test_direct_harness_contract_is_enforced(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -143,22 +153,6 @@ class ValidatorTests(unittest.TestCase):
             errors: list[str] = []
             validate_harness(errors, root)
             self.assertEqual(errors, [])
-
-            (root / "docs" / "agents" / "execution-protocol.md").write_text(
-                "Run scripts/orchestrator/next.py.\n", encoding="utf-8"
-            )
-            retired_runtime = root / "scripts" / "orchestrator"
-            retired_runtime.mkdir(parents=True)
-            (retired_runtime / "next.py").write_text("# retired\n", encoding="utf-8")
-            errors = []
-            validate_harness(errors, root)
-            self.assertTrue(any("must not require the legacy orchestrator" in error for error in errors))
-            self.assertIn(
-                "retired orchestrator path must be absent: scripts/orchestrator",
-                errors,
-            )
-
-            self.assertIn("scripts/orchestrator", RETIRED_ORCHESTRATOR_PATHS)
 
     def test_valid_ready_plan_matches_accepted_source_version(self) -> None:
         errors: list[str] = []
@@ -329,7 +323,7 @@ class ValidatorTests(unittest.TestCase):
         errors: list[str] = []
         content = self.valid_task(owner="").replace("## Allowed Files", "## Files")
         content = content.replace(
-            "```bash\npython scripts/ai-factory/validate.py\n```",
+            "```bash\npython scripts/docs/validate_contracts.py\n```",
             "```bash\n...\n```",
         )
         validate_task(Path("task.md"), content, "TASK-TEST-001", errors)
@@ -370,7 +364,7 @@ class ValidatorTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("AI Factory artifact validation: PASS", result.stdout)
+        self.assertIn("Documentation contract validation: PASS", result.stdout)
 
 
 if __name__ == "__main__":

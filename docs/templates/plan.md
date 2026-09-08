@@ -54,7 +54,7 @@ Describe schema, migration, transaction, locking, constraint, rollback, and reco
 
 ## Task Graph
 
-Use canonical `TASK-*` IDs and explicit directed edges. The repository validator rejects missing dependencies, self-dependencies, cycles, and executable tasks whose predecessors are not `Done`.
+Use canonical `TASK-*` IDs and explicit directed edges when the Plan contains multiple dependent Tasks. For a single-task Plan, state `Single Task — no dependency graph`. The repository validator rejects missing dependencies, self-dependencies, cycles, and executable tasks whose predecessors are not `Done`.
 
 ```text
 TASK-A → TASK-B → TASK-D
@@ -90,7 +90,7 @@ Define observable conditions proving all planned work and verification are compl
 ## Traceability
 
 ```text
-SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY
+SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
 - External tracker: `#...` (optional)
@@ -98,9 +98,7 @@ SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION →
 - Plan: `PLAN-EXAMPLE-001` v1
 - Tasks: `TASK-...`
 - PR: pending
-- Verification/Convergence: pending
-- Evaluation: pending
-- Memory: pending
+- Evidence: pending
 
 ## Change History
 

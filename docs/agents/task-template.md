@@ -1,6 +1,6 @@
 # Agent Task Template
 
-Use this structure for every autonomous engineering task.
+Use this structure when a bounded engineering task improves execution or handoff. Small reversible changes do not require a Task artifact by default.
 
 ## Objective
 One sentence describing the required outcome.

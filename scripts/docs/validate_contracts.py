@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate structural contracts of Neon Arsenal AI Factory artifacts."""
+"""Validate repository documentation contracts without running an AI agent."""
 from __future__ import annotations
 
 import re
@@ -33,13 +33,11 @@ TEMPLATES = {
         "## Expected Evidence", "## Stop Conditions", "## Traceability",
         "## Change History",
     ],
-    "evaluation.md": ["## Execution", "## Outcome", "## Software Quality", "## Agent Execution Quality", "## Evidence", "## Findings", "## Learning Candidates"],
-    "memory.md": ["## Status", "## Confidence", "## Statement", "## Evidence", "## Affected Areas", "## Last Verified", "## Agent Guidance"],
 }
 
 ID_PATTERNS = {
     k: re.compile(rf"^{p}-[A-Z0-9][A-Z0-9._-]*$")
-    for k, p in {"specs": "SPEC", "plans": "PLAN", "tasks": "TASK", "evaluations": "EVAL", "memory": "MEM"}.items()
+    for k, p in {"specs": "SPEC", "plans": "PLAN", "tasks": "TASK"}.items()
 }
 ID_PATTERNS["plans"] = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 ID_PATTERNS["tasks"] = re.compile(r"^TASK-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
@@ -61,27 +59,14 @@ GITHUB_ISSUE_REF = re.compile(r"^#[1-9][0-9]*$")
 SPEC_REF = re.compile(r"^SPEC-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 PLAN_REF = re.compile(r"^PLAN-[A-Z0-9](?:[A-Z0-9._-]*[A-Z0-9])?$")
 GIT_COMMIT = re.compile(r"^[0-9a-f]{40}$")
-TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
+TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → EVIDENCE"
+LEGACY_TRACEABILITY_CHAIN = "SPEC → PLAN → TASK(S) → PR → VERIFICATION/CONVERGENCE → EVALUATION → MEMORY"
 HARNESS_HEADINGS = (
     "## Purpose", "## Entry modes", "## Artifact resolution", "## Bootstrap",
     "## Context budget", "## Execution loop", "## Role lenses", "## Parallelism",
     "## Evidence and handoff", "## Portability", "## Removed interfaces",
     "## Stop conditions",
 )
-RETIRED_ORCHESTRATOR_PATHS = (
-    ".cursor/rules/06-orchestrator.mdc",
-    "docs/agents/orchestrator.md",
-    "docs/agents/p-back-orchestrator.md",
-    "docs/agents/p-front-orchestrator.md",
-    "scripts/orchestrator",
-    "scripts/p-back",
-    "scripts/p-front",
-    "scripts/next.sh",
-    "scripts/p-back-next.sh",
-    "scripts/p-front-next.sh",
-)
-
-
 def has_markdown_heading(content: str, heading: str) -> bool:
     """Match an exact Markdown heading line outside fenced code blocks."""
     in_fence = False
@@ -132,21 +117,6 @@ def validate_harness(errors: list[str], root: Path = ROOT) -> None:
     for path, reference in required_links:
         if not path.is_file() or reference not in path.read_text(encoding="utf-8"):
             errors.append(f"{path.relative_to(root)} must reference the direct agent harness")
-
-    legacy_command = "scripts/orchestrator/next.py"
-    active_paths = (
-        root / ".cursor" / "rules" / "01-task-execution.mdc",
-        root / "docs" / "agents" / "execution-protocol.md",
-        root / "docs" / "agents" / "context-policy.md",
-    )
-    for path in active_paths:
-        if path.is_file() and legacy_command in path.read_text(encoding="utf-8"):
-            errors.append(f"{path.relative_to(root)} must not require the legacy orchestrator")
-
-    for retired in RETIRED_ORCHESTRATOR_PATHS:
-        if (root / retired).exists():
-            errors.append(f"retired orchestrator path must be absent: {retired}")
-
 
 def parse_frontmatter(content: str) -> dict[str, str] | None:
     match = re.match(r"^---\n(.*?)\n---\n", content, re.DOTALL)
@@ -222,7 +192,7 @@ def validate_spec(path: Path, content: str, title_id: str, errors: list[str]) ->
     if re.search(r"^\s*- \[ \] `AC-[^`]+`.*\*\*Evidence:\*\*\s*(?:test|static check|integration|runtime|manual review)\s*$", content, re.MULTILINE) is None:
         errors.append(f"{relative} must contain at least one unchecked acceptance criterion with an Evidence class")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
 
@@ -263,7 +233,7 @@ def validate_plan(path: Path, content: str, title_id: str, errors: list[str]) ->
         if not has_markdown_heading(content, heading):
             errors.append(f"{relative} missing required Plan heading: {heading}")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
     if status != "Ready" or not source_spec or not frontmatter.get("source_spec_version"):
@@ -379,7 +349,7 @@ def validate_task(path: Path, content: str, title_id: str, errors: list[str]) ->
         if not has_markdown_heading(content, heading):
             errors.append(f"{relative} missing required Task heading: {heading}")
 
-    if TRACEABILITY_CHAIN not in content:
+    if not has_supported_traceability_chain(content):
         errors.append(f"{relative} is missing the canonical traceability chain")
 
     acceptance_section = markdown_section(content, "## Acceptance Criteria")
@@ -483,8 +453,6 @@ def validate_references(errors: list[str]) -> None:
         "PLAN-": validate_artifacts("plans", errors),
         "TASK-": validate_artifacts("tasks", errors),
     }
-    validate_artifacts("evaluations", errors)
-    validate_artifacts("memory", errors)
     validate_task_graph(errors)
 
     for path in sorted((ROOT / "docs").glob("**/*.md")):
@@ -503,17 +471,22 @@ def artifact_references(content: str, prefix: str) -> list[str]:
     return sorted({value.rstrip("._-") for value in raw})
 
 
+def has_supported_traceability_chain(content: str) -> bool:
+    """Accept the focused active chain while preserving committed history."""
+    return TRACEABILITY_CHAIN in content or LEGACY_TRACEABILITY_CHAIN in content
+
+
 def main() -> int:
     errors: list[str] = []
     validate_templates(errors)
     validate_harness(errors)
     validate_references(errors)
     if errors:
-        print("AI Factory artifact validation: FAILED")
+        print("Documentation contract validation: FAILED")
         print("\n".join(f"- {e}" for e in errors))
         return 1
 
-    print("AI Factory artifact validation: PASS")
+    print("Documentation contract validation: PASS")
     print("- canonical templates: valid\n- direct agent harness: valid\n- artifact IDs: valid\n- specification contracts: valid\n- plan contracts: valid\n- task contracts: valid\n- task graph: valid\n- internal references: valid")
     return 0
 

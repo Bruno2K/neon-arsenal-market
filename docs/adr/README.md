@@ -25,6 +25,8 @@ Issue #71 inventory. Decisions already recorded before this change are listed, n
 | [0017](./0017-api-url-versioning.md) | `/api/v1` + unversioned aliases |
 | [0018](./0018-redis-not-adopted.md) | **Redis not adopted** (#71) |
 | [0019](./0019-async-workers-sqs-not-adopted.md) | **SQS / worker not adopted** (#71) |
+| [0020](./0020-project-local-ai-engineering.md) | Repository-local artifacts replace mandatory orchestration |
+| [0021](./0021-interview-focused-ai-workflow.md) | AI workflow remains subordinate to backend interview evidence |
 
 PostgreSQL as source of truth is already a decision in ADR 0007 §4 and is assumed by 0001–0003, 0005, 0011, 0012, and 0016. No duplicate SoT ADR.
 

@@ -52,6 +52,6 @@ The Planner does not implement. Discovery that changes accepted behavior, archit
 
 ## Validation
 
-`python scripts/ai-factory/validate.py` validates Plan identity, metadata, lifecycle values, baseline revision, required sections, source reference format, numeric versions, canonical traceability, and the Task dependency graph. Cross-reference validation rejects a missing source Specification. A `Ready` Plan additionally requires an `Accepted` source at the exact declared version.
+`python scripts/docs/validate_contracts.py` validates Plan identity, metadata, lifecycle values, baseline revision, required sections, source reference format, numeric versions, canonical traceability, and the Task dependency graph. Cross-reference validation rejects a missing source Specification. A `Ready` Plan additionally requires an `Accepted` source at the exact declared version.
 
-Structural validation cannot prove that the decomposition is correct or that a source Specification is substantively accepted. Review and later planner/convergence phases provide that evidence.
+Structural validation cannot prove that the decomposition is correct or that a source Specification is substantively accepted. Human review and executed product checks provide that evidence.

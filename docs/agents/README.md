@@ -2,7 +2,7 @@
 
 ## Objective
 
-This repository uses AI coding agents as an autonomous engineering team. The team exists to move the project toward production-oriented Senior Backend Engineer evidence without accumulating speculative complexity.
+This repository uses AI coding agents as tools in a human-directed engineering workflow. The goal is to produce interview-ready evidence of Senior Backend judgment without accumulating speculative complexity or presenting agent infrastructure as the product.
 
 The agents must optimize for **correctness, small diffs, verification, and useful engineering evidence** rather than code volume.
 
@@ -25,7 +25,7 @@ If code and documentation disagree, the agent must inspect the code and flag the
 
 The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
 
-The repository artifact graph is the control plane. An agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles.
+When work is decomposed into repository Tasks, their graph is the control plane: an agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles. Small reversible requests may proceed directly with proportionate checks and PR evidence.
 
 Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python prompt generator, parent orchestrator, or external tracker is required to start an agent. File-disjoint Tasks may run in parallel only under the harness's semantic-independence rules.
 
@@ -42,7 +42,7 @@ Recommended roles:
 
 Do not run all roles for every task. Select the minimum set required by the risk profile.
 
-## Task lifecycle
+## Task lifecycle for decomposed work
 
 ```text
 Backlog
@@ -98,9 +98,9 @@ Every agent that finishes work must leave a compact handoff containing:
 
 The next agent should trust the handoff only as a navigation aid; it must verify critical claims against the repository.
 
-## Autonomous decision policy
+## Bounded decision policy
 
-Agents may autonomously:
+Within an explicit user request, agents may:
 
 - implement scoped roadmap tasks;
 - add or modify tests;
