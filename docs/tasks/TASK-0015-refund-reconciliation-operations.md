@@ -1,12 +1,12 @@
 ---
 id: TASK-0015
-status: Blocked
+status: Ready
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
 source_plan: PLAN-0012
 source_plan_version: 1
-baseline_revision: d0309efae576a4ab385e1cd13711b741ac857a2d
+baseline_revision: 2ec7897edabc3ab7b7b0ec68a5e8bddb89570799
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -16,7 +16,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Blocked`.
+`Ready`. TASK-0014 is Done and idempotent provider refund execution is merged on the current main baseline.
 
 ## Source
 
@@ -47,7 +47,7 @@ Refund reconciliation scan/loop, bounded retry policy using persisted state, met
 
 ## Preconditions
 
-TASK-0014 is Done and provider refund execution is idempotent.
+TASK-0014 is Done via PR #225 and provider refund execution is present on baseline `2ec7897edabc3ab7b7b0ec68a5e8bddb89570799`.
 
 ## Acceptance Criteria
 
@@ -85,7 +85,6 @@ Repeated reconciliation is idempotent; remote/local divergence converges when pr
 
 ## Stop Conditions
 
-- Stop unless TASK-0014 is Done.
 - Stop before adding external queue/worker infrastructure.
 - Stop if automatic recovery would require guessing provider outcome.
 - Stop before editing outside Allowed Files.
@@ -97,3 +96,4 @@ Repeated reconciliation is idempotent; remote/local divergence converges when pr
 ## Change History
 
 - 2026-09-08 — v1 — Blocked reconciliation task created after human approval.
+- 2026-09-09 — TASK-0015 released to Ready after TASK-0014 / PR #225 merged.
