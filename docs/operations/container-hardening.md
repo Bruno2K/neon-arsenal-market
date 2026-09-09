@@ -33,7 +33,7 @@ Scale-out on Render is **more API instances**, bounded by PostgreSQL connections
 
 ## Vulnerability scan (Trivy)
 
-CI job `Security (Trivy filesystem)` in `.github/workflows/ci.yml` runs Trivy against `server/` (Dockerfile + lockfile; no image registry). It **reports** CRITICAL/HIGH and does not fail the pipeline — the same policy as `npm audit` (`docs/operations/ci-protection.md`). Base-image CVEs are expected on `node:20-alpine` and are not a reason to invent ECR/GHCR.
+CI job `Security (Trivy High/Critical gate)` in `.github/workflows/ci.yml` runs Trivy against `server/` (Dockerfile + lockfile; no image registry) and fails on CRITICAL/HIGH findings. npm independently gates runtime High/Critical and all Critical findings according to `docs/security/dependency-vulnerability-policy.md`. Base-image packages require an image scan at the Render/registry boundary; the filesystem job must not be described as proof that a built image has no CVE.
 
 Local commands (not required in CI):
 

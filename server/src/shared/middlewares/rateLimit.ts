@@ -1,4 +1,6 @@
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
+import type { Request } from "express";
+import { resolveClientIp } from "../http/clientIp.js";
 
 const windowMs = 15 * 60 * 1000;
 
@@ -17,18 +19,23 @@ const authMax =
       ? 10
       : 100;
 
-/** General API: configurable per IP via RATE_LIMIT_API_MAX */
-export const apiLimiter = rateLimit({
-  windowMs,
-  max: Number.isNaN(apiMax) ? 10_000 : apiMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+export function rateLimitClientKey(req: Request): string {
+  const clientIp = resolveClientIp(req);
+  return clientIp === null ? "unknown-client" : ipKeyGenerator(clientIp, 56);
+}
+
+export function createRateLimiter(max: number) {
+  return rateLimit({
+    windowMs,
+    max,
+    keyGenerator: rateLimitClientKey,
+    standardHeaders: true,
+    legacyHeaders: false,
+  });
+}
+
+/** General API: configurable per client via RATE_LIMIT_API_MAX */
+export const apiLimiter = createRateLimiter(Number.isNaN(apiMax) ? 10_000 : apiMax);
 
 /** Auth routes (login/register): configurable via RATE_LIMIT_AUTH_MAX */
-export const authLimiter = rateLimit({
-  windowMs,
-  max: Number.isNaN(authMax) ? 100 : authMax,
-  standardHeaders: true,
-  legacyHeaders: false,
-});
+export const authLimiter = createRateLimiter(Number.isNaN(authMax) ? 100 : authMax);

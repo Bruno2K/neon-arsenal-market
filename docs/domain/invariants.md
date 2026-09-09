@@ -19,9 +19,27 @@ PostgreSQL is the source of truth. These invariants are not enforced by Redis, K
 | `INV-ORDER-TOTAL-COMPOSITION` | `Order.totalAmount` equals the sum of item `priceSnapshot` values. |
 | `INV-PAYMENT-TRUSTED-CONFIRM` | `PAID` comes from PayPal COMPLETED (webhook, capture, or GET), not a client assertion. |
 | `INV-AUTH-OWNERSHIP` | Customers and sellers only act on resources they own. |
+| `INV-RATE-LIMIT-CLIENT-IDENTITY` | Untrusted forwarding headers cannot choose limiter or audit identity. |
 | `INV-SELLER-COMMISSION-DECIMAL` | Commission and balance use `Decimal`, not JavaScript `number`. |
 
 Related IDs below keep this catalog aligned with the architecture narrative. Cite an existing test instead of cloning it.
+
+---
+
+## INV-RATE-LIMIT-CLIENT-IDENTITY
+
+**Statement:** In a supported deployment, an untrusted HTTP client cannot choose the identity used by rate limiting or audit attribution. Render traffic trusts only one valid `CF-Connecting-IP` value when the platform-provided `RENDER=true` is present; other environments use the socket peer.
+
+**Why it matters:** A caller-controlled forwarding chain can rotate limiter buckets, weakening protection against credential stuffing and application-level denial of service.
+
+**Enforced:**
+
+- HTTP edge: Express does not trust `X-Forwarded-For`; `resolveClientIp` accepts Render's overwritten header only under the Render platform signal.
+- Failure behavior: a missing, malformed, or multi-valued header falls back to the socket instead of accepting attacker-selected text.
+- Limiter: express-rate-limit's `ipKeyGenerator` groups IPv6 addresses by subnet.
+- Tests: `server/src/shared/http/__tests__/clientIp.test.ts` and `server/src/shared/middlewares/__tests__/rateLimit.test.ts`.
+
+**Related:** `INV-AUTH-REFRESH-FAMILY`, durable per-email login throttling.
 
 ---
 
