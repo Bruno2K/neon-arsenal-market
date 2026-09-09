@@ -439,6 +439,7 @@ export const paymentsService = {
     }
     span.setAttribute("app.reconcile_scanned", pending.length);
     span.setAttribute("app.reconcile_confirmed", confirmed);
+    await refundsService.reconcileUnresolvedRefunds();
     return { scanned: pending.length, confirmed };
     });
   },

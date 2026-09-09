@@ -182,6 +182,13 @@ describe("OpenTelemetry runtime", () => {
     appMetrics.webhooksFailed();
     appMetrics.sellerLedgerDriftDetected();
     appMetrics.sellerLedgerCorrected();
+    appMetrics.refundReconciliationScanned();
+    appMetrics.refundReconciliationAttempted();
+    appMetrics.refundReconciliationConverged();
+    appMetrics.refundReconciliationPending();
+    appMetrics.refundReconciliationRetryable();
+    appMetrics.refundReconciliationTerminalFailure();
+    appMetrics.refundReconciliationOperatorRequired();
 
     const metrics = await collectMetrics();
     expect(sumMetric(metrics, "orders.created")).toBe(1);
@@ -191,6 +198,14 @@ describe("OpenTelemetry runtime", () => {
     expect(sumMetric(metrics, "paypal.webhooks.duplicate")).toBe(1);
     expect(sumMetric(metrics, "seller.ledger.drift_detected")).toBe(1);
     expect(sumMetric(metrics, "seller.ledger.corrected")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.scanned")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.attempted")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.converged")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.still_pending")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.retryable_failure")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.terminal_failure")).toBe(1);
+    expect(sumMetric(metrics, "refund.reconciliation.operator_required")).toBe(1);
+    expect(metricAttributeKeys(metrics, "refund.reconciliation.scanned")).toEqual(new Set());
     expect(telemetryContainsSensitive(await collectSpans(), metrics)).toBe(false);
   });
 

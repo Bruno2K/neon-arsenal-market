@@ -10,7 +10,7 @@ API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`)
 2. `server/entrypoint.sh` runs `prisma migrate deploy`.
 3. If `SEED_DEMO_DATA=true`, the entrypoint also runs `npm run db:seed`.
 4. `node dist/index.js` starts. It binds **`0.0.0.0:$PORT`** (`PORT` is `3001` in the Blueprint). If `SEED_DEMO_DATA=true`, `index.ts` seeds again. Both passes upsert; they do not overwrite existing rows. If `CS2SH_IMPORT=true` and `CS2SH_API_KEY` is set, `index.ts` schedules the cs2.sh catalog import **after** `app.listen` so Render `GET /ready` is not blocked. Missing key logs and skips; a failed import does not prevent listen.
-5. In-process jobs start after listen: reservation expiry (30s), PayPal GET reconciliation (60s), and seller ledger reconciliation (60s).
+5. In-process jobs start after listen: reservation expiry (30s), PayPal order/refund reconciliation (60s), and seller ledger reconciliation (60s).
 
 The Blueprint also defines static `neon-arsenal-web`. The public demo often uses Vercel for the Vite client and Render only for the API; set `FRONTEND_URL` on the API and `API_URL` on the frontend. Do not invent env vars.
 
@@ -85,6 +85,8 @@ These are investigation triggers for a human. This repository does not add a pag
 | `paypal.client.timeouts` | Any point in 15 minutes | 504 path. Do not retry `OrdersCreate` / `OrdersCapture`. |
 | `paypal.client.errors` ratio | &gt; 5% of `paypal.client.request.count` | SLO-ERR-PAYPAL. Check `PAYPAL_CLIENT_AUTH_FAILED` in logs. |
 | `seller.ledger.drift_detected` | Any increment | Ledger span + `SellerTransaction` SUM. Correction should follow (`seller.ledger.corrected`). |
+| `refund.reconciliation.terminal_failure` | Any increment | Compare the local refund row with the PayPal refund by `providerRefundId`; do not issue another refund. |
+| `refund.reconciliation.operator_required` | Any increment | A trusted terminal failure or unresolved state older than 24h needs human investigation. |
 | `outbox.failed` | Any increment | `outbox.dispatch` retries exhausted. Rows stay in PostgreSQL. |
 | `db.client.errors` | Any increment | Prisma exceptions. No SQL text in spans — use Render logs. |
 | `paypal.webhooks.failed` | Rising while `app.outcome` is not `reservation_expired` | Verify `PAYPAL_WEBHOOK_ID`, signature, `order_not_resolved` (503). |
@@ -169,68 +171,86 @@ LIMIT 50;
 
 Logs (no secrets): `paypal webhook received`, `paypal capture webhook processed`, `paypal webhook duplicate ignored`, `paypal webhook not applied: reservation expired`, `paypal reconciliation skipped: reservation expired`, `seller ledger projection drifted; corrected to PAID SUM`, `graceful shutdown started`.
 
-Capture after the reservation TTL is a split-brain with PayPal. Procedure: **Capture after reservation expiry** below.
+Capture after the reservation TTL creates a durable full technical-refund obligation. Procedure: **Refund reconciliation** below.
 
 ---
 
-## Capture after reservation expiry
+## Refund reconciliation
 
-PayPal can capture funds after the local reservation TTL has elapsed. The marketplace **must not** mark the listing `SOLD` or pay the seller. That invariant is already implemented (`confirmPayment` 409 + webhook HTTP 200). Returning the money is **not** implemented in this repository.
+PayPal can capture funds after the local reservation has become unfulfillable. The application preserves
+listing ownership, creates one durable full-BRL `Refund`, and uses PayPal's refund identity as trusted
+evidence. PayPal HTTP is outside PostgreSQL transactions; local `Refund`, `Order.paymentStatus`, append-only
+seller compensation, and `Seller.balance` changes commit atomically after provider completion is observed.
 
-### Code inspection (do not invent an API)
+### State meanings and selection
 
-Inspected:
+- `PENDING`: obligation exists; no trusted provider refund result is durable yet. Eligible after 2 minutes.
+- `PROCESSING`: an attempt is ambiguous, provider work is pending, or local completion remains. Eligible after 5 minutes.
+- `FAILED`: PayPal returned trusted `FAILED`/`CANCELLED`. It remains visible and is read again after 30 minutes so a later trusted `COMPLETED` observation can win; never replay POST when `providerRefundId` is known.
+- `COMPLETED`: trusted PayPal completion and all local financial effects committed. Later sweeps and stale observations are no-ops.
 
-- `server/src/shared/utils/paypal.ts` — `createPayPalOrder`, `capturePayPalOrder`, `getPayPalOrder`. No refund/void function.
-- `server/src/types/paypal.d.ts` — only OrdersCreate and OrdersCapture types.
-- `server/src/modules/payments/payments.service.ts` — expired capture → webhook event `FAILED` / `reservation_expired`; reconciliation skips the same 409.
-- No `PAYPAL_*` refund environment variable exists.
+The existing 60-second PayPal sweep selects at most 20 rows ordered by oldest `updatedAt`. A conditional
+`status + updatedAt` claim prevents duplicate work by overlapping API replicas. With a known
+`providerRefundId`, reconciliation calls Payments v2 RefundsGet. Without one (for example, a prior POST
+timed out), it safely replays CapturesRefund with the same deterministic `PayPal-Request-Id`. HTTP timeout,
+429, 5xx, and `409`/`PREVIOUS_REQUEST_IN_PROGRESS` remain retryable ambiguity; they never prove economic
+failure or completion. There is no tight retry loop and no new queue or worker service.
 
-Do not add a PayPal refund client, capture-void helper, or new env var until a human selects a provider contract.
-
-### How to detect
-
-1. Logs: `paypal webhook not applied: reservation expired` or `paypal reconciliation skipped: reservation expired`.
-2. Database:
+### Identify unresolved refunds (read-only)
 
 ```sql
-SELECT e."externalEventId", e.status, e."failureReason", e."orderId",
-       o."paypalOrderId", o.status AS order_status, o."paymentStatus",
-       i."listingId"
-FROM "PaymentWebhookEvent" e
-JOIN "Order" o ON o.id = e."orderId"
-JOIN "OrderItem" i ON i."orderId" = o.id
-WHERE e."failureReason" = 'reservation_expired'
-ORDER BY e."receivedAt" DESC;
+SELECT r.id, r."orderId", r.status, r."providerCaptureId", r."providerRefundId",
+       r."failureReason", r."createdAt", r."updatedAt", o."paymentStatus"
+FROM "Refund" r
+JOIN "Order" o ON o.id = r."orderId"
+WHERE r.status <> 'COMPLETED'
+ORDER BY r."updatedAt" ASC
+LIMIT 100;
 ```
 
-3. Confirm the listing is **not** `SOLD` and there is **no** `SellerTransaction` for that `orderId`.
-4. In the PayPal account (sandbox or live, matching `PAYPAL_MODE`), open the captured payment for `Order.paypalOrderId`. If PayPal shows captured funds, local and remote ledgers disagree.
+Use logs `refund reconciliation remains unresolved`, `refund reconciliation retry deferred`, and
+`refund reconciliation requires operator investigation`. Correlate by safe `refundId`/`orderId`; never
+paste OAuth tokens, credentials, customer data, or complete PayPal payloads into logs or tickets.
 
-### What to do (manual, out of band)
+### Safe investigation and recovery
 
-Until the HUMAN decision below is answered:
+1. Read the local row above. If `providerRefundId` exists, inspect that exact refund in the PayPal account
+   matching `PAYPAL_MODE`; distinguish its current `PENDING`, `COMPLETED`, or terminal `FAILED`/`CANCELLED`
+   state from an HTTP timeout or service error.
+2. If the provider is `PENDING` or unavailable, leave the row unresolved. The persisted-time policy will
+   retry RefundsGet. Do not treat a previous HTTP 2xx/timeout or an operator's recollection as completion.
+3. For remote `COMPLETED` + local `PROCESSING`/`FAILED`, leave the durable IDs intact and restore ordinary
+   sweep execution. RefundsGet will re-observe completion and call the idempotent local transaction. If the
+   first local commit crashed, the same path safely retries it.
+4. If no `providerRefundId` exists, verify the capture identity and deterministic local refund row. Allow
+   the sweep to replay the existing request ID. Do not create a new refund row or request ID.
+5. Human intervention is required immediately for trusted terminal provider failure, and for any unresolved
+   refund older than 24 hours (`refund.reconciliation.operator_required`). Investigate PayPal/account health
+   and application/database errors; preserve the row for audit and engineering follow-up.
 
-1. Do **not** set `Listing.status = SOLD`.
-2. Do **not** set `Order.paymentStatus = PAID` or create a `SellerTransaction`.
-3. Do **not** call undocumented PayPal URLs from this app.
-4. If funds were captured, reverse them in the **PayPal account UI** for that capture / order id (the same dashboard used to inspect sandbox or live payments). This runbook does not specify a REST path or request body; that would be inventing a contract this repo does not implement.
-5. After a dashboard reversal, local rows stay `PENDING` / `CANCELLED` and `FAILED`. There is no local `REFUNDED` write path. Leave them; the listing is already eligible for another buyer once `ACTIVE`.
-6. If the listing is still `RESERVED` with `reservationExpiresAt` in the past, the in-process expiry sweep (30s) will release it. Do not force `SOLD`.
+After completion, `Order.paymentStatus = REFUNDED`. If the seller was credited, there is exactly one
+`PAYMENT_CREDIT` and one `REFUND_COMPENSATION` per seller/order; compensation amounts are exact signed
+inverses and the PAID `netAmount` sum equals `Seller.balance`. If no credit existed, no negative movement
+exists. Diagnose with read-only SQL:
 
-### What not to do
+```sql
+SELECT r.id AS refund_id, r.status, o."paymentStatus", st."sellerId", st."entryType",
+       st."grossAmount", st."commissionAmount", st."netAmount", s.balance
+FROM "Refund" r
+JOIN "Order" o ON o.id = r."orderId"
+LEFT JOIN "SellerTransaction" st ON st."orderId" = o.id
+LEFT JOIN "Seller" s ON s.id = st."sellerId"
+WHERE r.id = '<refund-id>'
+ORDER BY st."createdAt";
+```
 
-- Replay the webhook hoping it will sell the listing. It will 409 again and stay `FAILED`.
-- Rely on GET reconciliation to fix money. It will skip the 409 forever.
-- Implement `OrdersCapture` retries or a new refund helper as part of incident response.
+### Operators must not
 
-### HUMAN decision (required before any refund code)
+- mark `Refund`/`Order` complete with SQL or insert/update ledger rows manually;
+- send another refund with a different `PayPal-Request-Id` or create a second refund obligation;
+- replay CapturesRefund when `providerRefundId` is already known; use RefundsGet evidence;
+- set a stale order/listing to `PAID`, `CONFIRMED`, or `SOLD`, or reclaim another buyer's reservation;
+- delete/rewrite a `PAYMENT_CREDIT` to hide compensation history;
+- classify timeout, throttling, 5xx, or request-in-progress as terminal economic failure.
 
-1. **Decision:** Should capture-after-expiry stay dashboard-only, or should the API reverse funds automatically?
-2. **Options:**
-   - A. Dashboard only (current). Operators follow this runbook. No new PayPal contract in the repo.
-   - B. Automated reverse, but only after documenting the **existing** PayPal API the account actually supports (refund vs void vs other), with timeout/idempotency, in a new activity — not guessed here.
-3. **Consequences:** A leaves rare captured-but-unsold money as a manual process. B without an inspected contract risks calling the wrong PayPal operation (voiding an already-captured order, double-refund, or marking `SOLD` incorrectly).
-4. **Recommendation:** Keep **A** until someone inspects the live/sandbox PayPal account and names the exact API. R2 must not guess.
-
-See also `docs/architecture/failure-modes.md` and `docs/adr/0002-paypal-webhook-reliability.md`.
+See also `docs/architecture/failure-modes.md`, `docs/adr/0002-paypal-webhook-reliability.md`, and ADR 0023.

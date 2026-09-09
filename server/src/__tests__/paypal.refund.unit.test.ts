@@ -6,6 +6,7 @@ import {
   refundPayPalCapture,
   resetPayPalTokenCacheForTests,
 } from "../shared/utils/paypal.js";
+import { getPayPalRefund } from "../modules/payments/paypal-refunds.client.js";
 
 function jsonResponse(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), {
@@ -113,5 +114,43 @@ describe("PayPal full capture refunds", () => {
       message: "PayPal CapturesRefund timed out",
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("reads current refund state by encoded provider refund id without an immediate retry", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "token", expires_in: 300 }))
+      .mockResolvedValueOnce(jsonResponse(200, { id: "REFUND/1", status: "PENDING" }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getPayPalRefund("REFUND/1")).resolves.toEqual({
+      id: "REFUND/1",
+      status: "PENDING",
+    });
+
+    const [url, init] = fetchMock.mock.calls[1] as [string, RequestInit];
+    expect(url).toBe("https://api-m.sandbox.paypal.com/v2/payments/refunds/REFUND%2F1");
+    expect(init.method).toBeUndefined();
+    expect(init.headers).toMatchObject({ Authorization: "Bearer token" });
+  });
+
+  it("keeps RefundsGet timeout and 5xx outcomes retryable for the persisted sweep", async () => {
+    const timeout = new Error("The operation was aborted");
+    timeout.name = "TimeoutError";
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "token", expires_in: 300 }))
+      .mockRejectedValueOnce(timeout);
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(getPayPalRefund("REFUND-TIMEOUT")).rejects.toMatchObject({ statusCode: 504 });
+
+    resetPayPalTokenCacheForTests();
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { access_token: "token-2", expires_in: 300 }))
+      .mockResolvedValueOnce(jsonResponse(503, { name: "INTERNAL_SERVER_ERROR" }));
+    await expect(getPayPalRefund("REFUND-503")).rejects.toMatchObject({
+      statusCode: 502,
+      message: "PayPal RefundsGet failed: 503",
+    });
   });
 });

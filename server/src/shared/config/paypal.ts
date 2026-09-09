@@ -9,6 +9,21 @@ export const PAYPAL_RECONCILE_MIN_AGE_MS = 2 * 60 * 1000;
 
 export const PAYPAL_RECONCILE_BATCH_SIZE = 20;
 
+/** Refund reconciliation shares the PayPal sweep without adding another timer. */
+export const PAYPAL_REFUND_RECONCILE_BATCH_SIZE = 20;
+
+/** New obligations wait briefly for the request path that created them to finish. */
+export const PAYPAL_REFUND_PENDING_RETRY_MS = 2 * 60 * 1000;
+
+/** Ambiguous attempts are retried only by a later sweep, never in a busy loop. */
+export const PAYPAL_REFUND_PROCESSING_RETRY_MS = 5 * 60 * 1000;
+
+/** Trusted FAILED observations are inspected less often for later provider convergence. */
+export const PAYPAL_REFUND_FAILED_RETRY_MS = 30 * 60 * 1000;
+
+/** Unresolved ambiguity older than this emits an operator-intervention signal. */
+export const PAYPAL_REFUND_OPERATOR_AGE_MS = 24 * 60 * 60 * 1000;
+
 /**
  * Maximum |now − paypal-transmission-time| accepted during signature verification.
  * PayPal documents a 5-minute replay window for webhook timestamps.

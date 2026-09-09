@@ -34,7 +34,7 @@ export async function withPaypalOperation<T>(
       } catch (err) {
         const timeout = err instanceof AppError && err.statusCode === 504;
         const statusMatch =
-          err instanceof Error ? err.message.match(/PayPal OrdersGet failed: (\d+)/) : null;
+          err instanceof Error ? err.message.match(/PayPal \w+ failed: (\d+)/) : null;
         const statusCode = statusMatch ? Number(statusMatch[1]) : undefined;
         appMetrics.recordPaypalRequest(
           operation,
