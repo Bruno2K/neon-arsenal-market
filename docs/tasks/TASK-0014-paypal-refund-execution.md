@@ -1,12 +1,12 @@
 ---
 id: TASK-0014
-status: Ready
+status: Done
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
 source_plan: PLAN-0012
 source_plan_version: 1
-baseline_revision: f6428d7243c257e5068ddd78756aee45796c8054
+baseline_revision: 2ec7897edabc3ab7b7b0ec68a5e8bddb89570799
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -16,7 +16,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Ready`. TASK-0013 is Done and its refund/ledger foundation is merged on the current main baseline.
+`Done`. Implemented and merged through PR #225.
 
 ## Source
 
@@ -46,15 +46,15 @@ PayPal refund utility/adapter work, payment-service integration, durable claim/u
 
 ## Preconditions
 
-TASK-0013 is Done via PR #223 and its migration/model are present on baseline `f6428d7243c257e5068ddd78756aee45796c8054`.
+TASK-0013 is Done via PR #223. TASK-0014 implementation is merged as PR #225 on baseline `2ec7897edabc3ab7b7b0ec68a5e8bddb89570799`.
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` Completed PayPal capture with invalid reservation creates/uses refund obligation and never sells the stale listing. **Evidence:** integration
-- [ ] `AC-02` Duplicate/concurrent paths cause at most one economic provider refund. **Evidence:** integration/concurrency
-- [ ] `AC-03` Provider-completed refund can be replayed after crash and locally applied once. **Evidence:** integration
-- [ ] `AC-07` Duplicate/out-of-order events converge from provider state and local invariants. **Evidence:** test/integration
-- [ ] `AC-08` Timeout/unknown outcome is not marked complete and remains recoverable. **Evidence:** test/integration
+- [x] `AC-01` Completed PayPal capture with invalid reservation creates/uses refund obligation and never sells the stale listing. **Evidence:** integration
+- [x] `AC-02` Duplicate/concurrent paths cause at most one economic provider refund. **Evidence:** integration/concurrency
+- [x] `AC-03` Provider-completed refund can be replayed after crash and locally applied once. **Evidence:** integration
+- [x] `AC-07` Duplicate/out-of-order events converge from provider state and local invariants. **Evidence:** test/integration
+- [x] `AC-08` Timeout/unknown outcome is not marked complete and remains recoverable. **Evidence:** test/integration
 
 ## Dependencies
 
@@ -92,3 +92,4 @@ Focused tests prove late capture, duplicate replay, provider success/local crash
 
 - 2026-09-08 — v1 — Blocked provider task created after human approval.
 - 2026-09-09 — TASK-0014 released to Ready after TASK-0013 / PR #223 merged.
+- 2026-09-09 — TASK-0014 implemented, reviewed, CI green, and merged via PR #225.
