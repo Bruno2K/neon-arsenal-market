@@ -1,6 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { SpanStatusCode } from "@opentelemetry/api";
-import { describe, expect, it, beforeAll, afterAll, beforeEach } from "vitest";
+import { describe, expect, it, beforeAll, afterAll, beforeEach, vi } from "vitest";
+
+vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+  return {
+    ...actual,
+    refundPayPalCapture: vi.fn(async (captureId: string) => ({
+      id: `REFUND-${captureId}`,
+      status: "COMPLETED" as const,
+    })),
+  };
+});
 import { prisma } from "../shared/database/index.js";
 import { listingsService } from "../modules/listings/listings.service.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
@@ -133,7 +144,7 @@ describe("critical-flow telemetry (postgres)", () => {
     expect(reserved?.status).toBe("RESERVED");
   });
 
-  it("records payment confirmation, failure and duplicate webhook outcomes", async () => {
+  it("records payment confirmation, compensated failure and duplicate webhook outcomes", async () => {
     const fixture = await createCheckoutGraph();
     const order = await createOrder(fixture.customer.id, [fixture.listings[0].id], orderKey("otel-pay"));
     const eventId = `WH-${randomUUID()}`;
@@ -164,7 +175,7 @@ describe("critical-flow telemetry (postgres)", () => {
     expect(spansNamed(spans, "payments.confirm").length).toBeGreaterThanOrEqual(1);
     expect(spansNamed(spans, "payments.confirm.transaction").length).toBeGreaterThanOrEqual(1);
     expect(spanOutcomes(spans, "paypal.webhook.handle")).toEqual(
-      expect.arrayContaining(["webhook_ignored", "confirmed", "webhook_duplicate", "reservation_expired"])
+      expect.arrayContaining(["webhook_ignored", "confirmed", "webhook_duplicate", "refunded"])
     );
 
     const metrics = await collectMetrics();
@@ -173,7 +184,7 @@ describe("critical-flow telemetry (postgres)", () => {
     expect(sumMetric(metrics, "paypal.webhooks.received")).toBeGreaterThanOrEqual(4);
     expect(sumMetric(metrics, "paypal.webhooks.duplicate")).toBeGreaterThanOrEqual(1);
     expect(sumMetric(metrics, "paypal.webhooks.ignored")).toBeGreaterThanOrEqual(1);
-    expect(sumMetric(metrics, "paypal.webhooks.failed")).toBeGreaterThanOrEqual(1);
+    expect(sumMetric(metrics, "paypal.webhooks.failed")).toBe(0);
     expect(telemetryContainsSensitive(spans, metrics)).toBe(false);
   });
 });

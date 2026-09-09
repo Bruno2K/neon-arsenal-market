@@ -1,8 +1,13 @@
+import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../../shared/database/index.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { MONEY_PRICE_SCALE } from "../../shared/money/policy.js";
 import { computeSellerLedgerCompensation } from "../../shared/money/sellerLedger.js";
+import {
+  refundPayPalCapture,
+  type PayPalRefundStatus,
+} from "../../shared/utils/paypal.js";
 
 export type CreateRefundObligationInput = {
   orderId: string;
@@ -15,7 +20,10 @@ export type RecordProviderConfirmedRefundInput = {
   providerRefundId: string;
 };
 
-/** Local refund persistence only. TASK-0013 deliberately performs no PayPal I/O. */
+export type RecordProviderRefundObservationInput = RecordProviderConfirmedRefundInput & {
+  status: Exclude<PayPalRefundStatus, "COMPLETED">;
+};
+
 export const refundsService = {
   async createObligation(input: CreateRefundObligationInput) {
     if (!input.providerCaptureId.trim()) {
@@ -93,11 +101,97 @@ export const refundsService = {
         throw new AppError(409, "Refund is already completed with another provider identity");
       }
 
+      await tx.order.update({
+        where: { id: resolved.orderId },
+        data: { paymentStatus: "REFUNDED" },
+      });
       const compensatedSellers = await appendCompletedRefundCompensation(tx, existing.id);
       return { refund: resolved, compensatedSellers };
     });
   },
+
+  /**
+   * Persists a trusted non-completed provider result without allowing stale or
+   * out-of-order observations to downgrade an already completed refund.
+   */
+  async recordProviderObservation(input: RecordProviderRefundObservationInput) {
+    if (!input.providerRefundId.trim()) {
+      throw new AppError(400, "Provider refund id is required");
+    }
+
+    return prisma.$transaction(async (tx) => {
+      const existing = await tx.refund.findUnique({ where: { id: input.refundId } });
+      if (!existing) throw new AppError(404, "Refund obligation not found");
+      if (existing.providerRefundId && existing.providerRefundId !== input.providerRefundId) {
+        throw new AppError(409, "Refund already has another provider identity");
+      }
+      if (existing.status === "COMPLETED") return existing;
+
+      const failed = input.status === "FAILED" || input.status === "CANCELLED";
+      await tx.refund.updateMany({
+        where: { id: existing.id, status: { not: "COMPLETED" } },
+        data: {
+          providerRefundId: input.providerRefundId,
+          status: failed ? "FAILED" : "PROCESSING",
+          failureReason: failed ? `paypal_refund_${input.status.toLowerCase()}` : null,
+        },
+      });
+      return tx.refund.findUniqueOrThrow({ where: { id: existing.id } });
+    });
+  },
+
+  /**
+   * Claims and performs one idempotent provider attempt. The PostgreSQL claim
+   * commits before PayPal I/O. PROCESSING is intentionally replayable because
+   * it can mean the provider succeeded before this process persisted the result.
+   */
+  async executeProviderRefund(refundId: string) {
+    await prisma.refund.updateMany({
+      where: { id: refundId, status: { in: ["PENDING", "FAILED"] } },
+      data: { status: "PROCESSING", failureReason: null },
+    });
+
+    const refund = await prisma.refund.findUnique({ where: { id: refundId } });
+    if (!refund) throw new AppError(404, "Refund obligation not found");
+    if (refund.status === "COMPLETED") {
+      return { refund, compensatedSellers: 0, requestId: buildPayPalRefundRequestId(refund.id) };
+    }
+    if (refund.provider !== "PAYPAL") {
+      throw new AppError(409, "Refund provider is not supported");
+    }
+
+    const requestId = buildPayPalRefundRequestId(refund.id);
+    const providerResult = await refundPayPalCapture(
+      refund.providerCaptureId,
+      requestId
+    );
+
+    if (providerResult.status === "COMPLETED") {
+      const completed = await refundsService.recordProviderConfirmedCompletion({
+        refundId: refund.id,
+        providerRefundId: providerResult.id,
+      });
+      return { ...completed, requestId };
+    }
+
+    const observed = await refundsService.recordProviderObservation({
+      refundId: refund.id,
+      providerRefundId: providerResult.id,
+      status: providerResult.status,
+    });
+    return { refund: observed, compensatedSellers: 0, requestId };
+  },
 };
+
+/** Stable 36-character key derived only from the durable local refund identity. */
+export function buildPayPalRefundRequestId(refundId: string): string {
+  if (!refundId.trim()) throw new AppError(400, "Refund id is required");
+  const digest = createHash("sha256")
+    .update(`neon-paypal-capture-refund:${refundId}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20)}`;
+}
 
 /**
  * Transaction-scoped compensation primitive for TASK-0014 composition.
