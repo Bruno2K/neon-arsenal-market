@@ -17,7 +17,7 @@ No GitHub Environment, external URL, PayPal credential, Blueprint, Vercel config
 - `smoke` and `catalog` are read-only. `ALLOW_WRITES` is absent. Smoke is deliberately paced at 1 request/second so it proves connectivity/response shape without tripping the production API rate limit; it is not a capacity profile.
 - `orders` alone receives `ALLOW_WRITES=true` and a generated list of unique `ACTIVE` listing IDs. Post-run SQL requires one order/reservation/idempotency result per listing and rejects duplicate consumption or payment/ledger side effects.
 - `payment_replay` receives local pending orders whose `PaymentLink` rows are already `COMPLETED` and whose PayPal IDs are synthetic local fixture identities. This exercises the existing replay early return. No PayPal credential is present and the internal Docker network has no provider egress, so an accidental provider call fails the run.
-- `webhook_rejection` sends only invalid signatures. Post-run SQL requires zero matching webhook-event rows.
+- `webhook_rejection` sends only invalid signatures. A `401` proves the signature verifier rejected the payload; after the production per-client limiter is exhausted, `429` is also a safe rejection at the earlier security boundary. The k6 profile accepts only `401` or `429`, requires at least one observed `401`, and post-run SQL requires zero matching webhook-event rows.
 
 ## Per-run procedure
 

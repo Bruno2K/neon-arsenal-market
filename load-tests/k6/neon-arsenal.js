@@ -2,7 +2,7 @@ import http from "k6/http";
 import { check, fail } from "k6";
 import exec from "k6/execution";
 import { SharedArray } from "k6/data";
-import { Rate } from "k6/metrics";
+import { Counter, Rate } from "k6/metrics";
 
 const BASE_URL = (__ENV.BASE_URL || "http://127.0.0.1:3001").replace(/\/$/, "");
 const PROFILE = __ENV.LOAD_PROFILE || "smoke";
@@ -16,6 +16,7 @@ const catalogFailures = new Rate("catalog_failures");
 const orderFailures = new Rate("order_failures");
 const paymentFailures = new Rate("payment_failures");
 const webhookFailures = new Rate("webhook_failures");
+const webhookSignatureRejections = new Counter("webhook_signature_rejections");
 
 const profiles = {
   smoke: {
@@ -87,6 +88,7 @@ export const options = {
     "order_failures{scenario:order_create}": ["rate<0.01"],
     "payment_failures{scenario:payment_replay}": ["rate<0.01"],
     "webhook_failures{scenario:webhook_rejection}": ["rate<0.01"],
+    "webhook_signature_rejections{scenario:webhook_rejection}": ["count>0"],
     "http_req_duration{scenario:catalog_browse}": ["p(95)<500", "p(99)<1000"],
     "http_req_duration{scenario:order_create}": ["p(95)<1000", "p(99)<2000"],
     "http_req_duration{scenario:payment_replay}": ["p(95)<750", "p(99)<1500"],
@@ -184,10 +186,13 @@ export function webhookRejection() {
         "paypal-cert-url": "https://example.invalid/cert.pem",
         "paypal-auth-algo": "SHA256withRSA",
       },
-      [401]
+      [401, 429]
     )
   );
-  const ok = check(response, { "invalid webhook is rejected": (r) => r.status === 401 });
+  if (response.status === 401) webhookSignatureRejections.add(1);
+  const ok = check(response, {
+    "invalid webhook is safely rejected": (r) => r.status === 401 || r.status === 429,
+  });
   webhookFailures.add(!ok);
 }
 
