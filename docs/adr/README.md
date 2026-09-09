@@ -28,6 +28,7 @@ Issue #71 inventory. Decisions already recorded before this change are listed, n
 | [0020](./0020-project-local-ai-engineering.md) | Repository-local artifacts replace mandatory orchestration |
 | [0021](./0021-interview-focused-ai-workflow.md) | AI workflow remains subordinate to backend interview evidence |
 | [0022](./0022-single-checkout-currency.md) | Single BRL checkout currency; cs2.sh USD remains catalog reference only |
+| [0023](./0023-rate-limit-client-identity.md) | Explicit, non-spoofable client identity at the Render edge |
 
 PostgreSQL as source of truth is already a decision in ADR 0007 §4 and is assumed by 0001–0003, 0005, 0011, 0012, and 0016. No duplicate SoT ADR.
 

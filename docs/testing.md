@@ -89,7 +89,7 @@ No PayPal credentials are required for persistence tests. PayPal HTTP calls stay
 
 ## CI
 
-GitHub Actions is documented in `docs/operations/ci-protection.md`. The backend job starts `postgres:16-alpine`, waits until `pg_isready` succeeds, sets `DATABASE_URL`, runs `prisma migrate deploy`, then unit + integration tests. A separate `contract` job runs `npm run test:contract` (no PostgreSQL). A `security` job runs `npm audit --audit-level=high` for the root and `server/` lockfiles and logs the report. Hard-fail is residual until a dedicated lockfile upgrade (see `docs/operations/ci-protection.md`).
+GitHub Actions is documented in `docs/operations/ci-protection.md`. The backend job starts `postgres:16-alpine`, waits until `pg_isready` succeeds, sets `DATABASE_URL`, runs `prisma migrate deploy`, then unit + integration tests. A separate `contract` job runs `npm run test:contract` (no PostgreSQL). The security jobs hard-fail on runtime High/Critical, all Critical, and Trivy High/Critical findings under `docs/security/dependency-vulnerability-policy.md`.
 
 ```bash
 npm run test:unit

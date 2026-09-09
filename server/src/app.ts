@@ -24,7 +24,9 @@ import { API_V1_PREFIX } from "./shared/http/apiVersion.js";
 
 const app = express();
 
-app.set("trust proxy", true);
+// X-Forwarded-For is caller-controlled on some proxy chains. Client identity is
+// resolved explicitly at the rate-limit/audit boundary (ADR 0023).
+app.set("trust proxy", false);
 
 app.use(requestId);
 app.use(securityHeaders);

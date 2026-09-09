@@ -11,8 +11,8 @@ Production remains Render (`render.yaml`, ADR 0007). This document does not add 
 | `frontend` | lint, `tsc --noEmit`, unit tests |
 | `backend` | Prisma generate + migrate, typecheck, unit, integration (Postgres 16) |
 | `contract` | `cd server && npm run test:contract` — OpenAPI vs real HTTP handlers |
-| `security` | `npm audit --audit-level=high` at the repo root and in `server/` (logged; not a hard fail yet) |
-| `trivy` | Filesystem scan of `server/` (Dockerfile + lockfile). Report-only (`exit-code: 0`). No GHCR/ECR. Local image command: `docs/operations/container-hardening.md` |
+| `security` | Blocking runtime High/Critical and all Critical npm audit gates at the root and in `server/` |
+| `trivy` | Blocking High/Critical filesystem scan of `server/` (Dockerfile + lockfile). No GHCR/ECR. Local image command: `docs/operations/container-hardening.md` |
 | `build` | Frontend Vite build and `server` `tsc` build, after the jobs above |
 
 Node 20. Backend integration uses `postgres:16-alpine` with the same `DATABASE_URL` pattern as before.
@@ -36,7 +36,7 @@ These #69 items stay human/admin work. Agents must not invent them:
 2. **Controlled production promotion** — the repository now has a manual, ephemeral GitHub Actions load-test workflow (`docs/operations/load-test-ci.md`), but it is deliberately not a production deploy workflow. Production deploys follow Render auto-deploy / dashboard rollback (`docs/operations/runbook.md`).
 3. **Container registry / deploy-time image CVE gate** — `server/Dockerfile` is built by Render. There is no GHCR/ECR push. CI now runs a **filesystem** Trivy job on `server/` (report-only). A failing image gate still needs a registry or a Render-side scanner; do not invent one.
 4. **AWS / Terraform / ECS promotion** — blocked while ADR 0007 selects Render.
-5. **Hard-failing npm audit** — current root and `server/` lockfiles already report high/critical findings (including `bcrypt` → `tar`, `react-router`, Vite/Vitest). Making `npm audit --audit-level=high` a failing gate would go red on `origin/main` and force unrelated upgrades (`npm audit fix --force` wants `bcrypt@6`). The job still runs and publishes the report. A dedicated dependency-upgrade PR can flip the steps to hard-fail.
+5. **Development-only High findings** — runtime High/Critical and all Critical findings now fail CI. The narrower Vite development-server exception, its exposure, owner and removal condition are recorded in `docs/security/dependency-vulnerability-policy.md`; it does not apply to production dependencies.
 
 ## Contract tests
 

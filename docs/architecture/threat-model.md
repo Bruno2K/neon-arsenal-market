@@ -33,7 +33,7 @@ This document describes **trust boundaries, assets, actors, and abuse cases agai
 
 The frontend (`src/`) is **not** a security boundary. It may hold a JWT in client storage; anyone who can call the API with that token is the user.
 
-There is **no** reverse proxy WAF, **no** CSRF token (sessions are Bearer headers, not cookie auth), **no** mTLS, and **no** IP allowlist on the webhook path. Browser-abuse headers are set by `securityHeaders` in `app.ts` (not the `helmet` package).
+There is **no repository-controlled WAF**, **no** CSRF token (sessions are Bearer headers, not cookie auth), **no** mTLS, and **no** IP allowlist on the webhook path. Render supplies its managed Cloudflare edge, but application-level abuse remains this service's responsibility. Browser-abuse headers are set by `securityHeaders` in `app.ts` (not the `helmet` package).
 
 ---
 
@@ -88,8 +88,9 @@ These are **implemented**. Threats below assume an attacker trying to bypass the
 
 ### 4.2 HTTP abuse controls
 
-- `apiLimiter` (`server/src/shared/middlewares/rateLimit.ts`): express-rate-limit, **15 minute** window. Default **100** requests / IP when `NODE_ENV=production`, else **10_000**, unless `RATE_LIMIT_API_MAX` is set. Mounted globally in `app.ts` (all routes, including health and webhook — there is no `/api` prefix).
+- `apiLimiter` (`server/src/shared/middlewares/rateLimit.ts`): express-rate-limit, **15 minute** window. Default **100** requests / client when `NODE_ENV=production`, else **10_000**, unless `RATE_LIMIT_API_MAX` is set. Mounted globally in `app.ts` (all routes, including health and webhook — there is no `/api` prefix).
 - `authLimiter`: default **10** / window in production, else **100**, unless `RATE_LIMIT_AUTH_MAX` is set. Extra limiter on `/auth` (stacked with the global limiter).
+- Client identity (`shared/http/clientIp.ts`, ADR 0023): Express `trust proxy` is false. When Render sets `RENDER=true`, one valid `CF-Connecting-IP` value is trusted because the managed Cloudflare edge overwrites it; otherwise forwarding headers are ignored and the socket peer is used. Missing/invalid values fall back to the socket. IPv6 keys are normalized to /56.
 - Store is **in-process memory**. Multiple Render instances do **not** share counters. Documented in `docs/operations/runbook.md`. This is not Redis; this project did not add a shared store.
 - Security headers (`securityHeaders`): `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: no-referrer`, `X-Permitted-Cross-Domain-Policies: none`, `Permissions-Policy` (camera/microphone/geolocation/payment off), `Content-Security-Policy: frame-ancestors 'none'`, `X-DNS-Prefetch-Control: off`. Production also sends `Strict-Transport-Security: max-age=15552000; includeSubDomains`. `Cross-Origin-Resource-Policy` is omitted so CORS frontends can read JSON.
 - CORS (`getAllowedCorsOrigins` in `server/src/shared/config/cors.ts`): `FRONTEND_URL` (comma-separated). Outside production, `http://localhost:5173` and `http://127.0.0.1:5173` are also allowed. Production uses only configured origins. Requests **without** `Origin` (curl, health checks, many bots) are allowed (`isCorsOriginAllowed`). A rejected Origin is HTTP 403 `Origin not allowed.` and does not echo the Origin.
@@ -199,7 +200,7 @@ Format: attacker goal → relevant STRIDE-ish type → what the code does → re
 
 ### T14. Rate-limit bypass / DoS of the Node process
 
-**Denial of service.** Per-IP in-memory limiter on every route in production. Residual: **not cluster-safe**; webhook path is on the same process (signature work + CRC). Health vs ready: `/health` stays up during drain while `/ready` fails (O1) — availability design, not a DDoS shield. No WAF.
+**Denial of service.** Per-client in-memory limiter on every route in production. Caller-controlled `X-Forwarded-For` cannot rotate the key in the supported Render topology; invalid edge metadata falls back to a shared socket bucket. Residual: **not cluster-safe**; webhook path is on the same process (signature work + CRC). Health vs ready: `/health` stays up during drain while `/ready` fails (O1) — availability design, not a DDoS shield. No repository-controlled WAF.
 
 ### T15. Database as attacker (compromised Postgres)
 
@@ -243,6 +244,7 @@ Do **not** interview as if these exist:
 | `PAYPAL_WEBHOOK_ID` unset + non-production | Webhook **signature verification skipped** — never use that combination on a public URL. |
 | `SEED_DEMO_DATA=true` | Known demo users (Blueprint currently `true`). Treat as public demo, not a private production. |
 | `RATE_LIMIT_API_MAX` / `RATE_LIMIT_AUTH_MAX` | Raises/lowers stuffing and scan cost. |
+| `RENDER=true` | Platform-provided signal enabling trust in Render's overwritten `CF-Connecting-IP`; outside Render the socket peer is used. |
 | `FRONTEND_URL` | CORS allowlist. Local Vite origins are added only when `NODE_ENV≠production`. |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | Must be non-default in production; compiled fallbacks are development-only. |
 

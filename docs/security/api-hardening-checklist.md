@@ -17,7 +17,7 @@ Issue `#58` / `SPEC-0005`. Each control is implemented in `server/` and proven b
 | PayPal webhook RSA-SHA256 + freshness + cert host allowlist | `verifyPayPalWebhookSignature` | `server/src/shared/utils/__tests__/paypalWebhook.test.ts` |
 | Production refuses default JWT secrets | `assertProductionJwtSecrets` in `startApiProcess` | `server/src/shared/utils/__tests__/jwt.test.ts` |
 | Error JSON hides stacks, Origin, raw bodies | `errorHandler` | `server/src/shared/errors/__tests__/errorHandler.test.ts` |
-| Rate limits unchanged | `apiLimiter` / `authLimiter` | existing auth/rate configuration; not weakened by this change |
+| Non-spoofable rate-limit identity on Render; IPv6 /56 grouping | `resolveClientIp`, `apiLimiter`, `authLimiter` | `clientIp.test.ts`; `rateLimit.test.ts` |
 | Secrets stay in existing env vars | Render Blueprint + `.env.example` | no new env vars in this increment |
 
 ## Out of scope (do not interview as shipped)
