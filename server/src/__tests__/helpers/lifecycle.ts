@@ -16,6 +16,7 @@ export const BUSINESS_TABLES = [
   "Favorite",
   "Review",
   "SellerTransaction",
+  "Refund",
   "PaymentWebhookEvent",
   "PaymentLink",
   "OrderItem",

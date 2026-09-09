@@ -165,7 +165,7 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 **Enforced:**
 
-- Schema: `Seller.commissionRate`, `Seller.balance`, `SellerTransaction.grossAmount` / `commissionAmount` / `netAmount` are `Decimal`. `@@unique([sellerId, orderId])`. CHECK `netAmount = grossAmount - commissionAmount`.
+- Schema: `Seller.commissionRate`, `Seller.balance`, `Refund.amount`, and ledger amounts are `Decimal`. Economic events are unique by `(sellerId, entryType, economicEventId)`. CHECK constraints preserve the signed `net = gross - commission` identity.
 - Service: `aggregateGrossBySeller` + `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction. Currency, scale, and rounding mode are `server/src/shared/money/policy.ts`.
 - Tests: `server/src/shared/money/__tests__/policy.test.ts`; `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`.
 
@@ -175,18 +175,18 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 
 ## INV-SELLER-LEDGER-SOURCE
 
-**Statement:** `SellerTransaction` is the authoritative seller ledger. `Seller.balance` is a materialized projection of PAID `netAmount` rows for that seller. Confirmation inserts the ledger row and increments the projection in one PostgreSQL transaction. If they disagree, the ledger wins. Amounts are BRL. Confirmation writes `PaymentStatus.PAID`. There is no refund path.
+**Statement:** `SellerTransaction` is the authoritative append-only seller ledger. `Seller.balance` is the materialized sum of applied (`PAID`) signed movements. Payment credit is positive; refund compensation is a distinct exact negative movement. Each insertion updates the projection in the same PostgreSQL transaction. If they disagree, the ledger wins. Amounts are BRL.
 
 **Why it matters:** A cached balance that can drift from history is not a financial source of truth. Webhook retries must not mint a second payout.
 
 **Enforced:**
 
-- Schema: unique `(sellerId, orderId)`; CHECK net identity and non-negative amounts. `Seller.balance` documented as projection (ADR 0011).
-- Service: `confirmPayment` claim (`paymentStatus = PENDING AND status = PENDING`) plus ledger insert. Duplicate claims are no-ops. `commissionsService.reconcileSellerLedger` SETs a drifted `Seller.balance` to PAID `SUM(netAmount)` under `FOR UPDATE`; it does not insert or delete ledger rows.
+- Schema: unique `(sellerId, entryType, economicEventId)`; CHECK net identity, signed entry shape, and refund linkage. `Refund(provider, providerCaptureId)` is unique. `Seller.balance` is documented as projection (ADR 0011/0023).
+- Service: `confirmPayment` appends the credit. `recordProviderConfirmedCompletion` atomically transitions a trusted refund to `COMPLETED`, appends exact inverses only for existing credits, and updates each balance; duplicate completion is a no-op. The transaction-scoped compensation helper refuses `PENDING`, `PROCESSING`, and `FAILED`. Reconciliation SETs drift to applied `SUM(netAmount)` under `FOR UPDATE` and never rewrites ledger rows.
 - HTTP: `GET /commissions/balance` returns the Prisma Decimal projection (JSON string via Decimal#toJSON). No `Number()`.
 - Seed: demo `Seller.balance` is `"0.00"` with no ledger rows so the projection matches empty PAID SUM. Re-seed writes that catalog zero only when the seller has no PAID ledger rows; if PAID rows exist, seed sets the projection to `SUM(netAmount)` and does not wipe credited net. Confirm remains the only production non-zero writer of ledger rows.
 - Job: in-process interval (60s) started with the PayPal/reservation jobs. Second run is a no-op when aligned. Concurrent confirm vs reconcile cannot double-credit because the corrective write holds the seller row and assigns SUM rather than incrementing.
-- Tests: `seller.ledger.integration.test.ts` (sequential and concurrent confirm, net identity, Decimal vs float); `seller.ledger.reconcile.integration.test.ts`; `commissions.reconcile.test.ts`; `reservation.lifecycle.integration.test.ts`; `paypal.webhook.integration.test.ts`; `commissions.service.test.ts`; `demoCatalog.test.ts`; `seed.ledger.integration.test.ts`.
+- Tests: `seller.ledger.integration.test.ts`; `seller.ledger.reconcile.integration.test.ts`; `refund.ledger.integration.test.ts`; `postgres.constraints.integration.test.ts`; focused Decimal money tests; existing reservation/webhook regressions.
 
 **Related:** `INV-SELLER-COMMISSION-DECIMAL`, `INV-SELLER-TXN-UNIQUE`. Periodic projection vs PAID SUM reconciliation is implemented (issue #45); see ADR 0011.
 
@@ -207,7 +207,9 @@ These are already specified in the architecture narrative. This table is the ID 
 | `INV-PAYMENT-WEBHOOK-AUTHENTIC` | Required PayPal headers; transmission time within 5 minutes; reject before `handleWebhook`. | `paymentsController.webhook`, `verifyPayPalWebhookSignature` | `payments.controller.test.ts`, `paypalWebhook` unit tests |
 | `INV-PAYMENT-WEBHOOK-IDEMPOTENT` | Duplicate event id is a no-op; duplicate confirm does not double payout. | `PaymentWebhookEvent` unique `(provider, externalEventId)`; `confirmPayment` claim | `paypal.webhook.integration.test.ts`, `postgres.constraints.integration.test.ts` |
 | `INV-PAYMENT-LINK-IDEMPOTENT` | One `OrdersCreate` per local order. Replay completed `PaymentLink`. Concurrent claim 409. OrdersCreate is not retried. | `PaymentLink.orderId` PK | `payment.link.idempotency.integration.test.ts` |
-| `INV-SELLER-TXN-UNIQUE` | One seller transaction per `(sellerId, orderId)`. | schema unique + confirm claim | `postgres.constraints.integration.test.ts`, `seller.ledger.integration.test.ts` |
+| `INV-SELLER-TXN-UNIQUE` | One seller ledger movement per explicit economic event; payment credit and refund compensation may coexist for one order. | unique `(sellerId, entryType, economicEventId)` + claim/skip-duplicate writes | `postgres.constraints.integration.test.ts`, `seller.ledger.integration.test.ts`, `refund.ledger.integration.test.ts` |
+| `INV-REFUND-OBLIGATION` | One durable full-BRL technical refund obligation per provider capture. | unique `(provider, providerCaptureId)` + full-order Decimal validation | `refund.ledger.integration.test.ts` |
+| `INV-LEDGER-APPEND-ONLY` | Applied credits remain visible; only provider-confirmed completion can append a separate exact signed compensation, and replay cannot double-debit balance. | COMPLETED gate + entry shape CHECK + economic-event uniqueness + one DB transaction | `refund.ledger.integration.test.ts` |
 | `INV-AUDIT-APPEND-ONLY` | Sensitive mutations append `AuditLog`; ADMIN-only read; 365-day retention; no secrets on the trail. | `auditRepository`, `GET /admin/audit-logs` | `audit.integration.test.ts`, `docs/adr/0010-audit-log.md` |
 | `INV-AUTH-REFRESH-FAMILY` | Refresh `jti` allowlist; reuse of a used token revokes the family. | `RefreshToken`, `authService.refresh` | `auth.security.integration.test.ts`, `docs/adr/0015-refresh-token-families.md` |
 | `INV-DB-ENUMS` | Lifecycle columns are PostgreSQL enums; invalid labels fail with `22P02`. | Prisma enums | `postgres.enums.integration.test.ts`, `roles.test.ts` |

@@ -60,6 +60,22 @@ enum OutboxEventStatus {
   FAILED
 }
 
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum RefundReason {
+  UNFULFILLABLE_CAPTURE
+}
+
+enum SellerLedgerEntryType {
+  PAYMENT_CREDIT
+  REFUND_COMPENSATION
+}
+
 model User {
   id        String   @id @default(cuid())
   name      String
@@ -158,10 +174,36 @@ model Order {
   transactions           SellerTransaction[]
   creationIdempotencyKey OrderIdempotencyKey?
   paymentLink            PaymentLink?
+  refunds                Refund[]
 
   @@index([customerId])
   @@index([status])
   @@index([paymentStatus, status, updatedAt])
+}
+
+/// Durable full-BRL technical refund obligation. PayPal execution is deliberately
+/// outside this model task; provider + providerCaptureId is the economic identity.
+model Refund {
+  id                String          @id @default(cuid())
+  orderId           String
+  provider          PaymentProvider @default(PAYPAL)
+  providerCaptureId String
+  providerRefundId  String?
+  amount            Decimal
+  reason            RefundReason    @default(UNFULFILLABLE_CAPTURE)
+  status            RefundStatus    @default(PENDING)
+  failureReason     String?
+  completedAt       DateTime?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  order              Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  sellerTransactions SellerTransaction[]
+
+  @@unique([provider, providerCaptureId])
+  @@unique([provider, providerRefundId])
+  @@index([orderId])
+  @@index([status, updatedAt])
 }
 
 model PaymentLink {
@@ -291,27 +333,33 @@ model OrderItem {
   @@index([sellerId])
 }
 
-/// Authoritative seller ledger. One row per (sellerId, orderId). Amounts are BRL
-/// (PayPal capture currency). netAmount = grossAmount − commissionAmount
-/// (PostgreSQL CHECK). Seller.balance is a projection of PAID net rows.
+/// Authoritative append-only seller ledger. Amounts are BRL and signed by entry
+/// type. Seller.balance is a projection of all applied (PAID) net movements.
 model SellerTransaction {
-  id               String   @id @default(cuid())
+  id               String                @id @default(cuid())
   sellerId         String
   orderId          String
+  refundId         String?
+  entryType        SellerLedgerEntryType @default(PAYMENT_CREDIT)
+  /// Stable local economic-event identity: orderId for credits, refundId for compensation.
+  economicEventId  String
   grossAmount      Decimal
   commissionAmount Decimal
   netAmount        Decimal
-  /// PaymentStatus: confirmation writes PAID. PENDING default is unused.
-  /// REFUNDED exists on the enum; there is no refund application path.
-  status           PaymentStatus @default(PENDING)
-  createdAt        DateTime @default(now())
+  /// Applied credits and compensations are PAID ledger movements. REFUNDED is
+  /// payment lifecycle state and is not used to overwrite ledger history.
+  status           PaymentStatus         @default(PENDING)
+  createdAt        DateTime              @default(now())
 
-  seller Seller @relation(fields: [sellerId], references: [id], onDelete: Cascade)
-  order  Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seller Seller  @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  order  Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  refund Refund? @relation(fields: [refundId], references: [id], onDelete: Restrict)
 
-  @@unique([sellerId, orderId])
+  @@unique([sellerId, entryType, economicEventId])
   @@index([sellerId])
   @@index([orderId])
+  @@index([refundId])
+  @@index([sellerId, status])
 }
 
 model Review {

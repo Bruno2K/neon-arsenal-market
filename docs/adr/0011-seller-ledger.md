@@ -8,22 +8,27 @@ Currency wording amended by [ADR 0022](./0022-single-checkout-currency.md):
 `Listing.price` and `Listing.currency` are BRL checkout data, not unrelated
 catalog metadata.
 
+Ledger cardinality and compensation semantics amended by
+[ADR 0023](./0023-refund-compensation.md): history is append-only and one
+seller/order may contain a payment credit plus a distinct refund compensation.
+
 ## Context
 
-Issue #44. Payment confirmation already inserts a `SellerTransaction` and increments `Seller.balance` in the same PostgreSQL transaction. `(sellerId, orderId)` is unique. Amounts use Prisma `Decimal`. That is necessary but not sufficient: operators and later reconciliation (#45) need an explicit contract for which store is authoritative, how gross/commission/net are computed, which currency and scale apply, and which `PaymentStatus` values a ledger row may have.
+Issue #44 established payment confirmation as a `SellerTransaction` insert plus an atomic `Seller.balance` update. TASK-0013 evolves the original one-row-per-seller/order model so the same order can retain its credit and append a distinct compensation. Amounts remain Prisma `Decimal`.
 
-The project is a modular monolith. PostgreSQL is the source of truth. Redis, Kafka, SQS, and a finance microservice are not justified. There is no refund or PayPal capture-reversal path (see `docs/architecture/failure-modes.md`).
+The project remains a modular monolith with PostgreSQL as source of truth. Redis, Kafka, SQS, and a finance microservice are not justified. TASK-0013 adds local refund persistence only; PayPal refund execution remains for TASK-0014.
 
 ## Decision
 
-1. **`SellerTransaction` is the authoritative seller ledger.** One row per `(sellerId, orderId)`. Duplicate confirm, webhook replay, and concurrent `confirmPayment` must not insert a second row.
-2. **`Seller.balance` is a materialized projection** of `SUM(netAmount)` over that seller's `status = PAID` rows. It is incremented in the **same local database transaction** as the ledger insert. If balance and the ledger ever disagree, **the ledger wins**. Application reads (`commissionsRepository.getBalance`) may use the projection; they must not treat it as independently authoritative.
+1. **`SellerTransaction` is the authoritative append-only seller ledger.** `PAYMENT_CREDIT` and `REFUND_COMPENSATION` are distinct economic movements. The original credit remains visible after compensation.
+2. **`Seller.balance` is a materialized projection** of `SUM(netAmount)` over that seller's `status = PAID` movements. Credits are positive and compensations are exact signed inverses. Insertion and projection increment happen in the **same local PostgreSQL transaction**. If balance and ledger disagree, **the ledger wins**.
 3. **Identity:** `commission = gross × seller.commissionRate`, `net = gross − commission`. Arithmetic uses Prisma/`Decimal.js`, never JavaScript `number`.
 4. **Currency:** ledger amounts, `Listing.price`, `Listing.currency`, orders, and PayPal `OrdersCreate` are **BRL** checkout data. USD may appear only as catalog reference metadata such as `Product.referencePriceUsd`; it must never flow into checkout arithmetic. No ledger currency column is added while checkout is single-currency; supporting another currency requires a new Specification and explicit conversion, rounding, persistence, and reconciliation rules.
 5. **Scale / rounding:** listing prices and PayPal capture use 2 decimal places (`toFixed(2)` at the PayPal boundary). Commission keeps exact Decimal `gross × rate` (extra fractional digits from the rate are preserved). This is the existing policy; a separate banker's-rounding step is not introduced. The formal catalog (currency, scale, rounding mode, no-refund rule, and shared helpers) is [`docs/architecture/money-policy.md`](../architecture/money-policy.md) and `server/src/shared/money/policy.ts`.
-6. **Status:** `SellerTransaction.status` is `PaymentStatus` (`PENDING`, `PAID`, `REFUNDED`). Confirmation writes `PAID`. `PENDING` is the unused column default. `REFUNDED` exists for enum alignment with `Order.paymentStatus`; no application path writes it. Do not invent refunds.
-7. **Database enforcement:** keep `@@unique([sellerId, orderId])`. Add CHECK constraints `netAmount = grossAmount - commissionAmount` and non-negative amounts.
-8. **Periodic reconciliation (issue #45):** an in-process job (same `setInterval` + `unref` pattern as PayPal GET reconcile / reservation expiry) compares each `Seller.balance` to `SUM(netAmount) WHERE status = 'PAID'`. There is no Render cron, Redis, or extra worker.
+6. **Status:** applied credit and compensation movements both use `PAID`; `REFUNDED` remains payment lifecycle state and never overwrites an applied ledger row.
+7. **Database enforcement:** `@@unique([sellerId, entryType, economicEventId])` prevents duplicate economic movements. Credit identity is the order ID; compensation identity is the durable refund ID. CHECK constraints retain `net = gross - commission`, require credit amounts non-negative, require compensation amounts non-positive, and bind refund identity only to compensation rows.
+8. **Completion gate:** `PENDING`, `PROCESSING`, and `FAILED` refunds cannot create seller compensation. The transaction-scoped ledger helper re-reads `Refund.status = COMPLETED`. `recordProviderConfirmedCompletion` persists the provider refund identity, transitions the refund, appends any required compensation, and updates seller projections in one PostgreSQL transaction. It performs no provider HTTP work.
+9. **Periodic reconciliation (issue #45):** an in-process job (same `setInterval` + `unref` pattern as PayPal GET reconcile / reservation expiry) compares each `Seller.balance` to `SUM(netAmount) WHERE status = 'PAID'`. There is no Render cron, Redis, or extra worker.
 
 ## Correction strategy (issue #45)
 
@@ -40,11 +45,11 @@ Do not invent refunds, PayPal capture reversal, or a public "fix balance" HTTP r
 
 ## Rollback
 
-Drop the two CHECK constraints. Unique `(sellerId, orderId)` and the confirm-path claim remain from earlier migrations. Documentation and the shared `computeSellerLedgerAmounts` helper can be reverted independently; doing so would not restore a second source of truth. The reconcile job can be removed from `startApiProcess` without changing ledger writes; in-flight sweeps may finish, then projections stop being auto-aligned.
+The TASK-0013 migration is backward-compatible for existing credits, but rollback after compensation data exists requires retaining or archiving those additional movements; restoring one row per `(sellerId, orderId)` would otherwise destroy history. The reconciliation job remains independently removable without changing ledger writes.
 
 ## Consequences
 
-- Duplicate payment confirmation remains a no-op after the order claim (`paymentStatus = PENDING AND status = PENDING`); the unique constraint is defense in depth.
+- Duplicate payment confirmation remains a no-op after the order claim; economic-event uniqueness is defense in depth. Duplicate provider-confirmed completion and compensation insertion are no-ops and cannot double-debit the projection.
 - Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Re-seed on an existing demo seller writes catalog `"0.00"` only when there are no PAID ledger rows; if PAID rows exist, the projection is set to that SUM so credited net is not wiped. Non-zero production credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. The in-process job periodically realigns a drifted projection to PAID SUM (ledger wins).
-- Capture after reservation expiry still creates no ledger row (ADR 0002).
+- A captured-but-unfulfillable payment can create a durable refund obligation without a seller debit. Compensation is appended only when an original applied credit exists.
 - Multiple API replicas may run the same sweep; extra executions no-op after the first correction.

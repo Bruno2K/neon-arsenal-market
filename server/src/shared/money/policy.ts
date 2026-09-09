@@ -28,8 +28,9 @@ export const MONEY_COMMISSION_ROUNDING = "exact" as const;
 export const MONEY_PAYPAL_ROUNDING = "HALF_UP" as const;
 
 /**
- * There is no in-app refund or PayPal capture-reversal. `PaymentStatus.REFUNDED`
- * exists on the enum; no application path writes it. Do not invent refund math.
+ * PayPal refund execution is not implemented. TASK-0013 adds only durable local
+ * obligations and exact seller-ledger compensation; it does not change this
+ * provider-capability flag or write PaymentStatus.REFUNDED.
  */
 export const MONEY_REFUNDS_IMPLEMENTED = false;
 

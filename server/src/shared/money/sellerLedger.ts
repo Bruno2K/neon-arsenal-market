@@ -14,6 +14,8 @@ export type SellerLedgerAmounts = {
   netAmount: Prisma.Decimal;
 };
 
+export type SellerLedgerCompensationAmounts = SellerLedgerAmounts;
+
 /**
  * INV-SELLER-COMMISSION-DECIMAL / INV-SELLER-LEDGER-SOURCE
  *
@@ -34,6 +36,20 @@ export function computeSellerLedgerAmounts(
 
 export function ledgerNetMatchesGrossMinusCommission(amounts: SellerLedgerAmounts): boolean {
   return amounts.netAmount.equals(amounts.grossAmount.minus(amounts.commissionAmount));
+}
+
+/**
+ * Produce the exact signed inverse of an applied credit. Decimal.negated()
+ * preserves the original scale/precision and avoids JavaScript number math.
+ */
+export function computeSellerLedgerCompensation(
+  credit: SellerLedgerAmounts
+): SellerLedgerCompensationAmounts {
+  return {
+    grossAmount: credit.grossAmount.negated(),
+    commissionAmount: credit.commissionAmount.negated(),
+    netAmount: credit.netAmount.negated(),
+  };
 }
 
 /** PAID `SUM(netAmount)` is empty → projection must be Decimal zero, not null. */
