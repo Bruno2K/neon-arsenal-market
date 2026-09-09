@@ -160,7 +160,7 @@ Existing successful payment confirmation remains unchanged. Existing prevention 
 - [x] `AC-07` Event ordering does not control correctness: duplicate and out-of-order supported PayPal events converge according to provider state and local invariants. **Evidence:** test/integration
 - [x] `AC-08` Provider timeout, remote-success/local-crash, and local-write-failure scenarios retain a deterministic recovery path and never silently mark a refund complete. **Evidence:** test/integration
 - [x] `AC-09` Refund failures and unresolved states emit safe operational evidence and are documented in the runbook. **Evidence:** static check/runtime
-- [ ] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI continue to pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** CI
+- [ ] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI continue to pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** integration
 
 ## Verification Strategy
 
