@@ -9,6 +9,7 @@ import {
   isPayPalApprovedStatus,
   isPayPalCompletedStatus,
   isPayPalOrderAlreadyCapturedError,
+  type ParsedPayPalOrder,
   type PayPalOrderStatus,
 } from "../../shared/utils/paypal.js";
 import {
@@ -41,6 +42,7 @@ import {
 } from "../../shared/money/policy.js";
 import { outboxRepository } from "../../shared/outbox/outbox.repository.js";
 import { OutboxEventType } from "../../shared/outbox/outbox.types.js";
+import { refundsService } from "./refunds.service.js";
 
 const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
@@ -137,7 +139,6 @@ export const paymentsService = {
         markSpanOutcome(span, "already_confirmed");
         return { orderId: order.id, paymentStatus: "PAID" satisfies PaymentStatus };
       }
-      if (order.status === "CANCELLED") throw new AppError(400, "Order is cancelled");
       if (!order.paypalOrderId) throw new AppError(400, "PayPal order has not been created");
 
       const outcome = await syncRemotePaypalPayment(order, { captureIfApproved: true });
@@ -199,11 +200,24 @@ export const paymentsService = {
           );
           throw new AppError(503, "Local order not ready for capture confirmation");
         }
-        await this.confirmPayment(orderId);
+        if (!parsed.resourceId) {
+          await markWebhookEvent(parsed.eventId, {
+            status: "FAILED",
+            orderId,
+            failureReason: "capture_id_missing",
+          });
+          throw new AppError(503, "Trusted PayPal capture id is missing");
+        }
+        const outcome = await applyTrustedCompletedCapture(orderId, parsed.resourceId);
         await markWebhookEvent(parsed.eventId, { status: "PROCESSED", orderId });
-        markSpanOutcome(span, "confirmed");
+        markSpanOutcome(span, outcome.refundStatus ? "refunded" : "confirmed");
         logger.info(
-          { eventId: parsed.eventId, eventType: parsed.eventType, orderId },
+          {
+            eventId: parsed.eventId,
+            eventType: parsed.eventType,
+            orderId,
+            refundStatus: outcome.refundStatus,
+          },
           "paypal capture webhook processed"
         );
         return;
@@ -379,10 +393,11 @@ export const paymentsService = {
     );
       if (claimedCount === 0) {
         markSpanOutcome(span, "already_confirmed");
-        return;
+        return false;
       }
       markSpanOutcome(span, "confirmed");
       appMetrics.paymentsConfirmed();
+      return true;
     } catch (err) {
       appMetrics.paymentsFailed();
       throw err;
@@ -448,7 +463,7 @@ type OrderForPaypalSync = {
 };
 
 type RemotePaypalSyncOutcome = {
-  paymentStatus: Extract<PaymentStatus, "PAID" | "PENDING">;
+  paymentStatus: Extract<PaymentStatus, "PAID" | "PENDING" | "REFUNDED">;
   paypalStatus?: PayPalOrderStatus;
 };
 
@@ -466,14 +481,12 @@ function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): bo
   });
 }
 
-async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<PayPalOrderStatus | undefined> {
+async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<ParsedPayPalOrder> {
   try {
-    const captured = await capturePayPalOrder(paypalOrderId);
-    return captured.status;
+    return await capturePayPalOrder(paypalOrderId);
   } catch (err) {
     if (isPayPalOrderAlreadyCapturedError(err)) {
-      const remote = await getPayPalOrder(paypalOrderId);
-      return remote.status;
+      return getPayPalOrder(paypalOrderId);
     }
     throw err;
   }
@@ -491,22 +504,65 @@ async function syncRemotePaypalPayment(
     return { paymentStatus: "PENDING" };
   }
 
-  let status = (await getPayPalOrder(order.paypalOrderId)).status;
+  let remote = await getPayPalOrder(order.paypalOrderId);
 
-  if (isPayPalApprovedStatus(status) && options.captureIfApproved) {
+  if (isPayPalApprovedStatus(remote.status) && options.captureIfApproved) {
     if (!orderHoldAllowsCapture(order)) {
       logger.warn({ orderId: order.id }, "paypal capture skipped: reservation expired");
       throw new AppError(409, "Reservation expired or listing is no longer reserved");
     }
-    status = await captureApprovedPaypalOrder(order.paypalOrderId);
+    remote = await captureApprovedPaypalOrder(order.paypalOrderId);
   }
 
-  if (isPayPalCompletedStatus(status)) {
-    await paymentsService.confirmPayment(order.id);
-    return { paymentStatus: "PAID", paypalStatus: status };
+  if (isPayPalCompletedStatus(remote.status)) {
+    const outcome = await applyTrustedCompletedCapture(order.id, remote.captureId);
+    return { paymentStatus: outcome.paymentStatus, paypalStatus: remote.status };
   }
 
-  return { paymentStatus: "PENDING", paypalStatus: status };
+  return { paymentStatus: "PENDING", paypalStatus: remote.status };
+}
+
+async function applyTrustedCompletedCapture(orderId: string, captureId?: string) {
+  try {
+    const applied = await paymentsService.confirmPayment(orderId);
+    if (applied) {
+      return { paymentStatus: "PAID" as const };
+    }
+  } catch (err) {
+    if (!(err instanceof AppError) || err.statusCode !== 409) throw err;
+  }
+
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, paymentStatus: true, totalAmount: true },
+  });
+  if (!order) throw new AppError(404, "Order not found");
+  if (order.paymentStatus === "PAID") {
+    return { paymentStatus: "PAID" as const };
+  }
+  if (!captureId?.trim()) {
+    throw new AppError(503, "Trusted PayPal capture id is required for compensation");
+  }
+
+  const obligation = await refundsService.createObligation({
+    orderId: order.id,
+    providerCaptureId: captureId,
+    amount: order.totalAmount,
+  });
+  const result = await refundsService.executeProviderRefund(obligation.id);
+  logger.info(
+    {
+      orderId: order.id,
+      refundId: obligation.id,
+      providerCaptureId: captureId,
+      refundStatus: result.refund.status,
+    },
+    "unfulfillable PayPal capture refund attempted"
+  );
+  return {
+    paymentStatus: result.refund.status === "COMPLETED" ? ("REFUNDED" as const) : ("PENDING" as const),
+    refundStatus: result.refund.status,
+  };
 }
 
 function replayablePaymentLink(order: {

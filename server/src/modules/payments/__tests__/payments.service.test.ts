@@ -52,10 +52,19 @@ vi.mock("../../../shared/utils/paypal.js", () => ({
     err instanceof Error && /ORDER_ALREADY_CAPTURED/i.test(err.message),
 }));
 
+vi.mock("../refunds.service.js", () => ({
+  refundsService: {
+    createObligation: vi.fn(),
+    executeProviderRefund: vi.fn(),
+  },
+}));
+
 import { prisma } from "../../../shared/database/index.js";
 import { createPayPalOrder, capturePayPalOrder, getPayPalApprovalLink, getPayPalOrder } from "../../../shared/utils/paypal.js";
 import { paymentsService } from "../payments.service.js";
+import { refundsService } from "../refunds.service.js";
 import { Prisma } from "@prisma/client";
+import { AppError } from "../../../shared/errors/AppError.js";
 
 const mockOrder = (overrides = {}) => ({
   id: "order-1",
@@ -747,6 +756,59 @@ describe("paymentsService", () => {
 
       expect(capturePayPalOrder).not.toHaveBeenCalled();
       expect(prisma.order.updateMany).toHaveBeenCalled();
+    });
+
+    it("refunds a trusted completed capture when local fulfillment is impossible", async () => {
+      const stale = liveOrder();
+      vi.mocked(prisma.order.findUnique)
+        .mockResolvedValueOnce(stale as never)
+        .mockResolvedValueOnce({
+          id: stale.id,
+          paymentStatus: "PENDING",
+          totalAmount: stale.totalAmount,
+        } as never);
+      vi.mocked(getPayPalOrder).mockResolvedValue({
+        id: "paypal-1",
+        status: "COMPLETED",
+        captureId: "capture-1",
+      });
+      vi.mocked(prisma.$transaction).mockRejectedValue(
+        new AppError(409, "Reservation expired or listing is no longer reserved")
+      );
+      vi.mocked(refundsService.createObligation).mockResolvedValue({ id: "refund-1" } as never);
+      vi.mocked(refundsService.executeProviderRefund).mockResolvedValue({
+        refund: { status: "COMPLETED" },
+      } as never);
+
+      const result = await paymentsService.capturePayment("user-1", "order-1");
+
+      expect(refundsService.createObligation).toHaveBeenCalledWith({
+        orderId: "order-1",
+        providerCaptureId: "capture-1",
+        amount: stale.totalAmount,
+      });
+      expect(refundsService.executeProviderRefund).toHaveBeenCalledWith("refund-1");
+      expect(result).toMatchObject({ paymentStatus: "REFUNDED", paypalStatus: "COMPLETED" });
+    });
+
+    it("does not attempt a refund without a trusted capture identity", async () => {
+      const stale = liveOrder();
+      vi.mocked(prisma.order.findUnique)
+        .mockResolvedValueOnce(stale as never)
+        .mockResolvedValueOnce({
+          id: stale.id,
+          paymentStatus: "PENDING",
+          totalAmount: stale.totalAmount,
+        } as never);
+      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(prisma.$transaction).mockRejectedValue(
+        new AppError(409, "Reservation expired or listing is no longer reserved")
+      );
+
+      await expect(paymentsService.capturePayment("user-1", "order-1")).rejects.toMatchObject({
+        statusCode: 503,
+      });
+      expect(refundsService.createObligation).not.toHaveBeenCalled();
     });
 
     it("does not capture when the reservation has expired", async () => {

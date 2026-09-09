@@ -1,5 +1,16 @@
 import { randomUUID } from "node:crypto";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+  return {
+    ...actual,
+    refundPayPalCapture: vi.fn(async (captureId: string) => ({
+      id: `REFUND-${captureId}`,
+      status: "COMPLETED" as const,
+    })),
+  };
+});
 import { prisma } from "../shared/database/index.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
 import { listingsService } from "../modules/listings/listings.service.js";
@@ -206,10 +217,19 @@ describe("PayPal webhook reliability (postgres)", () => {
     });
 
     expect(listing?.status).toBe("RESERVED");
-    expect(paid?.paymentStatus).toBe("PENDING");
+    expect(paid?.paymentStatus).toBe("REFUNDED");
     expect(txns).toHaveLength(0);
-    expect(event?.status).toBe("FAILED");
-    expect(event?.failureReason).toBe("reservation_expired");
+    expect(event?.status).toBe("PROCESSED");
+    expect(event?.failureReason).toBeNull();
+    const refund = await prisma.refund.findUniqueOrThrow({
+      where: {
+        provider_providerCaptureId: {
+          provider: "PAYPAL",
+          providerCaptureId: `CAPTURE-WH-${listingId}-expired`,
+        },
+      },
+    });
+    expect(refund.status).toBe("COMPLETED");
   });
 
   it("has a single valid winner when capture webhook races expiration (case C)", async () => {
@@ -256,7 +276,7 @@ describe("PayPal webhook reliability (postgres)", () => {
     const txns = await prisma.sellerTransaction.findMany({ where: { orderId: order.id } });
 
     expect(listing?.status).toBe("ACTIVE");
-    expect(paid?.paymentStatus).toBe("PENDING");
+    expect(paid?.paymentStatus).toBe("REFUNDED");
     expect(paid?.status).toBe("CANCELLED");
     expect(txns).toHaveLength(0);
   });
@@ -288,7 +308,7 @@ describe("PayPal webhook reliability (postgres)", () => {
 
     expect(listing?.status).toBe("RESERVED");
     expect(listing?.reservedByOrderId).toBe(orderB.id);
-    expect(stale?.paymentStatus).toBe("PENDING");
+    expect(stale?.paymentStatus).toBe("REFUNDED");
     expect(fresh?.paymentStatus).toBe("PENDING");
     expect(txnsA).toHaveLength(0);
     expect(txnsB).toHaveLength(0);

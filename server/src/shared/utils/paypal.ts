@@ -30,7 +30,16 @@ export type PayPalOrderLink = {
 export type ParsedPayPalOrder = {
   id?: string;
   status?: PayPalOrderStatus;
+  captureId?: string;
   links?: PayPalOrderLink[];
+};
+
+export const PAYPAL_REFUND_STATUSES = ["CANCELLED", "FAILED", "PENDING", "COMPLETED"] as const;
+export type PayPalRefundStatus = (typeof PAYPAL_REFUND_STATUSES)[number];
+
+export type ParsedPayPalRefund = {
+  id: string;
+  status: PayPalRefundStatus;
 };
 
 export function isPayPalOrderStatus(value: unknown): value is PayPalOrderStatus {
@@ -57,11 +66,48 @@ export function parsePayPalOrderResource(value: unknown): ParsedPayPalOrder {
   if (isPayPalOrderStatus(value.status)) {
     parsed.status = value.status;
   }
+  const captureId = parseRefundablePayPalCaptureId(value.purchase_units);
+  if (captureId) {
+    parsed.captureId = captureId;
+  }
   const links = parsePayPalOrderLinks(value.links);
   if (links.length > 0) {
     parsed.links = links;
   }
   return parsed;
+}
+
+function parseRefundablePayPalCaptureId(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return undefined;
+  for (const unit of value) {
+    if (!isRecord(unit) || !isRecord(unit.payments) || !Array.isArray(unit.payments.captures)) {
+      continue;
+    }
+    for (const capture of unit.payments.captures) {
+      if (
+        isRecord(capture) &&
+        (capture.status === "COMPLETED" || capture.status === "REFUNDED") &&
+        typeof capture.id === "string" &&
+        capture.id.length > 0
+      ) {
+        return capture.id;
+      }
+    }
+  }
+  return undefined;
+}
+
+export function parsePayPalRefundResource(value: unknown): ParsedPayPalRefund {
+  if (!isRecord(value)) {
+    throw new AppError(502, "PayPal refund response is not an object");
+  }
+  if (typeof value.id !== "string" || value.id.length === 0) {
+    throw new AppError(502, "PayPal refund response id is missing");
+  }
+  if (!isOneOf(value.status, PAYPAL_REFUND_STATUSES)) {
+    throw new AppError(502, "PayPal refund response status is invalid");
+  }
+  return { id: value.id, status: value.status };
 }
 
 function parsePayPalOrderLinks(value: unknown): PayPalOrderLink[] {
@@ -107,6 +153,10 @@ let tokenCache: TokenCache | null = null;
 export const PAYPAL_HTTP_POLICY = {
   orders_create: { retry: false, reason: "OrdersCreate can open a second PayPal order" },
   orders_capture: { retry: false, reason: "OrdersCapture can capture funds more than once" },
+  captures_refund: {
+    retry: false,
+    reason: "Refund replay is coordinated from durable state with the same PayPal-Request-Id",
+  },
   orders_get: { retry: true, ...PAYPAL_IDEMPOTENT_RETRY },
   oauth_token: { retry: true, ...PAYPAL_IDEMPOTENT_RETRY },
   cert_download: { retry: true, ...PAYPAL_IDEMPOTENT_RETRY },
@@ -234,6 +284,45 @@ export async function getPayPalOrder(paypalOrderId: string): Promise<ParsedPayPa
     } catch (err) {
       if (isTimeoutError(err)) throw new AppError(504, "PayPal OrdersGet timed out");
       throw err;
+    }
+  });
+}
+
+/**
+ * Issues one full capture refund attempt. The caller owns durable retry state and
+ * must reuse requestId after ambiguous outcomes. No amount is sent, so PayPal
+ * refunds the remaining captured amount in full.
+ */
+export async function refundPayPalCapture(
+  captureId: string,
+  requestId: string
+): Promise<ParsedPayPalRefund> {
+  if (!captureId.trim() || !requestId.trim()) {
+    throw new AppError(400, "PayPal refund capture id and request id are required");
+  }
+
+  return withPaypalOperation("captures_refund", async () => {
+    const token = await getPayPalAccessToken();
+    const url = `${getPayPalApiBaseUrl()}/v2/payments/captures/${encodeURIComponent(captureId)}/refund`;
+    try {
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "PayPal-Request-Id": requestId,
+          Prefer: "return=representation",
+        },
+        body: "{}",
+        signal: AbortSignal.timeout(getPayPalApiTimeoutMs()),
+      });
+      if (!response.ok) {
+        throw new AppError(502, `PayPal CapturesRefund failed: ${response.status}`);
+      }
+      return parsePayPalRefundResource(await response.json());
+    } catch (err) {
+      if (isTimeoutError(err)) throw new AppError(504, "PayPal CapturesRefund timed out");
+      throw mapPayPalHttpError(err);
     }
   });
 }

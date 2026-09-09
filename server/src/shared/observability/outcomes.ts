@@ -4,6 +4,7 @@ import { AppError } from "../errors/AppError.js";
 export type BusinessOutcome =
   | "created"
   | "confirmed"
+  | "refunded"
   | "already_confirmed"
   | "idempotency_replay"
   | "idempotency_conflict"
