@@ -11,7 +11,7 @@ rounding, integer cents, FX, or a refund API.
 | Store | Currency | Notes |
 |---|---|---|
 | PayPal `OrdersCreate` / capture | **BRL** | `MONEY_CURRENCY` |
-| `SellerTransaction` amounts | **BRL** | Same as PayPal capture |
+| `Refund.amount`, `SellerTransaction` amounts | **BRL** | Same as PayPal capture |
 | `Order.totalAmount`, `OrderItem.priceSnapshot`, `Listing.price` | **BRL** | Snapshot is copied as-is |
 | `Listing.currency` | **BRL only** | API literal + PostgreSQL CHECK (ADR 0022) |
 | `Product.referencePriceUsd` | USD ask (cs2.sh) | Display/reference only (ADR 0014) |
@@ -54,21 +54,24 @@ sellerGross                = Σ priceSnapshot for that seller in the order
 commission                 = sellerGross × seller.commissionRate
 net                        = sellerGross − commission
 Seller.balance (projection) = Σ PAID SellerTransaction.netAmount
+refund compensation         = exact signed inverse of original seller credit
 ```
 
 `net = gross − commission` is also a PostgreSQL CHECK on `SellerTransaction`.
+Credit amounts are non-negative; compensation amounts are non-positive. The
+inverse uses Decimal `negated()` without adding a rounding boundary.
 
 ## Refunds
 
-`MONEY_REFUNDS_IMPLEMENTED = false`.
+`MONEY_REFUNDS_IMPLEMENTED = false` continues to mean that PayPal refund HTTP
+execution is not implemented. TASK-0013 adds a durable full-BRL `Refund`
+obligation and local append-only seller compensation only; it does not invoke
+PayPal or write `PaymentStatus.REFUNDED`.
 
-There is no refund helper, no PayPal refund/void client, and no application path
-that writes `PaymentStatus.REFUNDED`. Cancelling a `CONFIRMED` order does not
-invent a refund; `paymentStatus` is unchanged. Capture-after-expiry residual
-funds are an open operational decision (`docs/architecture/failure-modes.md`).
-
-Until a human selects a provider contract, test and document **price /
-commission / net** only.
+`Refund.amount` must be positive, have at most two decimal places, and equal the
+order's full BRL total when the obligation is created. Partial and commercial
+refund semantics remain out of scope. When a credited seller is compensated,
+gross, commission, and net are exact signed inverses of the original movement.
 
 ## Ownership
 

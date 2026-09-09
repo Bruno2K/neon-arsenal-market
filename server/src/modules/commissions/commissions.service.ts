@@ -11,6 +11,7 @@ import {
 import { auditRepository } from "../audit/audit.repository.js";
 import { AuditAction, AuditResourceType } from "../audit/audit.types.js";
 import { systemAuditActor } from "../audit/audit.service.js";
+import { computeSellerLedgerCompensation } from "../../shared/money/sellerLedger.js";
 
 export const commissionsService = {
   async listTransactions(userId: string, role: string) {
@@ -33,6 +34,53 @@ export const commissionsService = {
     // Projection only (ADR 0011). Pass Prisma Decimal through so JSON.stringify
     // uses Decimal#toJSON (a string), matching listing price / order totalAmount.
     return { balance };
+  },
+
+  /**
+   * Append one exact inverse movement per credited seller for a durable refund.
+   * Unique economic-event identity plus createMany(skipDuplicates) makes
+   * retries/concurrency no-ops; the projection changes only when insertion wins.
+   */
+  async applyRefundCompensation(refundId: string) {
+    return prisma.$transaction(async (tx) => {
+      const refund = await tx.refund.findUnique({ where: { id: refundId } });
+      if (!refund) throw new AppError(404, "Refund obligation not found");
+
+      const credits = await tx.sellerTransaction.findMany({
+        where: {
+          orderId: refund.orderId,
+          entryType: "PAYMENT_CREDIT",
+          status: "PAID",
+        },
+      });
+
+      let applied = 0;
+      for (const credit of credits) {
+        const amounts = computeSellerLedgerCompensation(credit);
+        const inserted = await tx.sellerTransaction.createMany({
+          data: [
+            {
+              sellerId: credit.sellerId,
+              orderId: credit.orderId,
+              refundId: refund.id,
+              entryType: "REFUND_COMPENSATION",
+              economicEventId: refund.id,
+              ...amounts,
+              status: "PAID",
+            },
+          ],
+          skipDuplicates: true,
+        });
+        if (inserted.count === 0) continue;
+
+        await tx.seller.update({
+          where: { id: credit.sellerId },
+          data: { balance: { increment: amounts.netAmount } },
+        });
+        applied += 1;
+      }
+      return { applied };
+    });
   },
 
   /**

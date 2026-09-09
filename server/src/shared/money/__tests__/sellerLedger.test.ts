@@ -5,6 +5,7 @@ import {
   SELLER_LEDGER_CURRENCY,
   SELLER_LEDGER_PRICE_SCALE,
   computeSellerLedgerAmounts,
+  computeSellerLedgerCompensation,
   findSellerProjectionDrifts,
   ledgerNetMatchesGrossMinusCommission,
   paidLedgerSumOrZero,
@@ -50,6 +51,20 @@ describe(`${DomainInvariant.SELLER_COMMISSION_DECIMAL} seller ledger amounts`, (
 
     expect(amounts.netAmount.equals(new Prisma.Decimal("0.00"))).toBe(true);
     expect(ledgerNetMatchesGrossMinusCommission(amounts)).toBe(true);
+  });
+
+  it("creates an exact Decimal inverse for refund compensation", () => {
+    const credit = computeSellerLedgerAmounts(
+      new Prisma.Decimal("1.00"),
+      new Prisma.Decimal("0.083")
+    );
+    const compensation = computeSellerLedgerCompensation(credit);
+
+    expect(compensation.grossAmount.equals(new Prisma.Decimal("-1.00"))).toBe(true);
+    expect(compensation.commissionAmount.equals(new Prisma.Decimal("-0.083"))).toBe(true);
+    expect(compensation.netAmount.equals(new Prisma.Decimal("-0.917"))).toBe(true);
+    expect(credit.netAmount.plus(compensation.netAmount).isZero()).toBe(true);
+    expect(ledgerNetMatchesGrossMinusCommission(compensation)).toBe(true);
   });
 });
 

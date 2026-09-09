@@ -151,7 +151,7 @@ describe("PostgreSQL unique constraints", () => {
     ).rejects.toMatchObject({ code: "P2002" });
   });
 
-  it("enforces SellerTransaction(sellerId, orderId)", async () => {
+  it("enforces SellerTransaction economic-event identity", async () => {
     const fixture = await createCheckoutGraph();
     const order = await createOrder(
       fixture.customer.id,
@@ -163,6 +163,7 @@ describe("PostgreSQL unique constraints", () => {
       data: {
         sellerId: fixture.seller.id,
         orderId: order.id,
+        economicEventId: order.id,
         grossAmount: new Prisma.Decimal("100"),
         commissionAmount: new Prisma.Decimal("10"),
         netAmount: new Prisma.Decimal("90"),
@@ -176,6 +177,7 @@ describe("PostgreSQL unique constraints", () => {
         data: {
           sellerId: fixture.seller.id,
           orderId: order.id,
+          economicEventId: order.id,
           grossAmount: new Prisma.Decimal("100"),
           commissionAmount: new Prisma.Decimal("10"),
           netAmount: new Prisma.Decimal("90"),
@@ -186,11 +188,11 @@ describe("PostgreSQL unique constraints", () => {
       caught = error;
     }
 
-    expectUniqueViolation(caught, ["sellerId", "orderId"]);
+    expectUniqueViolation(caught, ["sellerId", "entryType", "economicEventId"]);
     expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(1);
   });
 
-  it("rejects concurrent SellerTransaction inserts for the same seller and order", async () => {
+  it("rejects concurrent SellerTransaction inserts for the same seller economic event", async () => {
     const fixture = await createCheckoutGraph();
     const order = await createOrder(
       fixture.customer.id,
@@ -200,6 +202,7 @@ describe("PostgreSQL unique constraints", () => {
     const payload = {
       sellerId: fixture.seller.id,
       orderId: order.id,
+      economicEventId: order.id,
       grossAmount: new Prisma.Decimal("100"),
       commissionAmount: new Prisma.Decimal("10"),
       netAmount: new Prisma.Decimal("90"),
@@ -214,7 +217,11 @@ describe("PostgreSQL unique constraints", () => {
     const rejected = results.filter((result) => result.status === "rejected");
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
-    expectUniqueViolation((rejected[0] as PromiseRejectedResult).reason, ["sellerId", "orderId"]);
+    expectUniqueViolation((rejected[0] as PromiseRejectedResult).reason, [
+      "sellerId",
+      "entryType",
+      "economicEventId",
+    ]);
     expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(1);
   });
 
@@ -232,6 +239,7 @@ describe("PostgreSQL unique constraints", () => {
         data: {
           sellerId: fixture.seller.id,
           orderId: order.id,
+          economicEventId: order.id,
           grossAmount: new Prisma.Decimal("100"),
           commissionAmount: new Prisma.Decimal("10"),
           netAmount: new Prisma.Decimal("89"),
@@ -260,6 +268,7 @@ describe("PostgreSQL unique constraints", () => {
         data: {
           sellerId: fixture.seller.id,
           orderId: order.id,
+          economicEventId: order.id,
           grossAmount: new Prisma.Decimal("10"),
           commissionAmount: new Prisma.Decimal("20"),
           netAmount: new Prisma.Decimal("-10"),

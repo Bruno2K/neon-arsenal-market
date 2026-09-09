@@ -347,6 +347,8 @@ export const paymentsService = {
           data: {
             sellerId,
             orderId,
+            entryType: "PAYMENT_CREDIT",
+            economicEventId: orderId,
             grossAmount,
             commissionAmount,
             netAmount,

@@ -163,6 +163,7 @@ describe("PostgreSQL domain enums", () => {
       data: {
         sellerId: fixture.seller.id,
         orderId: order.id,
+        economicEventId: order.id,
         grossAmount: new Prisma.Decimal("100"),
         commissionAmount: new Prisma.Decimal("10"),
         netAmount: new Prisma.Decimal("90"),
