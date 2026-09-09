@@ -1,10 +1,10 @@
 ---
 id: PLAN-0012
-status: Ready
+status: Done
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
-baseline_revision: d0309efae576a4ab385e1cd13711b741ac857a2d
+baseline_revision: 3606a039a73652bcebe6e13d688f921ca35e6231
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -14,7 +14,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Ready`. The source Specification is Accepted and roadmap PR 03 security hardening merged into the baseline. TASK-0013 is now executable; TASK-0014 and TASK-0015 remain dependency-blocked.
+`Done`. TASK-0013, TASK-0014, and TASK-0015 are implemented, reviewed, CI-green, and merged.
 
 ## Source
 
@@ -129,9 +129,10 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 - Specification: `SPEC-0013` v1
 - Plan: `PLAN-0012` v1
 - Tasks: `TASK-0013`, `TASK-0014`, `TASK-0015`
-- PR: pending
-- Evidence: pending
+- PR: #223, #225, #227
+- Evidence: `docs/verification/refund-reconciliation-operations.md` + CI runs for the merged task PRs
 
 ## Change History
 
 - `v1` — Ready implementation decomposition after PR 03 convergence — 2026-09-08
+- 2026-09-09 — Plan completed after PR #227 merged; Initiative 04 converged.
