@@ -6,9 +6,9 @@ This is the executable path for issue #55 without a cloud account, external cred
 
 - The API is the production image built from `server/Dockerfile`, limited to 1 CPU and 512 MiB, with one replica and `NODE_ENV=production`.
 - PostgreSQL uses `postgres:16-alpine`, limited to 1 CPU and 1 GiB, with `max_connections=100` and `shared_buffers=256MB`.
-- Both containers use a per-job internal Docker network. The API is published only on runner loopback; the containers have no provider egress.
-- Every repetition starts a fresh PostgreSQL container, applies migrations, seeds the demo catalog, and creates equivalent disposable fixtures.
-- k6 runs on the GitHub host. Its CPU is not isolated from Docker, and the underlying runner model/noisy-neighbor load is not guaranteed. This is a material uncertainty in cross-workflow comparisons.
+- API, PostgreSQL, and k6 use the same per-job internal Docker network. The API is not published to the runner host; the containers have no provider egress.
+- Every repetition starts a fresh PostgreSQL container, applies migrations, seeds the demo catalog, and creates equivalent disposable fixtures. API readiness is checked from inside the API container so the workflow does not depend on host port publishing.
+- k6 runs as a pinned container on the same internal Docker network. Its CPU still shares the GitHub-hosted runner with the API/PostgreSQL containers, so noisy-neighbor variability remains a material uncertainty in cross-workflow comparisons.
 
 No GitHub Environment, external URL, PayPal credential, Blueprint, Vercel configuration, Render configuration, or card is required.
 
