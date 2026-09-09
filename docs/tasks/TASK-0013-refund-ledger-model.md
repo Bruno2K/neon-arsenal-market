@@ -52,10 +52,10 @@ Implemented from PLAN-0012 / SPEC-0013 and merged as PR #223. Current main basel
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` Durable refund obligation can represent captured-but-unfulfillable payment exactly once. **Evidence:** integration
-- [ ] `AC-04` Existing seller credit can be reversed by a distinct append-only entry with atomic balance adjustment. **Evidence:** integration
-- [ ] `AC-05` No seller debit is produced when no seller credit exists. **Evidence:** integration
-- [ ] `AC-06` Existing PAID ledger history migrates without changing effective seller balances and reconciliation remains repeatable. **Evidence:** integration
+- [x] `AC-01` Durable refund obligation can represent captured-but-unfulfillable payment exactly once. **Evidence:** integration
+- [x] `AC-04` Existing seller credit can be reversed by a distinct append-only entry with atomic balance adjustment. **Evidence:** integration
+- [x] `AC-05` No seller debit is produced when no seller credit exists. **Evidence:** integration
+- [x] `AC-06` Existing PAID ledger history migrates without changing effective seller balances and reconciliation remains repeatable. **Evidence:** integration
 
 ## Dependencies
 
