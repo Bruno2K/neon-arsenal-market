@@ -27,7 +27,8 @@ The project remains a modular monolith with PostgreSQL as source of truth. Redis
 5. **Scale / rounding:** listing prices and PayPal capture use 2 decimal places (`toFixed(2)` at the PayPal boundary). Commission keeps exact Decimal `gross × rate` (extra fractional digits from the rate are preserved). This is the existing policy; a separate banker's-rounding step is not introduced. The formal catalog (currency, scale, rounding mode, no-refund rule, and shared helpers) is [`docs/architecture/money-policy.md`](../architecture/money-policy.md) and `server/src/shared/money/policy.ts`.
 6. **Status:** applied credit and compensation movements both use `PAID`; `REFUNDED` remains payment lifecycle state and never overwrites an applied ledger row.
 7. **Database enforcement:** `@@unique([sellerId, entryType, economicEventId])` prevents duplicate economic movements. Credit identity is the order ID; compensation identity is the durable refund ID. CHECK constraints retain `net = gross - commission`, require credit amounts non-negative, require compensation amounts non-positive, and bind refund identity only to compensation rows.
-8. **Periodic reconciliation (issue #45):** an in-process job (same `setInterval` + `unref` pattern as PayPal GET reconcile / reservation expiry) compares each `Seller.balance` to `SUM(netAmount) WHERE status = 'PAID'`. There is no Render cron, Redis, or extra worker.
+8. **Completion gate:** `PENDING`, `PROCESSING`, and `FAILED` refunds cannot create seller compensation. The transaction-scoped ledger helper re-reads `Refund.status = COMPLETED`. `recordProviderConfirmedCompletion` persists the provider refund identity, transitions the refund, appends any required compensation, and updates seller projections in one PostgreSQL transaction. It performs no provider HTTP work.
+9. **Periodic reconciliation (issue #45):** an in-process job (same `setInterval` + `unref` pattern as PayPal GET reconcile / reservation expiry) compares each `Seller.balance` to `SUM(netAmount) WHERE status = 'PAID'`. There is no Render cron, Redis, or extra worker.
 
 ## Correction strategy (issue #45)
 
@@ -48,7 +49,7 @@ The TASK-0013 migration is backward-compatible for existing credits, but rollbac
 
 ## Consequences
 
-- Duplicate payment confirmation remains a no-op after the order claim; economic-event uniqueness is defense in depth. Duplicate compensation insertion is a no-op and cannot double-debit the projection.
+- Duplicate payment confirmation remains a no-op after the order claim; economic-event uniqueness is defense in depth. Duplicate provider-confirmed completion and compensation insertion are no-ops and cannot double-debit the projection.
 - Demo seed sets `Seller.balance` to `"0.00"` with no `SellerTransaction` rows so the projection matches an empty PAID `SUM(netAmount)`. Re-seed on an existing demo seller writes catalog `"0.00"` only when there are no PAID ledger rows; if PAID rows exist, the projection is set to that SUM so credited net is not wiped. Non-zero production credits are written only by `confirmPayment`. `GET /commissions/balance` returns the Decimal projection without `Number()`. The in-process job periodically realigns a drifted projection to PAID SUM (ledger wins).
 - A captured-but-unfulfillable payment can create a durable refund obligation without a seller debit. Compensation is appended only when an original applied credit exists.
 - Multiple API replicas may run the same sweep; extra executions no-op after the first correction.

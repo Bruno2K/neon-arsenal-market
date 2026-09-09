@@ -72,6 +72,10 @@ PayPal or write `PaymentStatus.REFUNDED`.
 order's full BRL total when the obligation is created. Partial and commercial
 refund semantics remain out of scope. When a credited seller is compensated,
 gross, commission, and net are exact signed inverses of the original movement.
+Compensation is gated on local `Refund.status = COMPLETED`; pre-completion states
+cannot debit a seller. Trusted provider completion, provider refund identity,
+ledger movements, and balance projections are persisted atomically. This local
+operation does not itself obtain provider evidence or perform PayPal HTTP calls.
 
 ## Ownership
 

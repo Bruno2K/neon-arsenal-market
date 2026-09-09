@@ -4,7 +4,10 @@ import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "../shared/database/index.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
-import { refundsService } from "../modules/payments/refunds.service.js";
+import {
+  appendCompletedRefundCompensation,
+  refundsService,
+} from "../modules/payments/refunds.service.js";
 import { commissionsService } from "../modules/commissions/commissions.service.js";
 import {
   createCheckoutGraph,
@@ -21,6 +24,10 @@ async function createObligation(orderId: string, captureId: string) {
     providerCaptureId: captureId,
     amount: order.totalAmount,
   });
+}
+
+async function completeRefund(refundId: string, providerRefundId: string) {
+  return refundsService.recordProviderConfirmedCompletion({ refundId, providerRefundId });
 }
 
 describe("TASK-0013 durable refund and append-only seller ledger (postgres)", () => {
@@ -156,6 +163,33 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     expect(seller.balance.equals(credit.netAmount)).toBe(true);
   });
 
+  it.each(["PENDING", "PROCESSING", "FAILED"] as const)(
+    "does not compensate a seller while the refund is %s",
+    async (status) => {
+      const fixture = await createCheckoutGraph();
+      const order = await createOrder(
+        fixture.customer.id,
+        [fixture.listings[0].id],
+        orderKey(`pre-completion-${status}`)
+      );
+      await paymentsService.confirmPayment(order.id);
+      const refund = await createObligation(order.id, `CAPTURE-pre-completion-${status}`);
+      await prisma.refund.update({
+        where: { id: refund.id },
+        data: { status, failureReason: status === "FAILED" ? "test_failure" : null },
+      });
+
+      const applied = await prisma.$transaction((tx) =>
+        appendCompletedRefundCompensation(tx, refund.id)
+      );
+
+      expect(applied).toBe(0);
+      expect(await prisma.sellerTransaction.count({ where: { refundId: refund.id } })).toBe(0);
+      const seller = await prisma.seller.findUniqueOrThrow({ where: { id: fixture.seller.id } });
+      expect(seller.balance.equals(new Prisma.Decimal("90.00"))).toBe(true);
+    }
+  );
+
   it("appends a distinct exact compensation and updates balance in the same operation", async () => {
     const fixture = await createCheckoutGraph();
     const order = await createOrder(
@@ -166,7 +200,10 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     await paymentsService.confirmPayment(order.id);
     const refund = await createObligation(order.id, "CAPTURE-append-compensation");
 
-    expect(await commissionsService.applyRefundCompensation(refund.id)).toEqual({ applied: 1 });
+    const completion = await completeRefund(refund.id, "REFUND-append-compensation");
+    expect(completion.compensatedSellers).toBe(1);
+    expect(completion.refund.status).toBe("COMPLETED");
+    expect(completion.refund.providerRefundId).toBe("REFUND-append-compensation");
 
     const ledger = await prisma.sellerTransaction.findMany({
       where: { sellerId: fixture.seller.id, orderId: order.id },
@@ -196,11 +233,11 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     const refund = await createObligation(order.id, "CAPTURE-duplicate-compensation");
 
     const results = await Promise.all([
-      commissionsService.applyRefundCompensation(refund.id),
-      commissionsService.applyRefundCompensation(refund.id),
-      commissionsService.applyRefundCompensation(refund.id),
+      completeRefund(refund.id, "REFUND-duplicate-compensation"),
+      completeRefund(refund.id, "REFUND-duplicate-compensation"),
+      completeRefund(refund.id, "REFUND-duplicate-compensation"),
     ]);
-    expect(results.reduce((sum, result) => sum + result.applied, 0)).toBe(1);
+    expect(results.reduce((sum, result) => sum + result.compensatedSellers, 0)).toBe(1);
     expect(
       await prisma.sellerTransaction.count({
         where: { refundId: refund.id, entryType: "REFUND_COMPENSATION" },
@@ -242,7 +279,9 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     );
     const refund = await createObligation(order.id, "CAPTURE-no-credit");
 
-    expect(await commissionsService.applyRefundCompensation(refund.id)).toEqual({ applied: 0 });
+    const completion = await completeRefund(refund.id, "REFUND-no-credit");
+    expect(completion.compensatedSellers).toBe(0);
+    expect(completion.refund.status).toBe("COMPLETED");
     expect(await prisma.sellerTransaction.count({ where: { orderId: order.id } })).toBe(0);
     const seller = await prisma.seller.findUniqueOrThrow({ where: { id: fixture.seller.id } });
     expect(seller.balance.isZero()).toBe(true);
@@ -264,8 +303,8 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     await paymentsService.confirmPayment(order.id);
     const refund = await createObligation(order.id, "CAPTURE-multi-seller");
 
-    expect(await commissionsService.applyRefundCompensation(refund.id)).toEqual({ applied: 2 });
-    expect(await commissionsService.applyRefundCompensation(refund.id)).toEqual({ applied: 0 });
+    expect((await completeRefund(refund.id, "REFUND-multi-seller")).compensatedSellers).toBe(2);
+    expect((await completeRefund(refund.id, "REFUND-multi-seller")).compensatedSellers).toBe(0);
     const reversals = await prisma.sellerTransaction.findMany({
       where: { refundId: refund.id, entryType: "REFUND_COMPENSATION" },
     });
@@ -295,7 +334,7 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     );
     await paymentsService.confirmPayment(order.id);
     const refund = await createObligation(order.id, "CAPTURE-decimal-reconcile");
-    await commissionsService.applyRefundCompensation(refund.id);
+    await completeRefund(refund.id, "REFUND-decimal-reconcile");
 
     const ledger = await prisma.sellerTransaction.findMany({
       where: { sellerId: fixture.seller.id, status: "PAID" },
@@ -310,5 +349,41 @@ describe("TASK-0013 durable refund and append-only seller ledger (postgres)", ()
     ).toBe(true);
     expect(await commissionsService.reconcileSellerLedger()).toMatchObject({ corrected: 0 });
     expect(await commissionsService.reconcileSellerLedger()).toMatchObject({ corrected: 0 });
+  });
+
+  it("rolls back COMPLETED state, compensation, and balance together on local failure", async () => {
+    const fixture = await createCheckoutGraph();
+    const order = await createOrder(
+      fixture.customer.id,
+      [fixture.listings[0].id],
+      orderKey("atomic-completion-rollback")
+    );
+    await paymentsService.confirmPayment(order.id);
+    const refund = await createObligation(order.id, "CAPTURE-atomic-completion-rollback");
+
+    await prisma.seller.update({
+      where: { id: fixture.seller.id },
+      data: { balance: new Prisma.Decimal(0) },
+    });
+    await prisma.$executeRawUnsafe(`
+      ALTER TABLE "Seller"
+      ADD CONSTRAINT "Seller_balance_non_negative_task0013_test" CHECK ("balance" >= 0)
+    `);
+
+    try {
+      await expect(completeRefund(refund.id, "REFUND-atomic-completion-rollback")).rejects.toBeDefined();
+
+      const unchanged = await prisma.refund.findUniqueOrThrow({ where: { id: refund.id } });
+      expect(unchanged.status).toBe("PENDING");
+      expect(unchanged.providerRefundId).toBeNull();
+      expect(unchanged.completedAt).toBeNull();
+      expect(await prisma.sellerTransaction.count({ where: { refundId: refund.id } })).toBe(0);
+      const seller = await prisma.seller.findUniqueOrThrow({ where: { id: fixture.seller.id } });
+      expect(seller.balance.isZero()).toBe(true);
+    } finally {
+      await prisma.$executeRawUnsafe(`
+        ALTER TABLE "Seller" DROP CONSTRAINT IF EXISTS "Seller_balance_non_negative_task0013_test"
+      `);
+    }
   });
 });
