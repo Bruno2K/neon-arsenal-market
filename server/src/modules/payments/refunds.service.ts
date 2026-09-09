@@ -4,10 +4,21 @@ import { prisma } from "../../shared/database/index.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { MONEY_PRICE_SCALE } from "../../shared/money/policy.js";
 import { computeSellerLedgerCompensation } from "../../shared/money/sellerLedger.js";
+import { logger } from "../../shared/logger.js";
+import { appMetrics } from "../../shared/observability/metrics.js";
+import { withSpan } from "../../shared/observability/tracing.js";
+import {
+  PAYPAL_REFUND_FAILED_RETRY_MS,
+  PAYPAL_REFUND_OPERATOR_AGE_MS,
+  PAYPAL_REFUND_PENDING_RETRY_MS,
+  PAYPAL_REFUND_PROCESSING_RETRY_MS,
+  PAYPAL_REFUND_RECONCILE_BATCH_SIZE,
+} from "../../shared/config/paypal.js";
 import {
   refundPayPalCapture,
   type PayPalRefundStatus,
 } from "../../shared/utils/paypal.js";
+import { getPayPalRefund } from "./paypal-refunds.client.js";
 
 export type CreateRefundObligationInput = {
   orderId: string;
@@ -22,6 +33,16 @@ export type RecordProviderConfirmedRefundInput = {
 
 export type RecordProviderRefundObservationInput = RecordProviderConfirmedRefundInput & {
   status: Exclude<PayPalRefundStatus, "COMPLETED">;
+};
+
+export type RefundReconciliationResult = {
+  scanned: number;
+  attempted: number;
+  converged: number;
+  stillPending: number;
+  retryableFailures: number;
+  terminalFailures: number;
+  operatorRequired: number;
 };
 
 export const refundsService = {
@@ -181,7 +202,190 @@ export const refundsService = {
     });
     return { refund: observed, compensatedSellers: 0, requestId };
   },
+
+  /**
+   * Reconciles a bounded, persisted-time-selected batch. A conditional updatedAt
+   * claim keeps concurrent API replicas from issuing duplicate provider work in
+   * the same sweep; PayPal idempotency remains the cross-crash safety boundary.
+   */
+  async reconcileUnresolvedRefunds(now = new Date()): Promise<RefundReconciliationResult> {
+    return withSpan("refund.reconcile.sweep", {}, async (span) => {
+      const candidates = await prisma.refund.findMany({
+        where: {
+          OR: [
+            {
+              status: "PENDING",
+              updatedAt: { lte: new Date(now.getTime() - PAYPAL_REFUND_PENDING_RETRY_MS) },
+            },
+            {
+              status: "PROCESSING",
+              updatedAt: { lte: new Date(now.getTime() - PAYPAL_REFUND_PROCESSING_RETRY_MS) },
+            },
+            {
+              status: "FAILED",
+              updatedAt: { lte: new Date(now.getTime() - PAYPAL_REFUND_FAILED_RETRY_MS) },
+            },
+          ],
+        },
+        orderBy: { updatedAt: "asc" },
+        take: PAYPAL_REFUND_RECONCILE_BATCH_SIZE,
+      });
+
+      const result: RefundReconciliationResult = {
+        scanned: candidates.length,
+        attempted: 0,
+        converged: 0,
+        stillPending: 0,
+        retryableFailures: 0,
+        terminalFailures: 0,
+        operatorRequired: 0,
+      };
+      appMetrics.refundReconciliationScanned(candidates.length);
+
+      for (const candidate of candidates) {
+        const claimed = await prisma.refund.updateMany({
+          where: {
+            id: candidate.id,
+            status: candidate.status,
+            updatedAt: candidate.updatedAt,
+          },
+          data: { updatedAt: now },
+        });
+        if (claimed.count === 0) continue;
+
+        result.attempted += 1;
+        appMetrics.refundReconciliationAttempted();
+        const agedOut = now.getTime() - candidate.createdAt.getTime() >= PAYPAL_REFUND_OPERATOR_AGE_MS;
+
+        await withSpan(
+          "refund.reconcile",
+          {
+            attributes: {
+              "refund.id": candidate.id,
+              "order.id": candidate.orderId,
+              "paypal.capture_id": candidate.providerCaptureId,
+              "paypal.refund_id": candidate.providerRefundId ?? undefined,
+              "refund.status_before": candidate.status,
+            },
+          },
+          async (itemSpan) => {
+            try {
+              const reconciled = candidate.providerRefundId
+                ? await applyProviderObservation(
+                    candidate.id,
+                    await getPayPalRefund(candidate.providerRefundId)
+                  )
+                : await refundsService.executeProviderRefund(candidate.id);
+
+              itemSpan.setAttribute("refund.status_after", reconciled.refund.status);
+              if (reconciled.refund.status === "COMPLETED") {
+                result.converged += 1;
+                appMetrics.refundReconciliationConverged();
+                logger.info(refundLog(candidate, "COMPLETED", "provider_completed"), "refund reconciliation converged");
+                return;
+              }
+              if (reconciled.refund.status === "FAILED") {
+                result.terminalFailures += 1;
+                result.operatorRequired += 1;
+                appMetrics.refundReconciliationTerminalFailure();
+                appMetrics.refundReconciliationOperatorRequired();
+                logger.error(refundLog(candidate, "FAILED", reconciled.refund.failureReason ?? "provider_terminal_failure"), "refund reconciliation requires operator investigation");
+                return;
+              }
+
+              result.stillPending += 1;
+              appMetrics.refundReconciliationPending();
+              logger.info(refundLog(candidate, reconciled.refund.status, "provider_pending"), "refund reconciliation remains unresolved");
+              if (agedOut) {
+                result.operatorRequired += 1;
+                appMetrics.refundReconciliationOperatorRequired();
+                logger.error(refundLog(candidate, reconciled.refund.status, "unresolved_age_threshold"), "refund reconciliation requires operator investigation");
+              }
+            } catch (err) {
+              const reason = classifyRetryableRefundFailure(err);
+              await recordRetryableFailure(candidate.id, candidate.status, reason);
+              itemSpan.setAttribute("refund.status_after", candidate.status === "FAILED" ? "FAILED" : "PROCESSING");
+              itemSpan.setAttribute("refund.reconciliation_reason", reason);
+              result.retryableFailures += 1;
+              appMetrics.refundReconciliationRetryable();
+              logger.warn(refundLog(candidate, candidate.status === "FAILED" ? "FAILED" : "PROCESSING", reason), "refund reconciliation retry deferred");
+              if (agedOut) {
+                result.operatorRequired += 1;
+                appMetrics.refundReconciliationOperatorRequired();
+                logger.error(refundLog(candidate, candidate.status, "unresolved_age_threshold"), "refund reconciliation requires operator investigation");
+              }
+            }
+          }
+        );
+      }
+
+      span.setAttribute("app.refund_reconcile_scanned", result.scanned);
+      span.setAttribute("app.refund_reconcile_attempted", result.attempted);
+      span.setAttribute("app.refund_reconcile_converged", result.converged);
+      return result;
+    });
+  },
 };
+
+async function applyProviderObservation(refundId: string, provider: { id: string; status: PayPalRefundStatus }) {
+  if (provider.status === "COMPLETED") {
+    return refundsService.recordProviderConfirmedCompletion({
+      refundId,
+      providerRefundId: provider.id,
+    });
+  }
+  const refund = await refundsService.recordProviderObservation({
+    refundId,
+    providerRefundId: provider.id,
+    status: provider.status,
+  });
+  return { refund, compensatedSellers: 0 };
+}
+
+async function recordRetryableFailure(
+  refundId: string,
+  previousStatus: string,
+  reason: string
+) {
+  await prisma.refund.updateMany({
+    where: { id: refundId, status: { not: "COMPLETED" } },
+    data: {
+      status: previousStatus === "FAILED" ? "FAILED" : "PROCESSING",
+      failureReason: previousStatus === "FAILED" ? undefined : reason,
+    },
+  });
+}
+
+function classifyRetryableRefundFailure(err: unknown): string {
+  const message = err instanceof Error ? err.message : "unknown_error";
+  if (err instanceof AppError && err.statusCode === 504) return "paypal_timeout";
+  if (/PREVIOUS_REQUEST_IN_PROGRESS|failed: 409/i.test(message)) return "paypal_request_in_progress";
+  if (/failed: 429/i.test(message)) return "paypal_throttled";
+  if (/failed: 5\d\d/i.test(message)) return "paypal_provider_unavailable";
+  return "reconciliation_technical_failure";
+}
+
+function refundLog(
+  refund: {
+    id: string;
+    orderId: string;
+    providerCaptureId: string;
+    providerRefundId: string | null;
+    status: string;
+  },
+  statusAfter: string,
+  reason: string
+) {
+  return {
+    refundId: refund.id,
+    orderId: refund.orderId,
+    providerCaptureId: refund.providerCaptureId,
+    providerRefundId: refund.providerRefundId ?? undefined,
+    statusBefore: refund.status,
+    statusAfter,
+    reason,
+  };
+}
 
 /** Stable 36-character key derived only from the durable local refund identity. */
 export function buildPayPalRefundRequestId(refundId: string): string {

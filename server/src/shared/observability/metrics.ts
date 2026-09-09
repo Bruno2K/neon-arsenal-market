@@ -28,6 +28,13 @@ type Instruments = {
   webhooksFailed: Counter;
   sellerLedgerDriftDetected: Counter;
   sellerLedgerCorrected: Counter;
+  refundReconciliationScanned: Counter;
+  refundReconciliationAttempted: Counter;
+  refundReconciliationConverged: Counter;
+  refundReconciliationPending: Counter;
+  refundReconciliationRetryable: Counter;
+  refundReconciliationTerminalFailure: Counter;
+  refundReconciliationOperatorRequired: Counter;
   outboxPublished: Counter;
   outboxRetry: Counter;
   outboxFailed: Counter;
@@ -110,6 +117,27 @@ function createInstruments(meter: Meter): Instruments {
     sellerLedgerCorrected: meter.createCounter("seller.ledger.corrected", {
       description: "Seller.balance set to PAID ledger SUM",
     }),
+    refundReconciliationScanned: meter.createCounter("refund.reconciliation.scanned", {
+      description: "Eligible unresolved refunds scanned",
+    }),
+    refundReconciliationAttempted: meter.createCounter("refund.reconciliation.attempted", {
+      description: "Refund reconciliation claims that performed provider work",
+    }),
+    refundReconciliationConverged: meter.createCounter("refund.reconciliation.converged", {
+      description: "Refunds converged to local COMPLETED",
+    }),
+    refundReconciliationPending: meter.createCounter("refund.reconciliation.still_pending", {
+      description: "Refunds still pending at PayPal",
+    }),
+    refundReconciliationRetryable: meter.createCounter("refund.reconciliation.retryable_failure", {
+      description: "Refund reconciliation transient or ambiguous failures",
+    }),
+    refundReconciliationTerminalFailure: meter.createCounter("refund.reconciliation.terminal_failure", {
+      description: "Trusted terminal PayPal refund failures",
+    }),
+    refundReconciliationOperatorRequired: meter.createCounter("refund.reconciliation.operator_required", {
+      description: "Refunds requiring operator investigation",
+    }),
     outboxPublished: meter.createCounter("outbox.published", {
       description: "Outbox events published",
     }),
@@ -191,6 +219,13 @@ export const appMetrics = {
   webhooksFailed: (value = 1) => add(getInstruments().webhooksFailed, undefined, value),
   sellerLedgerDriftDetected: (value = 1) => add(getInstruments().sellerLedgerDriftDetected, undefined, value),
   sellerLedgerCorrected: (value = 1) => add(getInstruments().sellerLedgerCorrected, undefined, value),
+  refundReconciliationScanned: (value = 1) => add(getInstruments().refundReconciliationScanned, undefined, value),
+  refundReconciliationAttempted: (value = 1) => add(getInstruments().refundReconciliationAttempted, undefined, value),
+  refundReconciliationConverged: (value = 1) => add(getInstruments().refundReconciliationConverged, undefined, value),
+  refundReconciliationPending: (value = 1) => add(getInstruments().refundReconciliationPending, undefined, value),
+  refundReconciliationRetryable: (value = 1) => add(getInstruments().refundReconciliationRetryable, undefined, value),
+  refundReconciliationTerminalFailure: (value = 1) => add(getInstruments().refundReconciliationTerminalFailure, undefined, value),
+  refundReconciliationOperatorRequired: (value = 1) => add(getInstruments().refundReconciliationOperatorRequired, undefined, value),
   outboxPublished: (value = 1) => add(getInstruments().outboxPublished, undefined, value),
   outboxRetry: (value = 1) => add(getInstruments().outboxRetry, undefined, value),
   outboxFailed: (value = 1) => add(getInstruments().outboxFailed, undefined, value),

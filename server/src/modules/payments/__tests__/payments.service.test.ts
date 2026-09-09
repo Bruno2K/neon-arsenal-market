@@ -56,6 +56,15 @@ vi.mock("../refunds.service.js", () => ({
   refundsService: {
     createObligation: vi.fn(),
     executeProviderRefund: vi.fn(),
+    reconcileUnresolvedRefunds: vi.fn(async () => ({
+      scanned: 0,
+      attempted: 0,
+      converged: 0,
+      stillPending: 0,
+      retryableFailures: 0,
+      terminalFailures: 0,
+      operatorRequired: 0,
+    })),
   },
 }));
 

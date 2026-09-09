@@ -49,11 +49,12 @@ Step-by-step incident walk: [`docs/operations/runbook.md`](./operations/runbook.
 | `payments.confirm` | Payment confirmation |
 | `payments.confirm.transaction` | Claim order, sell listings, write seller transactions |
 | `payments.reconcile` | PayPal GET reconciliation batch |
+| `refund.reconcile.sweep` / `refund.reconcile` | Bounded refund scan and one claimed refund decision |
 | `seller.ledger.reconcile` | Seller.balance vs PAID ledger SUM |
 | `outbox.dispatch` | Claim and publish transactional outbox rows |
 | `paypal.webhook.verify` | Webhook signature verification |
 | `paypal.webhook.handle` | Event claim, ignore, confirm or fail |
-| `paypal.orders_create` / `orders_get` / `orders_capture` / `oauth_token` | PayPal HTTP |
+| `paypal.orders_create` / `orders_get` / `orders_capture` / `captures_refund` / `refunds_get` / `oauth_token` | PayPal HTTP |
 | `db.prisma` | Prisma operation (`db.operation` + `db.collection` only) |
 
 `app.outcome` distinguishes expected business results from operational failures:
@@ -78,7 +79,7 @@ Database: `db.client.operation.duration`, `db.client.errors`
 Attributes: `db.system=postgresql`, `db.operation`, `db.collection`
 
 PayPal: `paypal.client.request.count`, `paypal.client.errors`, `paypal.client.timeouts`, `paypal.client.request.duration`  
-Attribute: `paypal.operation` (`orders_create`, `orders_get`, `orders_capture`, `oauth_token`)
+Attribute: `paypal.operation` (`orders_create`, `orders_get`, `orders_capture`, `captures_refund`, `refunds_get`, `oauth_token`)
 
 Business counters (no labels):
 
@@ -87,7 +88,14 @@ Business counters (no labels):
 - `payments.confirmed`, `payments.failed`
 - `paypal.webhooks.received`, `paypal.webhooks.duplicate`, `paypal.webhooks.ignored`, `paypal.webhooks.failed`
 - `seller.ledger.drift_detected`, `seller.ledger.corrected`
+- `refund.reconciliation.scanned`, `refund.reconciliation.attempted`, `refund.reconciliation.converged`
+- `refund.reconciliation.still_pending`, `refund.reconciliation.retryable_failure`, `refund.reconciliation.terminal_failure`, `refund.reconciliation.operator_required`
 - `outbox.published`, `outbox.retry`, `outbox.failed`
+
+Refund reconciliation counters have no labels. Refund, order, capture, and refund IDs appear only in the
+safe per-item trace/log context; they are intentionally excluded from metric dimensions. The sweep span
+records bounded aggregate counts. `operator_required` means either a trusted terminal provider failure or
+an unresolved refund older than 24 hours; it does not mutate the refund into a guessed terminal outcome.
 
 There is no `orders.pending` gauge. That would scrape PostgreSQL on a timer; query `Order` where `paymentStatus = PENDING` when you need the count.
 

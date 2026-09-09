@@ -115,6 +115,7 @@ Integration tests are not skipped when PostgreSQL is down. A missing or unreacha
 | `observability.integration.test.ts` | Order/reservation/payment/webhook spans and counters against real PostgreSQL. No secrets or high-cardinality labels. |
 | `seller.ledger.integration.test.ts` | Sequential/concurrent confirm; Decimal net identity; projection matches PAID SUM. |
 | `seller.ledger.reconcile.integration.test.ts` | Matching projection is a no-op; drifted projection is SET once + audited; concurrent confirmPayment cannot double-credit. |
+| `refund.reconciliation.integration.test.ts` | Persisted-time selection, RefundsGet vs stable-key replay, remote/local crash recovery, pending/transient/terminal outcomes, concurrent workers, exact compensation, ledger sweep idempotency, and batch bounds. |
 | `listings.cursor.integration.test.ts` | Keyset first/next/last page; concurrent insert does not duplicate/skip under cursor; offset `page`/`limit`/`total` still works; invalid cursor HTTP 400. |
 | `auth.security.integration.test.ts` | Refresh family rotation/reuse revocation; concurrent refresh; login throttle 429; password policy. |
 | `api.security.integration.test.ts` | HTTP IDOR (customer/seller), ADMIN escalation, seller listing ownership, status/payment tampering, invalid/replayed webhook, expired-reservation purchase, client price manipulation (#72). |
