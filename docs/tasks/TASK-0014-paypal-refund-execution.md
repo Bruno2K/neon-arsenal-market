@@ -1,12 +1,12 @@
 ---
 id: TASK-0014
-status: Blocked
+status: Ready
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
 source_plan: PLAN-0012
 source_plan_version: 1
-baseline_revision: d0309efae576a4ab385e1cd13711b741ac857a2d
+baseline_revision: f6428d7243c257e5068ddd78756aee45796c8054
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -16,7 +16,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Blocked`.
+`Ready`. TASK-0013 is Done and its refund/ledger foundation is merged on the current main baseline.
 
 ## Source
 
@@ -46,7 +46,7 @@ PayPal refund utility/adapter work, payment-service integration, durable claim/u
 
 ## Preconditions
 
-TASK-0013 is Done and its migration/model are present on the branch baseline.
+TASK-0013 is Done via PR #223 and its migration/model are present on baseline `f6428d7243c257e5068ddd78756aee45796c8054`.
 
 ## Acceptance Criteria
 
@@ -80,7 +80,6 @@ Focused tests prove late capture, duplicate replay, provider success/local crash
 
 ## Stop Conditions
 
-- Stop unless TASK-0013 is Done.
 - Stop if PayPal refund API semantics cannot be confirmed from the supported provider boundary.
 - Stop before inventing partial/customer-requested refunds.
 - Stop before editing outside Allowed Files.
@@ -92,3 +91,4 @@ Focused tests prove late capture, duplicate replay, provider success/local crash
 ## Change History
 
 - 2026-09-08 — v1 — Blocked provider task created after human approval.
+- 2026-09-09 — TASK-0014 released to Ready after TASK-0013 / PR #223 merged.
