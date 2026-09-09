@@ -46,7 +46,7 @@ jobs:
         repetition: ${{ fromJSON(inputs.repetitions == '3' && '[1,2,3]' || '[1]') }}
 
     env:
-      BASE_URL: http://127.0.0.1:3001
+      BASE_URL: http://neon-arsenal-api:3001
       LOAD_PROFILE: ${{ inputs.profile }}
       LOAD_TARGET_RPS: ${{ inputs.target_rps }}
       ORDER_LISTING_COUNT: ${{ inputs.order_listing_count }}
@@ -59,6 +59,7 @@ jobs:
       POSTGRES_SHARED_BUFFERS: 256MB
       POSTGRES_IMAGE: postgres:16-alpine
       API_IMAGE: neon-arsenal-loadtest:${{ github.sha }}
+      K6_IMAGE: grafana/k6:2.2.0
       API_CONTAINER: neon-arsenal-api
       POSTGRES_CONTAINER: neon-arsenal-postgres
       LOAD_NETWORK: neon-arsenal-loadtest
@@ -121,7 +122,7 @@ jobs:
           docker run --detach \
             --name "$API_CONTAINER" \
             --network "$LOAD_NETWORK" \
-            --publish 127.0.0.1:3001:3001 \
+            --network-alias neon-arsenal-api \
             --cpus "$API_CPU_LIMIT" \
             --memory "$API_MEMORY_LIMIT" \
             --memory-swap "$API_MEMORY_LIMIT" \
@@ -140,9 +141,17 @@ jobs:
         run: |
           set -euo pipefail
           for attempt in {1..60}; do
-            curl --fail --silent --show-error --max-time 5 "$BASE_URL/ready" > /dev/null && exit 0
+            if ! docker inspect "$API_CONTAINER" --format '{{.State.Running}}' | grep -qx true; then
+              echo "API container exited before readiness" >&2
+              docker inspect "$API_CONTAINER" --format '{{json .State}}' || true
+              docker logs "$API_CONTAINER" || true
+              exit 1
+            fi
+            docker exec "$API_CONTAINER" wget -qO- --timeout=5 http://127.0.0.1:3001/ready > /dev/null && exit 0
             sleep 5
           done
+          echo "Timed out waiting for API readiness inside the container" >&2
+          docker inspect "$API_CONTAINER" --format '{{json .State}}' || true
           docker logs "$API_CONTAINER" || true
           exit 1
 
@@ -153,6 +162,7 @@ jobs:
           bash load-tests/k6/ci/prepare-fixtures.sh \
             "$POSTGRES_CONTAINER" "$RUN_ID" "$ORDER_LISTING_COUNT" "$PAYMENT_ORDER_COUNT" \
             "$GITHUB_ENV" "$ARTIFACT_DIR"
+          echo "FIXTURES_READY=true" >> "$GITHUB_ENV"
 
       - name: Configure selected profile
         shell: bash
@@ -175,15 +185,22 @@ jobs:
         shell: bash
         run: bash load-tests/k6/ci/capture-db-snapshot.sh "$POSTGRES_CONTAINER" pre "$ARTIFACT_DIR/postgres-pre.txt"
 
-      - name: Setup k6
-        uses: grafana/setup-k6-action@v1
+      - name: Setup pinned k6 container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$K6_IMAGE"
+          docker image inspect --format '{{.Id}}' "$K6_IMAGE" > "$ARTIFACT_DIR/k6-image-id.txt"
 
       - name: Inspect k6 harness
         shell: bash
         run: |
           set -euo pipefail
-          k6 version | tee "$ARTIFACT_DIR/k6-version.txt"
-          k6 inspect load-tests/k6/neon-arsenal.js | tee "$ARTIFACT_DIR/k6-inspect.json"
+          docker run --rm "$K6_IMAGE" version | tee "$ARTIFACT_DIR/k6-version.txt"
+          docker run --rm \
+            --volume "$GITHUB_WORKSPACE:/work" \
+            --workdir /work \
+            "$K6_IMAGE" inspect load-tests/k6/neon-arsenal.js | tee "$ARTIFACT_DIR/k6-inspect.json"
 
       - name: Start synchronized resource sampler
         shell: bash
@@ -204,7 +221,30 @@ jobs:
           set -euo pipefail
           date -u +%Y-%m-%dT%H:%M:%SZ | tee "$ARTIFACT_DIR/start-utc.txt"
           export LOAD_SUMMARY_PATH="$ARTIFACT_DIR/k6-summary.json"
-          k6 run load-tests/k6/neon-arsenal.js
+          docker run --rm \
+            --network "$LOAD_NETWORK" \
+            --volume "$GITHUB_WORKSPACE:/work" \
+            --workdir /work \
+            --env BASE_URL \
+            --env LOAD_PROFILE \
+            --env RUN_ID \
+            --env LOAD_SUMMARY_PATH \
+            --env CUSTOMER_EMAIL \
+            --env CUSTOMER_PASSWORD \
+            --env ORDER_LISTING_IDS \
+            --env PAYMENT_ORDER_IDS \
+            --env ALLOW_WRITES \
+            --env LOAD_TARGET_RPS \
+            --env LOAD_START_RPS \
+            --env LOAD_VUS \
+            --env LOAD_DURATION \
+            --env LOAD_RAMP_DURATION \
+            --env LOAD_HOLD_DURATION \
+            --env LOAD_COOLDOWN_DURATION \
+            --env LOAD_PREALLOCATED_VUS \
+            --env LOAD_MAX_VUS \
+            --env LOAD_MAX_DURATION \
+            "$K6_IMAGE" run load-tests/k6/neon-arsenal.js
           date -u +%Y-%m-%dT%H:%M:%SZ | tee "$ARTIFACT_DIR/end-utc.txt"
 
       - name: Stop synchronized resource sampler
@@ -219,7 +259,7 @@ jobs:
 
       - name: Validate post-run invariants
         id: invariants
-        if: always()
+        if: always() && env.FIXTURES_READY == 'true'
         continue-on-error: true
         shell: bash
         run: |
@@ -246,6 +286,7 @@ jobs:
           set -euo pipefail
           api_image_id=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
           postgres_image_id=$(docker image inspect --format '{{.Id}}' "$POSTGRES_IMAGE")
+          k6_image_id=$(docker image inspect --format '{{.Id}}' "$K6_IMAGE")
           node_version=$(docker run --rm --entrypoint node "$API_IMAGE" --version)
           postgres_version=$(docker exec "$POSTGRES_CONTAINER" psql -X -A -t -U neon -d neon_arsenal_loadtest -c 'SHOW server_version')
           api_limits=$(docker inspect --format '{{json .HostConfig}}' "$API_CONTAINER" | jq '{NanoCpus, Memory, MemorySwap, RestartPolicy}')
@@ -271,7 +312,7 @@ jobs:
             --arg startUtc "$(cat "$ARTIFACT_DIR/start-utc.txt" 2>/dev/null || echo unavailable)" \
             --arg endUtc "$(cat "$ARTIFACT_DIR/end-utc.txt" 2>/dev/null || echo unavailable)" \
             --arg apiImage "$API_IMAGE" --arg apiImageId "$api_image_id" --arg postgresImage "$POSTGRES_IMAGE" \
-            --arg postgresImageId "$postgres_image_id" --arg nodeVersion "$node_version" \
+            --arg postgresImageId "$postgres_image_id" --arg k6Image "$K6_IMAGE" --arg k6ImageId "$k6_image_id" --arg nodeVersion "$node_version" \
             --arg postgresVersion "$postgres_version" --arg postgresMaxConnections "$POSTGRES_MAX_CONNECTIONS" \
             --arg postgresSharedBuffers "$POSTGRES_SHARED_BUFFERS" \
             --arg k6Version "$(cat "$ARTIFACT_DIR/k6-version.txt" 2>/dev/null || echo unavailable)" \
@@ -285,8 +326,8 @@ jobs:
               workload: {profile: $profile, offeredRps: ($targetRps | tonumber), orderListingCount: ($orderListingCount | tonumber)},
               api: {image: $apiImage, imageId: $apiImageId, nodeVersion: $nodeVersion, replicas: 1, limits: $apiLimits, finalState: $apiState},
               postgres: {image: $postgresImage, imageId: $postgresImageId, version: $postgresVersion, maxConnections: ($postgresMaxConnections | tonumber), sharedBuffers: $postgresSharedBuffers, limits: $postgresLimits},
-              dataset: $dataset, k6Version: $k6Version,
-              externalNetwork: "API and PostgreSQL use an internal Docker network; provider egress is unavailable."
+              dataset: $dataset, k6: {image: $k6Image, imageId: $k6ImageId, version: $k6Version},
+              externalNetwork: "API, PostgreSQL, and k6 run only on the internal Docker network; provider egress is unavailable."
             }' > "$ARTIFACT_DIR/environment.json"
 
       - name: Publish run summary
@@ -324,7 +365,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ '${{ steps.k6.outcome }}' == success ]] || { echo 'k6 execution or thresholds failed' >&2; exit 1; }
+          [[ '${{ steps.k6.outcome }}' == success ]] || { echo 'k6 did not run successfully or thresholds failed' >&2; exit 1; }
           [[ '${{ steps.invariants.outcome }}' == success ]] || { echo 'Post-run invariant validation failed' >&2; exit 1; }
 
       - name: Cleanup isolated containers
