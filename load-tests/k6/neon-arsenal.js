@@ -20,10 +20,13 @@ const webhookFailures = new Rate("webhook_failures");
 const profiles = {
   smoke: {
     catalog_browse: {
-      executor: "constant-vus",
+      executor: "constant-arrival-rate",
       exec: "catalogBrowse",
-      vus: intEnv("LOAD_VUS", 1),
+      rate: intEnv("LOAD_TARGET_RPS", 1),
+      timeUnit: "1s",
       duration: __ENV.LOAD_DURATION || "15s",
+      preAllocatedVUs: intEnv("LOAD_PREALLOCATED_VUS", 1),
+      maxVUs: intEnv("LOAD_MAX_VUS", 2),
     },
   },
   catalog: {
