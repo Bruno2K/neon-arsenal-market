@@ -14,7 +14,7 @@ No GitHub Environment, external URL, PayPal credential, Blueprint, Vercel config
 
 ## Profile safety
 
-- `smoke` and `catalog` are read-only. `ALLOW_WRITES` is absent.
+- `smoke` and `catalog` are read-only. `ALLOW_WRITES` is absent. Smoke is deliberately paced at 1 request/second so it proves connectivity/response shape without tripping the production API rate limit; it is not a capacity profile.
 - `orders` alone receives `ALLOW_WRITES=true` and a generated list of unique `ACTIVE` listing IDs. Post-run SQL requires one order/reservation/idempotency result per listing and rejects duplicate consumption or payment/ledger side effects.
 - `payment_replay` receives local pending orders whose `PaymentLink` rows are already `COMPLETED` and whose PayPal IDs are synthetic local fixture identities. This exercises the existing replay early return. No PayPal credential is present and the internal Docker network has no provider egress, so an accidental provider call fails the run.
 - `webhook_rejection` sends only invalid signatures. Post-run SQL requires zero matching webhook-event rows.
