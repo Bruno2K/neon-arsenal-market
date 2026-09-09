@@ -1,12 +1,12 @@
 ---
 id: TASK-0013
-status: Ready
+status: Done
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
 source_plan: PLAN-0012
 source_plan_version: 1
-baseline_revision: d0309efae576a4ab385e1cd13711b741ac857a2d
+baseline_revision: f6428d7243c257e5068ddd78756aee45796c8054
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -16,7 +16,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Ready`. PR 03 is merged and PLAN-0012 is Ready on the post-security baseline.
+`Done`. Implemented and merged through PR #223.
 
 ## Source
 
@@ -48,7 +48,7 @@ Schema, migration, repositories/domain helpers, focused tests, and documentation
 
 ## Preconditions
 
-PR 03 is merged as #221; PLAN-0012 is Ready on baseline `d0309efae576a4ab385e1cd13711b741ac857a2d`; SPEC-0013 remains v1 Accepted.
+Implemented from PLAN-0012 / SPEC-0013 and merged as PR #223. Current main baseline: `f6428d7243c257e5068ddd78756aee45796c8054`.
 
 ## Acceptance Criteria
 
@@ -94,3 +94,4 @@ Migration applies on disposable PostgreSQL; pre-existing paid-ledger fixtures pr
 ## Change History
 
 - 2026-09-08 — v1 — Ready task released after PR 03 convergence and human-approved refund semantics.
+- 2026-09-09 — TASK-0013 implemented, reviewed, CI green, and merged via PR #223.
