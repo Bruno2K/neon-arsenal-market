@@ -1,11 +1,11 @@
 ---
 id: SPEC-0009
 status: Accepted
-version: 2
+version: 3
 source_issue: "#55"
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-09
 ---
 
 # [SPEC-0009] — Reproducible load testing and capacity evidence
@@ -20,7 +20,7 @@ The repository has query-plan measurements and capacity hypotheses, but no repro
 
 ## Goal
 
-Provide safe, reproducible k6 profiles and a report contract that correlate HTTP RPS/p50/p95/p99/errors with API and PostgreSQL resource evidence, without silently mutating production or triggering PayPal side effects.
+Provide safe, reproducible k6 profiles and a controlled production-like CI environment that correlate HTTP RPS/p50/p95/p99/errors with API and PostgreSQL resource evidence, without external cloud credentials, silently mutating production, or triggering PayPal side effects.
 
 ## Actors
 
@@ -36,6 +36,7 @@ Provide safe, reproducible k6 profiles and a report contract that correlate HTTP
 - Idempotent payment-link replay using pre-warmed completed links.
 - Invalid-signature webhook rejection at the trust boundary.
 - JSON summaries, metric thresholds, resource-correlation procedure and report template.
+- A manually gated controlled CI topology using the production Docker image, explicit resource limits, PostgreSQL 16, disposable fixtures and synchronized evidence capture.
 
 ## Non-goals
 
@@ -54,6 +55,7 @@ Provide safe, reproducible k6 profiles and a report contract that correlate HTTP
 - `BR-04`: Webhook load proves invalid signatures are rejected before persistence; valid signed webhook load remains operator-gated.
 - `BR-05`: Every accepted capacity result records commit, environment, dataset, workload, UTC window, k6 percentiles/errors and API/PostgreSQL resource signals.
 - `BR-06`: A single run or a k6-only summary is not a capacity claim.
+- `BR-07`: GitHub-hosted results are named controlled CI capacity evidence; they are not Render or production capacity, and runner variability remains explicit.
 
 ## Invariants
 
@@ -102,13 +104,13 @@ No runtime, API, schema, deploy or client behavior changes. This adds an operato
 - [ ] `AC-04` — Profile thresholds fail on checks/custom failures and p95/p99 regressions. **Evidence:** k6 inspect
 - [ ] `AC-05` — The procedure requires correlated CPU, memory, connections, waits, deadlocks and invariant evidence. **Evidence:** static check
 - [ ] `AC-06` — A report template separates measured facts from hypotheses and records the first bottleneck. **Evidence:** static check
-- [ ] `AC-07` — At least one isolated production-like run covers each profile and three repetitions support any committed capacity claim. **Evidence:** runtime/external evidence
+- [ ] `AC-07` — At least one controlled, isolated production-like run covers each profile and three equivalent repetitions support any committed capacity claim. GitHub-hosted evidence must disclose runner variability and must not be called Render or production capacity. **Evidence:** runtime artifacts
 - [ ] `AC-08` — Existing API/payment/schema/deploy behavior is unchanged. **Evidence:** diff review and existing tests
 
 ## Verification Strategy
 
 - `k6 inspect load-tests/k6/neon-arsenal.js`
-- `k6 run` for each profile against an isolated production-like deployment.
+- `k6 run` for each profile against the isolated controlled CI topology or another explicitly qualified production-like environment.
 - `python scripts/docs/validate_contracts.py`
 - `python tests/tooling/test_docs_contracts.py`
 - Existing backend typecheck/unit/integration suite; diff review proves no runtime change.
@@ -127,12 +129,13 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 
 - External tracker: `#55` (optional)
 - Spec: `SPEC-0009`
-- Plan: `PLAN-0006` v2
-- Tasks: `TASK-0010` v2
+- Plan: `PLAN-0006` v3
+- Tasks: `TASK-0010` v3
 - PR: pending
 - Evidence: pending runtime evidence
 
 ## Change History
 
+- `v3` — Accepted a no-cloud-credential controlled CI environment as eligible AC-07 evidence when all profile, repetition, resource and uncertainty requirements are satisfied — 2026-09-09
 - `v2` — Migrated validation commands and traceability to the direct-agent documentation contract — 2026-09-08
 - `v1` — Accepted harness and evidence contract — 2026-09-07

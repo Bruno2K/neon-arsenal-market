@@ -1,5 +1,9 @@
 # Load-test report — YYYY-MM-DD — PROFILE
 
+Evidence class: controlled CI capacity evidence | isolated deployed evidence
+
+This report does not imply Render or production capacity unless the named environment actually is that platform and has its own correlated provider evidence.
+
 ## Identity
 
 - Git SHA:
@@ -14,6 +18,7 @@
 - PostgreSQL version / tier / connection limit:
 - Dataset: products / listings by status / orders / payment links:
 - External dependencies enabled:
+- Runner / host uncertainty:
 
 ## Workload
 
@@ -51,6 +56,16 @@
 - Lowest-complexity mitigation:
 - Does this trigger an ADR 0018/0019 review? Why?
 - Capacity statement that may be added to `docs/architecture/capacity.md`:
+
+## Equivalent repetitions
+
+- Equivalence basis: same commit / image / limits / dataset shape / workload configuration
+- Run 1 artifact and result:
+- Run 2 artifact and result:
+- Run 3 artifact and result:
+- Median achieved RPS / p50 / p95 / p99:
+- Worst observed failure rate / dropped iterations:
+- Variability and anomalies (do not average away failures):
 
 ## Artifacts
 

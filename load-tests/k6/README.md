@@ -1,6 +1,6 @@
 # k6 load-test harness
 
-Issue #55. Run only against an isolated, production-like environment with disposable data. The default `smoke` profile is read-only. Write profiles require explicit data and never create users, listings, or PayPal resources implicitly.
+Issue #55. Run only against an isolated, production-like environment with disposable data. The default `smoke` profile is read-only. Write profiles require explicit data and never create users, listings, or PayPal resources implicitly. The manual GitHub Actions path is classified as **controlled CI capacity evidence**, not Render or production capacity.
 
 ## Profiles
 
@@ -47,6 +47,12 @@ k6 run load-tests/k6/neon-arsenal.js
 ```
 
 Never commit credentials or generated summary JSON. Use a unique `RUN_ID` for traceability.
+
+## Controlled CI support
+
+`.github/workflows/load-test.yml` builds and runs the production Docker image with fixed CPU and memory limits beside a resource-limited PostgreSQL 16 container. The helpers under `load-tests/k6/ci/` create disposable order/payment-replay fixtures, sample both containers and PostgreSQL during the exact k6 window, capture pre/post database snapshots, and fail if post-run invariants do not hold.
+
+The payment fixture contains an already-completed local `PaymentLink`. The API and PostgreSQL run on an internal Docker network with no provider egress and no PayPal credentials. A replay therefore succeeds only through the existing early-return path; an accidental `OrdersCreate` or `OrdersCapture` attempt cannot reach PayPal and causes the run to fail.
 
 ## Evidence outside k6
 

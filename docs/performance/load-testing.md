@@ -7,7 +7,7 @@ For the no-card GitHub Actions execution path, see
 
 ## Safety gate
 
-Use an isolated API and PostgreSQL database with production-like limits and disposable fixtures. Do not run write profiles against the public demo or a database containing user data. Do not run PayPal capture/webhook-success traffic without explicit operator approval and PayPal Sandbox isolation.
+Use an isolated API and PostgreSQL database with production-like limits and disposable fixtures. The repository's no-credential path is the manually dispatched **controlled CI capacity evidence** workflow documented in `docs/operations/load-test-ci.md`. Do not call its results Render or production capacity. Do not run write profiles against the public demo or a database containing user data. Do not run PayPal capture/webhook-success traffic without explicit operator approval and PayPal Sandbox isolation.
 
 Before a run, record:
 
@@ -26,7 +26,7 @@ Before a run, record:
 5. `webhook_rejection`: measure the unauthenticated trust-boundary rejection path.
 6. Cool down, capture final database state, and verify invariants/tests.
 
-Run one profile at a time. Repeat each stable point at least three times; report the median run and the spread. A single run is a probe, not a capacity claim.
+Run one profile at a time. Select the workflow's three-repetition mode only after a stable point is chosen. It creates three serial jobs at the same commit and configuration, each with a fresh equivalent dataset. Report every run, the median and the spread; do not average away an anomaly. A single run is a probe, not a capacity claim.
 
 ## Metrics to capture
 
@@ -45,7 +45,7 @@ SELECT wait_event_type, wait_event, count(*) FROM pg_stat_activity WHERE datname
 SELECT deadlocks, xact_commit, xact_rollback FROM pg_stat_database WHERE datname = current_database();
 ```
 
-Provider charts and SQL snapshots must cover the same UTC window as the k6 JSON summary. Do not infer database saturation from HTTP latency alone.
+Resource samples and SQL snapshots must cover the same UTC window as the k6 JSON summary. In controlled CI, Docker statistics and PostgreSQL activity/statistics are the resource source; in a deployed environment, use provider charts. Do not infer database saturation from HTTP latency alone.
 
 ## Capacity decision rule
 
@@ -57,7 +57,7 @@ Record the highest repeatable offered rate where all of these remain true:
 - PostgreSQL connections retain operational headroom and lock waits are explained;
 - domain invariants remain intact after the run.
 
-The committed thresholds are test guardrails, not production SLOs. Update `docs/architecture/capacity.md` only with measured environment-qualified results.
+The committed thresholds are test guardrails, not production SLOs. Controlled CI results must name the fixed container limits and GitHub-hosted runner uncertainty. Update `docs/architecture/capacity.md` only after the required runs exist and only with environment-qualified language.
 
 ## Architecture gate
 
