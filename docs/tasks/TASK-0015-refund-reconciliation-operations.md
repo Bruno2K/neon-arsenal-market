@@ -1,12 +1,12 @@
 ---
 id: TASK-0015
-status: Ready
+status: Done
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
 source_plan: PLAN-0012
 source_plan_version: 1
-baseline_revision: 2ec7897edabc3ab7b7b0ec68a5e8bddb89570799
+baseline_revision: 3606a039a73652bcebe6e13d688f921ca35e6231
 owner: "Neon Arsenal Engineering"
 created: 2026-09-08
 updated: 2026-09-08
@@ -16,7 +16,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Ready`. TASK-0014 is Done and idempotent provider refund execution is merged on the current main baseline.
+`Done`. Implemented and merged through PR #227.
 
 ## Source
 
@@ -51,12 +51,12 @@ TASK-0014 is Done via PR #225 and provider refund execution is present on baseli
 
 ## Acceptance Criteria
 
-- [ ] `AC-03` Remote-completed/local-incomplete refunds converge through reconciliation. **Evidence:** integration
-- [ ] `AC-06` Ledger/balance reconciliation remains correct after refund and repeat sweeps no-op. **Evidence:** integration
-- [ ] `AC-07` Out-of-order states converge without relying on event arrival order. **Evidence:** integration
-- [ ] `AC-08` Recoverable failure states retry safely and unresolved states remain explicit. **Evidence:** integration
-- [ ] `AC-09` Safe logs/metrics/runbook identify failed/non-converged refunds and operator action. **Evidence:** static check/runtime
-- [ ] `AC-10` Full regression, docs contracts, and remote CI pass. **Evidence:** CI
+- [x] `AC-03` Remote-completed/local-incomplete refunds converge through reconciliation. **Evidence:** integration
+- [x] `AC-06` Ledger/balance reconciliation remains correct after refund and repeat sweeps no-op. **Evidence:** integration
+- [x] `AC-07` Out-of-order states converge without relying on event arrival order. **Evidence:** integration
+- [x] `AC-08` Recoverable failure states retry safely and unresolved states remain explicit. **Evidence:** integration
+- [x] `AC-09` Safe logs/metrics/runbook identify failed/non-converged refunds and operator action. **Evidence:** static check/runtime
+- [x] `AC-10` Full regression, docs contracts, and remote CI pass. **Evidence:** CI
 
 ## Dependencies
 
@@ -97,3 +97,4 @@ Repeated reconciliation is idempotent; remote/local divergence converges when pr
 
 - 2026-09-08 — v1 — Blocked reconciliation task created after human approval.
 - 2026-09-09 — TASK-0015 released to Ready after TASK-0014 / PR #225 merged.
+- 2026-09-09 — TASK-0015 implemented, reviewed, CI green, and merged via PR #227.
