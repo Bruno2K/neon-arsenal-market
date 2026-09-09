@@ -169,7 +169,7 @@ jobs:
         run: |
           set -euo pipefail
           case "$LOAD_PROFILE" in
-            smoke) printf '%s\n' 'LOAD_VUS=1' 'LOAD_DURATION=15s' >> "$GITHUB_ENV" ;;
+            smoke) printf '%s\n' 'LOAD_TARGET_RPS=1' 'LOAD_DURATION=15s' 'LOAD_PREALLOCATED_VUS=1' 'LOAD_MAX_VUS=2' >> "$GITHUB_ENV" ;;
             catalog)
               printf '%s\n' 'LOAD_START_RPS=5' 'LOAD_RAMP_DURATION=30s' 'LOAD_HOLD_DURATION=60s' \
                 'LOAD_COOLDOWN_DURATION=15s' 'LOAD_PREALLOCATED_VUS=20' 'LOAD_MAX_VUS=100' >> "$GITHUB_ENV"
@@ -222,6 +222,7 @@ jobs:
           date -u +%Y-%m-%dT%H:%M:%SZ | tee "$ARTIFACT_DIR/start-utc.txt"
           export LOAD_SUMMARY_PATH="$ARTIFACT_DIR/k6-summary.json"
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
             --network "$LOAD_NETWORK" \
             --volume "$GITHUB_WORKSPACE:/work" \
             --workdir /work \
