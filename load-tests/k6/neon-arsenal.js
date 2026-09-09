@@ -79,21 +79,26 @@ if (!profiles[PROFILE]) {
   throw new Error(`Unknown LOAD_PROFILE=${PROFILE}. Use smoke, catalog, orders, payment_replay, or webhook_rejection.`);
 }
 
+const thresholds = {
+  checks: ["rate>0.99"],
+  "catalog_failures{scenario:catalog_browse}": ["rate<0.01"],
+  "order_failures{scenario:order_create}": ["rate<0.01"],
+  "payment_failures{scenario:payment_replay}": ["rate<0.01"],
+  "webhook_failures{scenario:webhook_rejection}": ["rate<0.01"],
+  "http_req_duration{scenario:catalog_browse}": ["p(95)<500", "p(99)<1000"],
+  "http_req_duration{scenario:order_create}": ["p(95)<1000", "p(99)<2000"],
+  "http_req_duration{scenario:payment_replay}": ["p(95)<750", "p(99)<1500"],
+  "http_req_duration{scenario:webhook_rejection}": ["p(95)<500", "p(99)<1000"],
+};
+
+if (PROFILE === "webhook_rejection") {
+  thresholds["webhook_signature_rejections{scenario:webhook_rejection}"] = ["count>0"];
+}
+
 export const options = {
   scenarios: profiles[PROFILE],
   summaryTrendStats: ["avg", "min", "med", "max", "p(50)", "p(90)", "p(95)", "p(99)"],
-  thresholds: {
-    checks: ["rate>0.99"],
-    "catalog_failures{scenario:catalog_browse}": ["rate<0.01"],
-    "order_failures{scenario:order_create}": ["rate<0.01"],
-    "payment_failures{scenario:payment_replay}": ["rate<0.01"],
-    "webhook_failures{scenario:webhook_rejection}": ["rate<0.01"],
-    "webhook_signature_rejections{scenario:webhook_rejection}": ["count>0"],
-    "http_req_duration{scenario:catalog_browse}": ["p(95)<500", "p(99)<1000"],
-    "http_req_duration{scenario:order_create}": ["p(95)<1000", "p(99)<2000"],
-    "http_req_duration{scenario:payment_replay}": ["p(95)<750", "p(99)<1500"],
-    "http_req_duration{scenario:webhook_rejection}": ["p(95)<500", "p(99)<1000"],
-  },
+  thresholds,
 };
 
 export function setup() {
