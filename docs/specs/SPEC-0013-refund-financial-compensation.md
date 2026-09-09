@@ -160,7 +160,7 @@ Existing successful payment confirmation remains unchanged. Existing prevention 
 - [x] `AC-07` Event ordering does not control correctness: duplicate and out-of-order supported PayPal events converge according to provider state and local invariants. **Evidence:** test/integration
 - [x] `AC-08` Provider timeout, remote-success/local-crash, and local-write-failure scenarios retain a deterministic recovery path and never silently mark a refund complete. **Evidence:** test/integration
 - [x] `AC-09` Refund failures and unresolved states emit safe operational evidence and are documented in the runbook. **Evidence:** static check/runtime
-- [x] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** CI
+- [ ] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI continue to pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** CI
 
 ## Verification Strategy
 
@@ -195,4 +195,4 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ## Change History
 
 - 2026-09-08 — v1 accepted: automatic full technical refund, append-only compensation, idempotent reconciliation, and explicit human escalation for non-convergence.
-- 2026-09-09 — All acceptance criteria satisfied through TASK-0013/0014/0015 and PR #223/#225/#227.
+- 2026-09-09 — Implementation acceptance satisfied through TASK-0013/0014/0015 and PR #223/#225/#227. AC-10 remains the standing regression/CI criterion required by the repository documentation contract.
