@@ -77,6 +77,7 @@ if (!profiles[PROFILE]) {
 
 export const options = {
   scenarios: profiles[PROFILE],
+  summaryTrendStats: ["avg", "min", "med", "max", "p(50)", "p(90)", "p(95)", "p(99)"],
   thresholds: {
     checks: ["rate>0.99"],
     "catalog_failures{scenario:catalog_browse}": ["rate<0.01"],
@@ -193,6 +194,20 @@ export function handleSummary(data) {
     baseUrl: BASE_URL,
     runId: RUN_ID,
     generatedAt: new Date().toISOString(),
+    workload: {
+      offeredRps:
+        PROFILE === "catalog" || PROFILE === "webhook_rejection"
+          ? intEnv("LOAD_TARGET_RPS", PROFILE === "catalog" ? 20 : 5)
+          : null,
+      startRps: PROFILE === "catalog" ? intEnv("LOAD_START_RPS", 5) : null,
+      vus: __ENV.LOAD_VUS || null,
+      duration: __ENV.LOAD_DURATION || null,
+      rampDuration: __ENV.LOAD_RAMP_DURATION || null,
+      holdDuration: __ENV.LOAD_HOLD_DURATION || null,
+      cooldownDuration: __ENV.LOAD_COOLDOWN_DURATION || null,
+      preAllocatedVUs: __ENV.LOAD_PREALLOCATED_VUS || null,
+      maxVUs: __ENV.LOAD_MAX_VUS || null,
+    },
     metrics: data.metrics,
     rootGroup: data.root_group,
   };
@@ -247,6 +262,7 @@ function summaryLine(data) {
   const duration = data.metrics.http_req_duration?.values || {};
   const requests = data.metrics.http_reqs?.values || {};
   const failures = data.metrics.http_req_failed?.values || {};
+  const dropped = data.metrics.dropped_iterations?.values || {};
   return [
     `profile=${PROFILE}`,
     `requests=${requests.count ?? 0}`,
@@ -255,6 +271,7 @@ function summaryLine(data) {
     `p95_ms=${format(duration["p(95)"])}`,
     `p99_ms=${format(duration["p(99)"])}`,
     `http_failed_rate=${format(failures.rate)}`,
+    `dropped_iterations=${dropped.count ?? 0}`,
     `summary=${__ENV.LOAD_SUMMARY_PATH || `k6-summary-${PROFILE}-${RUN_ID}.json`}`,
     "",
   ].join(" ");

@@ -1,13 +1,13 @@
 ---
 id: PLAN-0006
 status: Ready
-version: 2
+version: 3
 source_spec: SPEC-0009
-source_spec_version: 2
-baseline_revision: bb829f41e320be915d9633e637071011701e4dc1
+source_spec_version: 3
+baseline_revision: 9f4c60885d8a1c9c11362d1b236c6179b7f787e9
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
-updated: 2026-09-08
+updated: 2026-09-09
 ---
 
 # [PLAN-0006] — k6 load testing and capacity evidence
@@ -18,18 +18,18 @@ updated: 2026-09-08
 
 ## Source
 
-- Specification: `SPEC-0009` v2
+- Specification: `SPEC-0009` v3
 - External tracker: `#55` (optional)
 - Planning task: performance evidence before infrastructure expansion
-- Baseline: `bb829f41e320be915d9633e637071011701e4dc1`
+- Baseline: `9f4c60885d8a1c9c11362d1b236c6179b7f787e9`
 
 ## Current State
 
-The baseline contains EXPLAIN/query timing evidence, capacity hypotheses, OTel instruments and explicit scale triggers. It has no k6 scripts or load reports. ADR 0018 rejects Redis and ADR 0019 rejects SQS/Kafka until a measured trigger exists.
+The baseline contains the five-profile k6 harness and a safe but incomplete ephemeral workflow. The workflow runs `npm start`, exposes only three profiles, has no explicit container limits, fixtures, invariant gate or synchronized resource evidence, and is explicitly ineligible for a capacity claim.
 
 ## Goal
 
-Add the safe k6 harness, operating procedure and report contract; then execute it in an isolated production-like environment before publishing capacity numbers or changing infrastructure ADRs.
+Run the production Docker image and PostgreSQL 16 in a controlled, resource-limited, isolated CI topology; generate safe fixtures and complete evidence bundles; then execute all profiles before publishing controlled CI capacity numbers or changing infrastructure ADRs.
 
 ## Affected Areas
 
@@ -53,8 +53,9 @@ No schema change. The opt-in orders profile mutates disposable fixture rows thro
 2. Implement profiles, checks, thresholds, input gates and JSON summary.
 3. Document environment/resource capture and reporting.
 4. Validate documentation contracts and inspect the k6 script when the binary is available.
-5. Deploy/provision an isolated production-like target and run all profiles three times.
-6. Update capacity evidence and evaluate whether an ADR 0018/0019 review is triggered.
+5. Build the controlled CI topology, fixture preparation, synchronized sampling, invariant gate and one/three repetition dispatch modes.
+6. In subsequent workflow runs, execute all profiles and repeat each claimed stable point three times.
+7. Update capacity evidence and evaluate whether an ADR 0018/0019 review is triggered.
 
 ## Task Graph
 
@@ -77,7 +78,7 @@ k6 inspect load-tests/k6/neon-arsenal.js
 k6 run load-tests/k6/neon-arsenal.js
 ```
 
-AC-01–04 map to harness inspection/runtime; AC-05–06 to procedure/template review; AC-07 to external isolated runs; AC-08 to diff and existing CI.
+AC-01–04 map to harness inspection/runtime; AC-05–06 to procedure/template review; AC-07 to subsequent controlled CI run artifacts; AC-08 to diff and existing CI.
 
 ## Risks
 
@@ -88,7 +89,7 @@ AC-01–04 map to harness inspection/runtime; AC-05–06 to procedure/template r
 
 ## Dependencies
 
-An isolated production-like API/PostgreSQL environment and k6 binary are required for AC-07. PayPal Sandbox valid-event load is not required or authorized by v1.
+Successful controlled CI workflow artifacts are required for AC-07. PayPal credentials and valid-event load are neither required nor authorized; payment replay uses a completed local fixture on a no-egress container network.
 
 ## Stop Conditions
 
@@ -99,7 +100,7 @@ An isolated production-like API/PostgreSQL environment and k6 binary are require
 
 ## Definition of Done
 
-Harness/docs are reviewed and inspect successfully; all five profiles run against an isolated production-like target; three repetitions support published capacity claims; resource and invariant evidence is attached; #55 receives the report and may close.
+Enablement is reviewed and inspects successfully; then all five profiles run in controlled CI, three equivalent repetitions support every published claim, resource and invariant evidence is attached, and #55 receives the qualified report. The enablement PR alone does not complete AC-07.
 
 ## Traceability
 
@@ -108,13 +109,14 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
 - External tracker: `#55` (optional)
-- Specification: `SPEC-0009` v2
-- Plan: `PLAN-0006` v2
-- Tasks: `TASK-0010` v2
+- Specification: `SPEC-0009` v3
+- Plan: `PLAN-0006` v3
+- Tasks: `TASK-0010` v3
 - PR: pending
 - Evidence: pending isolated runtime
 
 ## Change History
 
+- `v3` — Replaced the missing external environment dependency with a controlled, production-image CI topology and deferred capacity claims to subsequent runs — 2026-09-09
 - `v2` — Migrated validation commands, baseline and traceability to the direct-agent documentation contract — 2026-09-08
 - `v1` — Ready plan for SPEC-0009 — 2026-09-07
