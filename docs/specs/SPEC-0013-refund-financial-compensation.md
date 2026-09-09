@@ -151,16 +151,16 @@ Existing successful payment confirmation remains unchanged. Existing prevention 
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` A PayPal `COMPLETED` payment for an order whose reservation cannot be fulfilled results in a durable full-refund obligation without selling or reclaiming the listing. **Evidence:** integration
-- [ ] `AC-02` Duplicate webhook, concurrent reconciliation, and retry paths result in at most one economic provider refund. **Evidence:** integration/concurrency
-- [ ] `AC-03` Provider-confirmed refund completion can be replayed after a process crash and converges local refund/payment state exactly once. **Evidence:** integration
-- [ ] `AC-04` If seller credit had been applied, refund completion creates an append-only compensating ledger entry and adjusts `Seller.balance` in the same PostgreSQL transaction. **Evidence:** integration
-- [ ] `AC-05` If seller credit was never applied, refund completion creates no seller debit. **Evidence:** integration
-- [ ] `AC-06` Ledger and balance reconciliation remain correct after payment + refund compensation and repeated reconciliation is a no-op. **Evidence:** integration
-- [ ] `AC-07` Event ordering does not control correctness: duplicate and out-of-order supported PayPal events converge according to provider state and local invariants. **Evidence:** test/integration
-- [ ] `AC-08` Provider timeout, remote-success/local-crash, and local-write-failure scenarios retain a deterministic recovery path and never silently mark a refund complete. **Evidence:** test/integration
-- [ ] `AC-09` Refund failures and unresolved states emit safe operational evidence and are documented in the runbook. **Evidence:** static check/runtime
-- [ ] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** CI
+- [x] `AC-01` A PayPal `COMPLETED` payment for an order whose reservation cannot be fulfilled results in a durable full-refund obligation without selling or reclaiming the listing. **Evidence:** integration
+- [x] `AC-02` Duplicate webhook, concurrent reconciliation, and retry paths result in at most one economic provider refund. **Evidence:** integration/concurrency
+- [x] `AC-03` Provider-confirmed refund completion can be replayed after a process crash and converges local refund/payment state exactly once. **Evidence:** integration
+- [x] `AC-04` If seller credit had been applied, refund completion creates an append-only compensating ledger entry and adjusts `Seller.balance` in the same PostgreSQL transaction. **Evidence:** integration
+- [x] `AC-05` If seller credit was never applied, refund completion creates no seller debit. **Evidence:** integration
+- [x] `AC-06` Ledger and balance reconciliation remain correct after payment + refund compensation and repeated reconciliation is a no-op. **Evidence:** integration
+- [x] `AC-07` Event ordering does not control correctness: duplicate and out-of-order supported PayPal events converge according to provider state and local invariants. **Evidence:** test/integration
+- [x] `AC-08` Provider timeout, remote-success/local-crash, and local-write-failure scenarios retain a deterministic recovery path and never silently mark a refund complete. **Evidence:** test/integration
+- [x] `AC-09` Refund failures and unresolved states emit safe operational evidence and are documented in the runbook. **Evidence:** static check/runtime
+- [x] `AC-10` Unit, contract, PostgreSQL integration, documentation contracts, and remote CI pass with no weakening of existing payment, reservation, or ledger invariants. **Evidence:** CI
 
 ## Verification Strategy
 
@@ -189,9 +189,10 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 - Specification: `SPEC-0013` v1
 - Plan: `PLAN-0012` v1
 - Tasks: `TASK-0013`, `TASK-0014`, `TASK-0015`
-- PR: pending
-- Evidence: pending
+- PR: #223, #225, #227
+- Evidence: `docs/verification/refund-reconciliation-operations.md` and merged CI evidence
 
 ## Change History
 
 - 2026-09-08 — v1 accepted: automatic full technical refund, append-only compensation, idempotent reconciliation, and explicit human escalation for non-convergence.
+- 2026-09-09 — All acceptance criteria satisfied through TASK-0013/0014/0015 and PR #223/#225/#227.
