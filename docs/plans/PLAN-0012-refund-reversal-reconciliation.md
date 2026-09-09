@@ -1,6 +1,6 @@
 ---
 id: PLAN-0012
-status: Done
+status: Ready
 version: 1
 source_spec: SPEC-0013
 source_spec_version: 1
@@ -14,7 +14,7 @@ updated: 2026-09-08
 
 ## Status
 
-`Done`. TASK-0013, TASK-0014, and TASK-0015 are implemented, reviewed, CI-green, and merged.
+`Ready`. All planned Tasks are implemented, reviewed, CI-green, and merged. This Plan remains `Ready` because the repository contract has no terminal `Done` Plan status; completion is recorded in Traceability and Change History.
 
 ## Source
 
