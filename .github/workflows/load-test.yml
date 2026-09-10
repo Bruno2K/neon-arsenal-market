@@ -120,6 +120,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          catalog_rate_limit_args=()
+          if [[ "$LOAD_PROFILE" == "catalog" ]]; then
+            catalog_rate_limit_args+=(--env "RATE_LIMIT_API_MAX=$CATALOG_BENCHMARK_RATE_LIMIT_MAX")
+          fi
+
           docker run --detach \
             --name "$API_CONTAINER" \
             --network "$LOAD_NETWORK" \
@@ -135,6 +140,7 @@ jobs:
             --env JWT_SECRET=ephemeral-load-test-access-secret \
             --env JWT_REFRESH_SECRET=ephemeral-load-test-refresh-secret \
             --env PAYPAL_WEBHOOK_ID=controlled-ci-invalid-signature-only \
+            "${catalog_rate_limit_args[@]}" \
             "$API_IMAGE"
 
       - name: Wait for API readiness
