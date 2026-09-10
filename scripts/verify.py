@@ -9,6 +9,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_COMMAND = "scripts/verify.py"
+CANONICAL_CURSOR_RULE = ".cursor/rules/00-agent-operating-system.mdc"
 RETIRED_GUIDANCE_REFERENCES = (
     "scripts/ai-factory/",
     "scripts/next.sh",
@@ -63,10 +64,15 @@ def validate_entrypoint_contract() -> int:
         ROOT / "tests" / "tooling" / "test_docs_contracts.py",
         ROOT / "docs" / "agents" / "verification.md",
         ROOT / ".github" / "workflows" / "repository-verification.yml",
+        ROOT / CANONICAL_CURSOR_RULE,
     )
     missing = [path.relative_to(ROOT).as_posix() for path in required if not path.is_file()]
     if missing:
         return fail(f"missing verification surfaces: {', '.join(missing)}")
+
+    cursor_rules = sorted((ROOT / ".cursor" / "rules").glob("*.mdc"))
+    if [path.relative_to(ROOT).as_posix() for path in cursor_rules] != [CANONICAL_CURSOR_RULE]:
+        return fail("Cursor adapter drift: expected exactly one canonical .mdc rule")
 
     reintroduced = [path for path in RETIRED_PATHS if (ROOT / path).exists()]
     if reintroduced:
