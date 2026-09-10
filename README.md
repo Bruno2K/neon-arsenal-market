@@ -130,7 +130,6 @@ Vercel frontend → Render API → Render PostgreSQL
 
 - Vercel builds the React/Vite frontend from the repository root.
 - Render runs `neon-arsenal-api` from `server/Dockerfile` and injects the managed PostgreSQL `DATABASE_URL`.
-- `render.yaml` also contains an optional Render static frontend alternative; it is not required for the primary Vercel topology.
 - `/health` is liveness and `/ready` is readiness.
 
 Canonical deployment map: [`docs/operations/deployment.md`](docs/operations/deployment.md)
@@ -255,7 +254,7 @@ Testing details: [`docs/testing.md`](docs/testing.md)
 ├── .github/workflows/           # CI + reproducible evidence workflows
 ├── Dockerfile.frontend          # local/containerized frontend path
 ├── docker-compose.yml           # local/test topology
-├── render.yaml                  # Render API/DB + optional static frontend
+├── render.yaml                  # canonical Render API + PostgreSQL resources
 └── vercel.json                  # primary public frontend deployment
 ```
 

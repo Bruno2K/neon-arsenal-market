@@ -2,7 +2,7 @@
 
 ## Authority and scope
 
-- `SPEC-0013` v1, `PLAN-0012` v1, `TASK-0015` v1, ADR 0023.
+- `SPEC-0013` v1, `PLAN-0012` v1, `TASK-0015` v1, ADR 0024.
 - Baseline: post-PR #226 `main` at `454ad13` (TASK baseline ancestor `2ec7897`).
 - Scope remains the modular-monolith API, PostgreSQL, the existing in-process PayPal sweep, and full
   technical refunds only. No migration, public API, queue, cache, new service, partial refund, or customer

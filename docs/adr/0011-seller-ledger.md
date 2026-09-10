@@ -9,7 +9,7 @@ Currency wording amended by [ADR 0022](./0022-single-checkout-currency.md):
 catalog metadata.
 
 Ledger cardinality and compensation semantics amended by
-[ADR 0023](./0023-refund-compensation.md): history is append-only and one
+[ADR 0024](./0024-refund-compensation.md): history is append-only and one
 seller/order may contain a payment credit plus a distinct refund compensation.
 
 ## Context

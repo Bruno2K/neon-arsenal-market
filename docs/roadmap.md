@@ -113,7 +113,7 @@ See `docs/adr/0012-transactional-outbox.md`.
 ```text
 Internet
    ↓
-Vite SPA (Vercel, or Render static neon-arsenal-web)
+Vite SPA (Vercel)
    ↓
 Render web service neon-arsenal-api (Docker)
    ↓
@@ -127,7 +127,7 @@ The ECS/Fargate sketch below is a **future option**, not a committed migration. 
 Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → CloudWatch
 ```
 
-The historical C2 decision was recorded as a skip after ADR 0007 retained Render. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`.
+The historical C2 decision was recorded as a skip after ADR 0007 retained Render. Canonical topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`.
 
 ## Documentation deliverables
 

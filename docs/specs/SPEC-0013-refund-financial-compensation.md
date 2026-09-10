@@ -177,7 +177,7 @@ Existing successful payment confirmation remains unchanged. Existing prevention 
 - `docs/adr/0011-seller-ledger.md`
 - `docs/adr/0012-transactional-outbox.md`
 - `docs/adr/0022-single-checkout-currency.md`
-- `docs/adr/0023-refund-compensation.md`
+- `docs/adr/0024-refund-compensation.md`
 - `docs/architecture/money-policy.md`
 - `server/src/modules/payments/payments.service.ts`
 - `server/prisma/schema.prisma`

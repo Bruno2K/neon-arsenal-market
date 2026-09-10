@@ -19,9 +19,7 @@ External provider boundaries from the API:
 - cs2.sh (optional catalog import)
 ```
 
-The repository intentionally uses a split frontend/backend deployment. Vercel is the primary frontend target because the repository already contains `vercel.json` and the live preview/deployment integration. Render is the canonical backend/database cloud target under ADR 0007.
-
-The Render Blueprint also contains `neon-arsenal-web`, an optional static-site alternative for deploying the frontend on Render. It is not required for the primary Vercel + Render API topology and must not be interpreted as a second mandatory production frontend.
+The repository intentionally uses a split frontend/backend deployment. `vercel.json` makes Vercel the canonical frontend target, while `render.yaml` declares only the API and PostgreSQL resources. Render is the canonical backend/database cloud target under ADR 0007. These repository configurations establish the intended deployment topology; they do not by themselves prove current service availability or production capacity.
 
 ## Frontend — Vercel
 
@@ -111,6 +109,12 @@ Non-secret deployment configuration includes values such as `API_URL`, `FRONTEND
 - `docker compose --profile test up db-test -d` — isolated PostgreSQL integration-test database.
 
 `Dockerfile.frontend` exists for local/containerized frontend workflows. The primary public frontend deployment is built directly by Vercel from the repository root.
+
+## Frontend bundle assessment
+
+PR08 measured the production Vite build with the documented public `API_URL`. Before cleanup, every route was eagerly imported and Vite emitted one `523.99 kB` minified JavaScript entry (`154.71 kB` gzip), triggering its `500 kB` chunk warning, plus `65.35 kB` CSS (`11.73 kB` gzip).
+
+`src/App.tsx` now lazily imports route pages behind one `Suspense` boundary. The final build emits 49 JavaScript chunks: a `372.13 kB` entry (`121.20 kB` gzip) and route/shared chunks from `0.31 kB` through `16.62 kB` (largest route gzip: `5.12 kB`). CSS remains `65.35 kB` (`11.73 kB` gzip). Vite emits no oversized-chunk warning. This small route-level split resolves the measured monolith without broader frontend performance work.
 
 ## What is not deployed
 

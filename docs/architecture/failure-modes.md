@@ -21,7 +21,7 @@ Test evidence for timeout / 5xx / 429, fail-fast mutating calls, PostgreSQL vs `
 
 - Duplicate PayPal events: unique `(provider, externalEventId)` plus `confirmPayment` claim. See `docs/adr/0002-paypal-webhook-reliability.md`.
 - Out-of-order `CHECKOUT.ORDER.APPROVED` then capture: approved events are stored as `IGNORED`; only `PAYMENT.CAPTURE.COMPLETED` sells listings.
-- Capture after reservation expiry: local fulfillment still rolls back; trusted completed capture state creates one durable full-refund obligation for reconciliation. See **Capture after reservation expiry** below, ADR 0023, and `docs/operations/runbook.md`.
+- Capture after reservation expiry: local fulfillment still rolls back; trusted completed capture state creates one durable full-refund obligation for reconciliation. See **Capture after reservation expiry** below, ADR 0024, and `docs/operations/runbook.md`.
 - Capture that cannot resolve a local order yet: HTTP 503 so PayPal retries.
 - Process crash after PayPal capture and before local commit: webhook retry or in-process GET reconciliation (60s, min age 2 minutes, batch 20).
 
@@ -53,7 +53,7 @@ Local end state after this failure (before or after the sweep):
 
 The refund flow is idempotent across duplicate webhooks, reconciliation, provider timeouts, and remote-success/local-crash recovery. It does not provide partial refunds, buyer-requested refunds, disputes, chargebacks, FX, or a public refund workflow. Those require separate product decisions.
 
-Operators investigate terminal or unresolved obligations through the read-only procedure in `docs/operations/runbook.md`; they must not manually forge completion, ledger entries, a second refund row, or a new provider request identity. ADR 0023 and `docs/domain/invariants.md` own the durable semantics.
+Operators investigate terminal or unresolved obligations through the read-only procedure in `docs/operations/runbook.md`; they must not manually forge completion, ledger entries, a second refund row, or a new provider request identity. ADR 0024 and `docs/domain/invariants.md` own the durable semantics.
 
 ## Reservations and orders
 
