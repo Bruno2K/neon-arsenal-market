@@ -198,9 +198,9 @@ The Render Blueprint also defines an optional `neon-arsenal-web` static site. If
 git clone https://github.com/Bruno2K/neon-arsenal-market.git
 cd neon-arsenal-market
 
-npm install
+npm ci
 cd server
-npm install
+npm ci
 cd ..
 ```
 

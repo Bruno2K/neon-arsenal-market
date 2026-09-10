@@ -161,12 +161,12 @@ class ValidatorTests(unittest.TestCase):
             self.assertEqual(errors, [])
 
             (root / ".github" / "pull_request_template.md").write_text(
-                pr_template.replace("## Evaluation", "## Review"), encoding="utf-8"
+                pr_template.replace("## Remaining risk", "## Follow-up"), encoding="utf-8"
             )
             errors = []
             validate_harness(errors, root)
             self.assertIn(
-                ".github/pull_request_template.md missing required heading: ## Evaluation",
+                ".github/pull_request_template.md missing required heading: ## Remaining risk",
                 errors,
             )
 

@@ -1,6 +1,8 @@
 # Engineering Roadmap
 
-This is the execution queue for the AI agent team. Work from top to bottom unless the human explicitly changes priority.
+This document records product and engineering direction: the capabilities already established, the evidence themes worth strengthening, and the current deployment direction. It is not an execution queue and does not authorize work.
+
+Specifications own material behavior and acceptance, Plans own implementation decomposition, Tasks own bounded execution, and `docs/agents/harness.md` defines how eligible work is selected. Roadmap priority informs those artifacts but never substitutes for them.
 
 ## P0 — Correctness first
 
@@ -125,7 +127,7 @@ The ECS/Fargate sketch below is a **future option**, not a committed migration. 
 Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → CloudWatch
 ```
 
-Remaining P-back catalog work after this ADR landed as the **C2 skip commit**. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`. Further work follows repository Specifications, Plans, and Tasks through `docs/agents/harness.md`.
+The historical C2 decision was recorded as a skip after ADR 0007 retained Render. Live topology: `docs/architecture/c4.md`. Operations: `docs/operations/runbook.md`.
 
 ## Documentation deliverables
 
@@ -148,16 +150,8 @@ Maintain:
 
 Documentation is part of the implementation whenever a design or operational decision changes.
 
-## Agent harness
+## From direction to execution
 
-The repository is the control plane. `AGENTS.md` and `docs/agents/harness.md` define direct Task/Plan/problem/`next` entry. GitHub Issues are optional references, and there is no prompt-generating runtime.
+Roadmap themes become executable only through the repository authority model. Material behavior requires an accepted Specification; implementation strategy and ordering belong in a Plan; bounded work and dependencies belong in Tasks. `AGENTS.md` supplies global guardrails and `docs/agents/harness.md` supplies the execution procedure.
 
-Historical human-readable sprint archives remain in `docs/backend-sprint.md` and `docs/frontend-sprint.md`; removed executable catalogs and helpers remain recoverable in Git history.
-
-## Agent execution rule
-
-Only one roadmap item should normally be in active implementation at a time. Split a roadmap item into small tasks when it is too large for one reviewable change.
-
-A lower-priority item must not distract the team from a known unresolved correctness problem.
-
-File-disjoint exception: independent backend (`server/`) and frontend (`src/`) Tasks may run in parallel when they share no semantic invariant or dependency.
+Historical sprint catalogs and their completed ordering remain recoverable in Git history. They are not maintained as current roadmap or task state.

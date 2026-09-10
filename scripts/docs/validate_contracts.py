@@ -69,8 +69,7 @@ HARNESS_HEADINGS = (
     "## Removed interfaces", "## Stop conditions",
 )
 PR_TEMPLATE_HEADINGS = (
-    "## Authority and intent", "## Change", "## Risk and failure model",
-    "## Verification evidence", "## Evaluation", "## AgentOps and handoff",
+    "## Context", "## Change", "## Risk", "## Verification", "## Remaining risk",
 )
 
 

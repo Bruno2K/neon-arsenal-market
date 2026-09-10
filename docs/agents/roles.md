@@ -37,7 +37,7 @@ Rules:
 
 - use existing API contracts and OpenAPI; do not invent endpoints;
 - do not change server payment, reservation, or auth semantics;
-- preserve brand/visual locks in `docs/frontend-sprint.md` unless an authoritative Specification or Task supersedes them;
+- preserve the frontend boundaries in `docs/architecture/current-state.md` unless an authoritative Specification or explicit scoped request supersedes them;
 - add/update UI tests in the same change.
 
 ## Database & Concurrency Reviewer
@@ -132,6 +132,6 @@ Must report exact commands and results. It must never claim a check passed if it
 | Frontend/UI | Implementation + Verification (+ Test/Security for checkout, auth, or API contracts) |
 | New background job | Backend + Reliability + Test + Verification |
 | Architecture change | Planner + Backend + Architecture + Test + Verification |
-| AWS/Terraform/CI | Planner + Backend/Infra + Security + Reliability + Verification |
+| Deployment/CI/infrastructure | Planner + Backend/Infra + Security + Reliability + Verification |
 
 Use the smallest role set that covers the risk.

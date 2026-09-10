@@ -330,19 +330,17 @@ Do not introduce Redis, Kafka, RabbitMQ, SQS, caching, or asynchronous processin
 
 ## Cloud Direction
 
-The intended production-oriented target architecture is:
+The current production context is:
 
 ```text
-ECS/Fargate
+Vite SPA (primarily Vercel; optional Render static site)
     ↓
-RDS PostgreSQL
+Render web service
     ↓
-Secrets Manager
-    ↓
-CloudWatch / OpenTelemetry
+Render PostgreSQL
 ```
 
-Infrastructure-as-code should use Terraform when introduced.
+ADR 0007 is authoritative for deployment direction. ECS/Fargate, RDS, Secrets Manager, CloudWatch, and Terraform are future alternatives only; they require a later human-approved ADR that supersedes ADR 0007. Do not treat them as current infrastructure or begin provisioning them speculatively.
 
 Cloud changes should document cost, reliability, security, and operational trade-offs.
 
@@ -366,67 +364,9 @@ Documentation should explain **why**, not merely restate **what** the code does.
 
 ## AI Agent Workflow
 
-For every non-trivial task, follow this sequence:
+`docs/agents/harness.md` is the canonical execution procedure: entry modes, context loading, planning, implementation, review, verification, evaluation, evidence, handoff, and stop conditions. Follow it proportionally to risk; do not reproduce or redefine that procedure here.
 
-### 1. Understand
-
-- Identify the authoritative artifact(s) for the change.
-- Read the minimum relevant context.
-- Identify business invariants, dependencies, side effects, and failure modes.
-
-### 2. Plan
-
-- For material changes, ensure a SPEC exists before implementation.
-- Create or follow a PLAN and TASK graph when material work has real ordering, dependency, handoff, or safe-parallelism needs; file count alone is not a reason.
-- State a concise implementation plan before broad edits.
-- For changes involving concurrency, payments, transactions, or infrastructure, explicitly identify the consistency and failure model.
-
-### 3. Implement
-
-- Make the smallest coherent change.
-- Reuse established project conventions.
-- Avoid unrelated refactors.
-- Keep types explicit.
-- Preserve backward compatibility unless the task explicitly requires a breaking change.
-
-### 4. Verify
-
-Run the most relevant checks available:
-
-- type checking
-- linting
-- unit tests
-- integration tests
-- build
-- migration validation
-- documentation contract validation via `python3 scripts/docs/validate_contracts.py`
-
-If a check cannot be run, say so instead of claiming success.
-
-### 5. Review
-
-Before finishing, inspect the diff and ask:
-
-- Did I introduce a race condition?
-- Did I weaken an invariant?
-- Is this operation retry-safe?
-- Could a process crash leave inconsistent state?
-- Did I introduce an N+1 query?
-- Did I leak sensitive information?
-- Is the abstraction actually necessary?
-- Is documentation now inaccurate?
-- Does the change improve the evidence of Senior Backend engineering?
-- Does the implementation still trace back to the authoritative artifact?
-
-### 6. Close the loop
-
-For material work, completion means more than green tests:
-
-```text
-Implementation → Review → Verification → Evaluation → Evidence
-```
-
-Evaluation is a required reasoning stage for material work and follows the rubric in `docs/agents/harness.md`; it is not a mandatory artifact type. Evidence may live in tests, checks, a PR description, or `docs/verification/` when durable explanation adds interview or operational value. Promote validated reusable learning into its owning ADR, invariant, test, runbook, or stable agent guidance rather than creating a separate memory artifact by default. The human remains accountable for requirements, trade-offs, review, and acceptance.
+The canonical repository verification entrypoint is `python scripts/verify.py`. Product changes also require the focused tests and broader checks justified by their authoritative artifact and risk. If a check cannot run, report that fact instead of claiming success.
 
 ## Rules for AI-Generated Code
 
@@ -491,12 +431,13 @@ The main roadmap for this project prioritizes:
 
 - production Docker configuration
 - CI/CD
-- AWS deployment
-- Secrets Manager
-- centralized logs
+- current Render operations and PostgreSQL deployment evidence
+- Vercel frontend deployment evidence where relevant
+- centralized logs and tracing
 - health/readiness
-- Terraform
 - architecture documentation
+
+AWS/Terraform remains a future alternative requiring a later decision that supersedes ADR 0007.
 
 Do not start a lower-priority initiative while a higher-priority correctness issue is known and unresolved, unless explicitly requested.
 

@@ -21,21 +21,21 @@ Test evidence for timeout / 5xx / 429, fail-fast mutating calls, PostgreSQL vs `
 
 - Duplicate PayPal events: unique `(provider, externalEventId)` plus `confirmPayment` claim. See `docs/adr/0002-paypal-webhook-reliability.md`.
 - Out-of-order `CHECKOUT.ORDER.APPROVED` then capture: approved events are stored as `IGNORED`; only `PAYMENT.CAPTURE.COMPLETED` sells listings.
-- Capture after reservation expiry: local confirm rolls back; webhook returns HTTP 200 so PayPal stops. Money may already be captured at PayPal. See **Capture after reservation expiry** below and `docs/operations/runbook.md`.
+- Capture after reservation expiry: local fulfillment still rolls back; trusted completed capture state creates one durable full-refund obligation for reconciliation. See **Capture after reservation expiry** below, ADR 0023, and `docs/operations/runbook.md`.
 - Capture that cannot resolve a local order yet: HTTP 503 so PayPal retries.
 - Process crash after PayPal capture and before local commit: webhook retry or in-process GET reconciliation (60s, min age 2 minutes, batch 20).
 
 ## Capture after reservation expiry
 
-This is a split-brain between PayPal and PostgreSQL. It is intentional: unique listings must not become `SOLD` after the hold expired.
+This is a distributed partial failure between PayPal and PostgreSQL. Unique listings must not become `SOLD` after the hold expired, while the captured buyer funds must converge through a durable full technical refund.
 
 ### What the code does (inspected)
 
-- `server/src/shared/utils/paypal.ts` exposes `OrdersCreate`, `OrdersCapture`, and `OrdersGet`. There is **no** refund, void, or capture-reversal helper. `intent` is `CAPTURE`, but funds move only after **OrdersCapture** (return page `POST /payments/capture` or GET reconciliation of a live `APPROVED` hold). Buyer approval alone leaves the PayPal order `APPROVED` and the local order `PENDING`.
-- `server/src/types/paypal.d.ts` declares only `OrdersCreateRequest` and `OrdersCaptureRequest`.
+- `server/src/shared/utils/paypal.ts` uses PayPal Orders for checkout and PayPal Payments v2 for full capture refunds and refund lookup. Mutating calls are not blindly retried; refund replay uses the same deterministic provider request identity.
 - `confirmPayment` sells listings only when they are still `RESERVED`, `reservedByOrderId` matches the paying order, and `reservationExpiresAt` is in the future. Otherwise it throws HTTP 409 and rolls back the local payment claim.
-- On that 409, `handleWebhook` stores `PaymentWebhookEvent` as `FAILED` / `reservation_expired` and **returns**. The HTTP controller then responds **200**, so PayPal stops retrying.
-- GET reconciliation that sees a remote `COMPLETED` order calls `confirmPayment` and, on 409, logs and skips. It does not create a refund.
+- When trusted PayPal state proves capture completion but fulfillment is impossible, the payment path creates or reuses the unique PostgreSQL `Refund` obligation without reclaiming or selling the listing.
+- Refund reconciliation claims eligible rows, uses provider lookup when `providerRefundId` is known, and otherwise safely replays the refund with the stable request identity. Remote completion is the authority for local completion.
+- Provider-confirmed completion updates local refund/payment state and appends any required seller-ledger compensation in one PostgreSQL transaction. If no seller credit existed, no synthetic seller debit is created.
 - The expiry sweep may later set the listing `ACTIVE` and the unpaid order `CANCELLED`. A later buyer can reserve the listing. A stale capture still cannot sell it (`reservedByOrderId` must match).
 
 Local end state after this failure (before or after the sweep):
@@ -43,21 +43,17 @@ Local end state after this failure (before or after the sweep):
 | Field | Typical value |
 |---|---|
 | `Listing.status` | still `RESERVED` with `reservationExpiresAt` in the past, or `ACTIVE` after the sweep (or `RESERVED` by a later order) |
-| `Order.paymentStatus` | `PENDING` |
+| `Order.paymentStatus` | remains unfulfilled while compensation is pending; becomes `REFUNDED` only after trusted provider completion |
 | `Order.status` | `PENDING`, then `CANCELLED` after the sweep |
-| `SellerTransaction` | none for this order. The ledger is the source of truth; `Seller.balance` is not incremented. |
-| `PaymentWebhookEvent` | `FAILED`, `failureReason = reservation_expired` |
-| PayPal | capture completed; funds moved |
+| `Refund` | one durable full-BRL obligation per provider capture, progressing through its explicit lifecycle |
+| `SellerTransaction` | no payment credit for an unfulfilled order; if a credit already existed, completion appends a distinct exact compensation movement |
+| PayPal | capture completed, then refund state reconciled until trusted completion or explicit operator-required evidence |
 
-### What this repository does not do
+### Recovery and operator boundary
 
-There is no in-app refund or void. Schema comments allow `Order.paymentStatus = REFUNDED`, but no code path sets it for this failure. R2 does **not** add a PayPal refund client, env var, or that transition. Guessing the PayPal contract would violate `docs/agents/decision-policy.md`.
+The refund flow is idempotent across duplicate webhooks, reconciliation, provider timeouts, and remote-success/local-crash recovery. It does not provide partial refunds, buyer-requested refunds, disputes, chargebacks, FX, or a public refund workflow. Those require separate product decisions.
 
-Operator steps (dashboard only, until a human chooses an API) are in `docs/operations/runbook.md`.
-
-### HUMAN decision required
-
-Should Neon Arsenal later reverse captured funds automatically, and with which **existing** PayPal contract (dashboard-only vs a refund/void API already supported by the account)? Until that decision, do not implement refund code.
+Operators investigate terminal or unresolved obligations through the read-only procedure in `docs/operations/runbook.md`; they must not manually forge completion, ledger entries, a second refund row, or a new provider request identity. ADR 0023 and `docs/domain/invariants.md` own the durable semantics.
 
 ## Reservations and orders
 

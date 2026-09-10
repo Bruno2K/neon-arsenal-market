@@ -16,7 +16,7 @@ Internet → Load Balancer → ECS/Fargate API → RDS → Secrets Manager → C
 
 That sketch was never provisioned. There is no Terraform, no AWS account layout in this repo, and no measured scaling trigger that the monolith-on-Render cannot absorb (`docs/architecture/scaling-path.md`).
 
-P-back activity **C1** must say, in one ADR, whether that sketch is a **committed migration** or a **future option**. Implementing AWS (C2) is forbidden unless this ADR selects AWS. `docs/agents/decision-policy.md` forbids an agent from silently changing the cloud/architecture boundary to ECS.
+P-back activity **C1** must say, in one ADR, whether that sketch is a **committed migration** or a **future option**. Implementing AWS (C2) is forbidden unless this ADR selects AWS. The material-architecture guardrails in `AGENTS.md` and `docs/agents/harness.md` forbid an agent from silently changing the cloud boundary to ECS.
 
 A committed ECS migration would be a material cloud-architecture change (new runtime, networking, secrets, observability). That is a **human** decision. This ADR does **not** make it.
 
@@ -45,4 +45,4 @@ Rejected alternatives:
 
 - `render.yaml` (already the production Blueprint).
 - Application behavior, PayPal contracts, or domain invariants.
-- The open R2 human decision on capture-after-expiry refund/void (dashboard vs a real PayPal API).
+- Capture-after-expiry compensation, which was decided later in ADR 0023 and does not change deployment topology.
