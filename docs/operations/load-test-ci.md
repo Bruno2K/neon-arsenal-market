@@ -7,9 +7,8 @@ This is the executable path for issue #55 without a cloud account, external cred
 - The API is the production image built from `server/Dockerfile`, limited to 1 CPU and 512 MiB, with one replica and `NODE_ENV=production`.
 - PostgreSQL uses `postgres:16-alpine`, limited to 1 CPU and 1 GiB, with `max_connections=100` and `shared_buffers=256MB`.
 - API, PostgreSQL, and k6 use the same per-job internal Docker network. The API is not published to the runner host; the containers have no provider egress.
-- A preparation job builds the production API image once per workflow dispatch, saves that exact image as a short-lived workflow artifact, and resolves PostgreSQL/k6 to immutable digest references. Every repetition loads/pulls those frozen artifacts instead of rebuilding or re-resolving mutable tags independently.
 - Every repetition starts a fresh PostgreSQL container, applies migrations, seeds the demo catalog, and creates equivalent disposable fixtures. API readiness is checked from inside the API container so the workflow does not depend on host port publishing.
-- k6 runs from the same resolved image digest on the same internal Docker network. Its CPU still shares the GitHub-hosted runner with the API/PostgreSQL containers, so noisy-neighbor variability remains a material uncertainty in cross-workflow comparisons.
+- k6 runs as a pinned container on the same internal Docker network. Its CPU still shares the GitHub-hosted runner with the API/PostgreSQL containers, so noisy-neighbor variability remains a material uncertainty in cross-workflow comparisons.
 
 No GitHub Environment, external URL, PayPal credential, Blueprint, Vercel configuration, Render configuration, or card is required.
 
@@ -26,7 +25,7 @@ No GitHub Environment, external URL, PayPal credential, Blueprint, Vercel config
 2. Go to **Actions → Controlled CI k6 evidence → Run workflow**.
 3. Select one of all five profiles. Use one repetition while proving connectivity and selecting a stable catalog offered rate.
 4. For catalog, raise `target_rps` in separate one-run probes until a threshold, errors, dropped iterations, API/container limit, PostgreSQL signal, or runner/client limit identifies the knee. Offered RPS is configuration; achieved RPS is `http_reqs.rate` in the k6 summary.
-5. Once a stable point is selected, dispatch with exactly three repetitions. The matrix runs serially at the same commit and input configuration, with a fresh equivalent dataset per repetition. The preparation job must succeed first so all repetitions load the same frozen API image ID and use the same resolved PostgreSQL/k6 digests. Confirm the recorded image IDs, versions, limits and dataset cardinalities still match before treating the set as equivalent.
+5. Once a stable point is selected, dispatch with exactly three repetitions. The matrix runs serially at the same commit and input configuration, with a fresh equivalent dataset per repetition. Before treating them as equivalent, confirm the recorded API/PostgreSQL image IDs, versions, limits and dataset cardinalities match; mutable upstream base-image tags can otherwise invalidate the set.
 6. Download all three artifacts and complete `docs/performance/load-test-report-template.md`. Report each run, median statistics, worst error rate, dropped iterations, variability, first bottleneck and residual uncertainty.
 
 Run all five profiles at least once before evaluating SPEC-0009 AC-07. Do not mark AC-07 complete in the enablement PR; only subsequent successful workflow artifacts can supply that evidence.
