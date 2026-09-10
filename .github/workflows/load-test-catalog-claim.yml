@@ -1,0 +1,306 @@
+name: Controlled CI catalog claim evidence
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - .github/workflows/load-test-catalog-claim.yml
+  workflow_dispatch:
+
+concurrency:
+  group: neon-arsenal-catalog-claim
+  cancel-in-progress: false
+
+jobs:
+  validate:
+    name: Validate workflow registration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v7
+      - name: Verify required harness files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f server/Dockerfile
+          test -f load-tests/k6/neon-arsenal.js
+          test -f load-tests/k6/ci/prepare-fixtures.sh
+          test -f load-tests/k6/ci/sample-resources.sh
+          test -f load-tests/k6/ci/capture-db-snapshot.sh
+          test -f load-tests/k6/ci/validate-invariants.sh
+
+  prepare:
+    name: Build frozen API image
+    if: github.event_name == 'workflow_dispatch'
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      API_IMAGE: neon-arsenal-catalog-claim:${{ github.sha }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v7
+      - name: Build API image once
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --tag "$API_IMAGE" server
+          docker image inspect --format '{{.Id}}' "$API_IMAGE" | tee api-image-id.txt
+          docker save "$API_IMAGE" --output api-image.tar
+      - name: Upload frozen API image
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-claim-api-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            api-image.tar
+            api-image-id.txt
+          if-no-files-found: error
+          retention-days: 1
+
+  evidence:
+    name: catalog claim repetition ${{ matrix.repetition }}
+    if: github.event_name == 'workflow_dispatch'
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        repetition: [1, 2, 3]
+    env:
+      BASE_URL: http://neon-arsenal-api:3001
+      LOAD_PROFILE: catalog
+      LOAD_TARGET_RPS: "150"
+      LOAD_START_RPS: "5"
+      LOAD_RAMP_DURATION: 30s
+      LOAD_HOLD_DURATION: 60s
+      LOAD_COOLDOWN_DURATION: 15s
+      LOAD_PREALLOCATED_VUS: "20"
+      LOAD_MAX_VUS: "100"
+      ORDER_LISTING_COUNT: "20"
+      PAYMENT_ORDER_COUNT: "5"
+      API_CPU_LIMIT: "1.0"
+      API_MEMORY_LIMIT: 512m
+      POSTGRES_CPU_LIMIT: "1.0"
+      POSTGRES_MEMORY_LIMIT: 1g
+      POSTGRES_MAX_CONNECTIONS: "100"
+      POSTGRES_SHARED_BUFFERS: 256MB
+      POSTGRES_IMAGE: postgres:16-alpine
+      K6_IMAGE: grafana/k6:2.2.0
+      API_IMAGE: neon-arsenal-catalog-claim:${{ github.sha }}
+      API_CONTAINER: neon-arsenal-api
+      POSTGRES_CONTAINER: neon-arsenal-postgres
+      LOAD_NETWORK: neon-arsenal-catalog-claim
+      CATALOG_BENCHMARK_RATE_LIMIT_MAX: "100000"
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v7
+
+      - name: Initialize evidence directory
+        shell: bash
+        run: |
+          set -euo pipefail
+          run_id="${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}-r${{ matrix.repetition }}"
+          artifact_dir="artifacts/k6/$run_id"
+          echo "RUN_ID=$run_id" >> "$GITHUB_ENV"
+          echo "ARTIFACT_DIR=$artifact_dir" >> "$GITHUB_ENV"
+          mkdir -p "$artifact_dir"
+
+      - name: Download frozen API image
+        uses: actions/download-artifact@v4
+        with:
+          name: catalog-claim-api-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .catalog-claim-image
+
+      - name: Load and verify frozen API image
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker load --input .catalog-claim-image/api-image.tar
+          actual=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
+          expected=$(cat .catalog-claim-image/api-image-id.txt)
+          [[ "$actual" == "$expected" ]]
+          printf '%s\n' "$actual" | tee "$ARTIFACT_DIR/api-image-id.txt"
+
+      - name: Start isolated PostgreSQL
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker network create --internal "$LOAD_NETWORK"
+          docker pull "$POSTGRES_IMAGE"
+          docker image inspect --format '{{.Id}}' "$POSTGRES_IMAGE" > "$ARTIFACT_DIR/postgres-image-id.txt"
+          docker run --detach \
+            --name "$POSTGRES_CONTAINER" \
+            --network "$LOAD_NETWORK" \
+            --network-alias postgres \
+            --cpus "$POSTGRES_CPU_LIMIT" \
+            --memory "$POSTGRES_MEMORY_LIMIT" \
+            --memory-swap "$POSTGRES_MEMORY_LIMIT" \
+            --health-cmd 'pg_isready -U neon -d neon_arsenal_loadtest' \
+            --health-interval 5s --health-timeout 5s --health-retries 20 \
+            --env POSTGRES_USER=neon \
+            --env POSTGRES_PASSWORD=ci_password \
+            --env POSTGRES_DB=neon_arsenal_loadtest \
+            "$POSTGRES_IMAGE" \
+            -c "max_connections=$POSTGRES_MAX_CONNECTIONS" \
+            -c "shared_buffers=$POSTGRES_SHARED_BUFFERS"
+          for attempt in {1..30}; do
+            [[ "$(docker inspect --format '{{.State.Health.Status}}' "$POSTGRES_CONTAINER")" == healthy ]] && exit 0
+            sleep 5
+          done
+          docker logs "$POSTGRES_CONTAINER"
+          exit 1
+
+      - name: Start production API container
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker run --detach \
+            --name "$API_CONTAINER" \
+            --network "$LOAD_NETWORK" \
+            --network-alias neon-arsenal-api \
+            --cpus "$API_CPU_LIMIT" \
+            --memory "$API_MEMORY_LIMIT" \
+            --memory-swap "$API_MEMORY_LIMIT" \
+            --restart no \
+            --env NODE_ENV=production \
+            --env PORT=3001 \
+            --env DATABASE_URL=postgresql://neon:ci_password@postgres:5432/neon_arsenal_loadtest \
+            --env SEED_DEMO_DATA=true \
+            --env JWT_SECRET=ephemeral-load-test-access-secret \
+            --env JWT_REFRESH_SECRET=ephemeral-load-test-refresh-secret \
+            --env PAYPAL_WEBHOOK_ID=controlled-ci-invalid-signature-only \
+            --env "RATE_LIMIT_API_MAX=$CATALOG_BENCHMARK_RATE_LIMIT_MAX" \
+            "$API_IMAGE"
+
+      - name: Wait for API readiness
+        shell: bash
+        run: |
+          set -euo pipefail
+          for attempt in {1..60}; do
+            if ! docker inspect "$API_CONTAINER" --format '{{.State.Running}}' | grep -qx true; then
+              docker inspect "$API_CONTAINER" --format '{{json .State}}' || true
+              docker logs "$API_CONTAINER" || true
+              exit 1
+            fi
+            docker exec "$API_CONTAINER" wget -qO- --timeout=5 http://127.0.0.1:3001/ready >/dev/null && exit 0
+            sleep 5
+          done
+          docker logs "$API_CONTAINER" || true
+          exit 1
+
+      - name: Generate equivalent disposable fixtures
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash load-tests/k6/ci/prepare-fixtures.sh \
+            "$POSTGRES_CONTAINER" "$RUN_ID" "$ORDER_LISTING_COUNT" "$PAYMENT_ORDER_COUNT" \
+            "$GITHUB_ENV" "$ARTIFACT_DIR"
+
+      - name: Capture pre-run PostgreSQL snapshot
+        shell: bash
+        run: bash load-tests/k6/ci/capture-db-snapshot.sh "$POSTGRES_CONTAINER" pre "$ARTIFACT_DIR/postgres-pre.txt"
+
+      - name: Setup k6
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker pull "$K6_IMAGE"
+          docker image inspect --format '{{.Id}}' "$K6_IMAGE" > "$ARTIFACT_DIR/k6-image-id.txt"
+          docker run --rm "$K6_IMAGE" version > "$ARTIFACT_DIR/k6-version.txt"
+          docker run --rm --volume "$GITHUB_WORKSPACE:/work" --workdir /work \
+            "$K6_IMAGE" inspect load-tests/k6/neon-arsenal.js > "$ARTIFACT_DIR/k6-inspect.json"
+
+      - name: Start synchronized resource sampler
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -f "$ARTIFACT_DIR/stop-sampling"
+          nohup bash load-tests/k6/ci/sample-resources.sh \
+            "$API_CONTAINER" "$POSTGRES_CONTAINER" \
+            "$ARTIFACT_DIR/stop-sampling" "$ARTIFACT_DIR/resource-samples.jsonl" \
+            > "$ARTIFACT_DIR/resource-sampler.log" 2>&1 &
+          echo $! > "$ARTIFACT_DIR/resource-sampler.pid"
+
+      - name: Run catalog profile at 150 RPS target
+        id: k6
+        continue-on-error: true
+        shell: bash
+        run: |
+          set -euo pipefail
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$ARTIFACT_DIR/start-utc.txt"
+          export LOAD_SUMMARY_PATH="$ARTIFACT_DIR/k6-summary.json"
+          docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --network "$LOAD_NETWORK" \
+            --volume "$GITHUB_WORKSPACE:/work" \
+            --workdir /work \
+            --env BASE_URL --env LOAD_PROFILE --env RUN_ID --env LOAD_SUMMARY_PATH \
+            --env LOAD_TARGET_RPS --env LOAD_START_RPS --env LOAD_RAMP_DURATION \
+            --env LOAD_HOLD_DURATION --env LOAD_COOLDOWN_DURATION \
+            --env LOAD_PREALLOCATED_VUS --env LOAD_MAX_VUS \
+            "$K6_IMAGE" run load-tests/k6/neon-arsenal.js
+          date -u +%Y-%m-%dT%H:%M:%SZ > "$ARTIFACT_DIR/end-utc.txt"
+
+      - name: Stop resource sampler
+        if: always()
+        shell: bash
+        run: |
+          touch "$ARTIFACT_DIR/stop-sampling"
+          if [[ -f "$ARTIFACT_DIR/resource-sampler.pid" ]]; then
+            wait "$(cat "$ARTIFACT_DIR/resource-sampler.pid")" 2>/dev/null || true
+          fi
+          [[ -f "$ARTIFACT_DIR/end-utc.txt" ]] || date -u +%Y-%m-%dT%H:%M:%SZ > "$ARTIFACT_DIR/end-utc.txt"
+
+      - name: Validate post-run invariants
+        id: invariants
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          bash load-tests/k6/ci/validate-invariants.sh \
+            "$POSTGRES_CONTAINER" catalog "$RUN_ID" "$ORDER_LISTING_COUNT" "$PAYMENT_ORDER_COUNT" \
+            "$ARTIFACT_DIR/invariant-validation.json"
+
+      - name: Capture post-run evidence
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash load-tests/k6/ci/capture-db-snapshot.sh "$POSTGRES_CONTAINER" post "$ARTIFACT_DIR/postgres-post.txt"
+          docker inspect "$API_CONTAINER" --format '{{json .State}}' > "$ARTIFACT_DIR/api-state.json" || true
+          docker logs --timestamps "$API_CONTAINER" > "$ARTIFACT_DIR/api.log" 2>&1 || true
+          docker logs --timestamps "$POSTGRES_CONTAINER" > "$ARTIFACT_DIR/postgres.log" 2>&1 || true
+          printf '%s\n' "$GITHUB_SHA" > "$ARTIFACT_DIR/commit-sha.txt"
+          printf '%s\n' "150" > "$ARTIFACT_DIR/offered-rps.txt"
+          printf '%s\n' "1 CPU / 512m" > "$ARTIFACT_DIR/api-limits.txt"
+          printf '%s\n' "1 CPU / 1g / max_connections=100 / shared_buffers=256MB" > "$ARTIFACT_DIR/postgres-limits.txt"
+
+      - name: Upload evidence bundle
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: catalog-claim-r${{ matrix.repetition }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: artifacts/k6/${{ github.run_id }}-${{ github.run_attempt }}-r${{ matrix.repetition }}/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Enforce thresholds and invariants
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ '${{ steps.k6.outcome }}' == success ]]
+          [[ '${{ steps.invariants.outcome }}' == success ]]
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          docker rm --force "$API_CONTAINER" "$POSTGRES_CONTAINER" 2>/dev/null || true
+          docker network rm "$LOAD_NETWORK" 2>/dev/null || true
