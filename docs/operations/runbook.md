@@ -2,6 +2,8 @@
 
 PostgreSQL is the source of truth for listings, orders, and seller balances. PayPal is an unreliable external ledger. Production compute for the API is **Render** (`render.yaml`), not AWS/ECS.
 
+The canonical public request path is browser → Vercel React/Vite frontend → Render API → Render PostgreSQL. `vercel.json` owns the frontend build and SPA rewrite; `render.yaml` declares only `neon-arsenal-api` and `neon-arsenal-db`. Configuration establishes this intended topology but is not evidence of live availability.
+
 ## Deploy
 
 API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`). Container hardening (non-root, HEALTHCHECK, Trivy, read-only limits): [`container-hardening.md`](./container-hardening.md).
@@ -12,7 +14,7 @@ API service: `neon-arsenal-api` (Docker, `server/Dockerfile`, context `server/`)
 4. `node dist/index.js` starts. It binds **`0.0.0.0:$PORT`** (`PORT` is `3001` in the Blueprint). If `SEED_DEMO_DATA=true`, `index.ts` seeds again. Both passes upsert; they do not overwrite existing rows. If `CS2SH_IMPORT=true` and `CS2SH_API_KEY` is set, `index.ts` schedules the cs2.sh catalog import **after** `app.listen` so Render `GET /ready` is not blocked. Missing key logs and skips; a failed import does not prevent listen.
 5. In-process jobs start after listen: reservation expiry (30s), PayPal order/refund reconciliation (60s), and seller ledger reconciliation (60s).
 
-The Blueprint also defines static `neon-arsenal-web`. The public demo often uses Vercel for the Vite client and Render only for the API; set `FRONTEND_URL` on the API and `API_URL` on the frontend. Do not invent env vars.
+Vercel builds the Vite client from the repository root. Set `FRONTEND_URL` on the Render API and `API_URL` on the Vercel frontend. Do not invent env vars.
 
 Secrets (`PAYPAL_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `JWT_*`, `CS2SH_API_KEY`) stay in Render env / `sync: false`. Never commit them.
 
@@ -253,4 +255,4 @@ ORDER BY st."createdAt";
 - delete/rewrite a `PAYMENT_CREDIT` to hide compensation history;
 - classify timeout, throttling, 5xx, or request-in-progress as terminal economic failure.
 
-See also `docs/architecture/failure-modes.md`, `docs/adr/0002-paypal-webhook-reliability.md`, and ADR 0023.
+See also `docs/architecture/failure-modes.md`, `docs/adr/0002-paypal-webhook-reliability.md`, and ADR 0024.

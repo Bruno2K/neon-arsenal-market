@@ -1,9 +1,11 @@
 # Render Blueprint — https://render.com/docs/blueprint-spec
 # Deploy: connect repo on Render dashboard and select this file.
 #
-# Services provisioned:
+# Primary portfolio topology is Vercel frontend + Render API/PostgreSQL.
+# This Blueprint provisions only the canonical Render resources:
 #   - neon-arsenal-api  (Web Service — Express backend)
-#   - neon-arsenal-db   (PostgreSQL — managed, free tier)
+#   - neon-arsenal-db   (PostgreSQL — managed database)
+# Vercel owns the frontend deployment; see docs/operations/deployment.md.
 
 services:
   - type: web
@@ -65,20 +67,6 @@ services:
     # Instance RAM/CPU = the Render plan (Dashboard / existing service). Do not
     # add a paid plan or Redis Key Value here. Scale-out: more instances of this
     # service; PG connection ceiling is the shared limit (docs/architecture/capacity.md).
-    autoDeploy: true
-
-  - type: web
-    name: neon-arsenal-web
-    runtime: static
-    buildCommand: npm ci && npm run build
-    staticPublishPath: dist
-    envVars:
-      - key: API_URL
-        sync: false
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
     autoDeploy: true
 
 databases:

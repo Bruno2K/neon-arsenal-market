@@ -11,6 +11,7 @@ node_modules
 artifacts/k6/
 k6-summary-*.json
 dist
+coverage/
 .env
 .env.local
 __pycache__/
@@ -40,6 +41,7 @@ dist-ssr
 
 # Local agent worktrees
 .claude/worktrees/
+.codex-worktrees/
 
 # Temporary analysis/planning documents kept outside the repository root
 /*.docx

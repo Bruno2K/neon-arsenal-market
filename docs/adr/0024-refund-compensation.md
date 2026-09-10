@@ -1,4 +1,4 @@
-# ADR 0023 — Compensate unfulfillable PayPal captures with idempotent full refunds
+# ADR 0024 — Compensate unfulfillable PayPal captures with idempotent full refunds
 
 ## Status
 
@@ -70,3 +70,7 @@ Every arrow may be retried. Durable uniqueness and provider identity prevent dup
 - Amends ADR 0011 sections that state refunds must not be invented and that one row per `(sellerId, orderId)` is sufficient. Those constraints remain valid for payment confirmation until the refund migration replaces them.
 - Extends ADR 0012's local-transaction/external-side-effect model to refund compensation.
 - Preserves ADR 0022: all refund and ledger amounts are BRL.
+
+## Renumbering note
+
+This accepted decision was originally committed as `ADR 0023 — refund compensation`. PR08 renumbered it to `ADR 0024` because `ADR 0023 — rate-limit client identity` already existed. The decision text above is otherwise preserved; only the durable identifier was corrected.

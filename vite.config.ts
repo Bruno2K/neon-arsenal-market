@@ -2,7 +2,6 @@ import { copyFileSync, existsSync } from "node:fs";
 import path from "path";
 import { defineConfig, loadEnv, type Plugin } from "vite";
 import react from "@vitejs/plugin-react";
-import { componentTagger } from "lovable-tagger";
 import {
   assertProductionApiBaseUrl,
   resolveApiBaseUrl,
@@ -44,11 +43,7 @@ export default defineConfig(({ mode }) => {
         overlay: false,
       },
     },
-    plugins: [
-      react(),
-      spaFallbackHtmlPlugin(),
-      mode === "development" && componentTagger(),
-    ].filter(Boolean),
+    plugins: [react(), spaFallbackHtmlPlugin()],
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

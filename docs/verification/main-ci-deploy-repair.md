@@ -43,7 +43,7 @@ The project `.npmrc` explicitly selects standard peer resolution. Regenerate the
 ## Operational limits
 
 Vercel dashboard requires login in the available browser. Render deployment logs have not been supplied. No production redeploy or main push has been performed.
-The repaired frontend installation is relevant to Vercel and the optional Render static site. It does not prove the cause of a Render API deployment failure.
+At the time of this evidence, the repaired frontend installation applied to Vercel and the then-declared optional Render static site. PR08 later removed that duplicate static-site declaration; this record does not prove the cause of a Render API deployment failure.
 Existing npm audit findings remain report-only under the existing CI policy; this change does not disable checks or resolve those findings.
 
 ## Engineering memory

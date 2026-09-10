@@ -24,7 +24,7 @@ A committed ECS migration would be a material cloud-architecture change (new run
 
 1. **Current production target is Render.** The API, database, probes, drain, and secrets model in `render.yaml` / the runbook are the system to operate and interview against.
 2. **The ECS/Fargate diagram is a future option, not a committed migration.** Keep it as a sentence in the roadmap so the portfolio can discuss an AWS path. Do not treat ALB, ECS, RDS, or Secrets Manager as live. Do not write Terraform in C2.
-3. **Frontend hosting is orthogonal.** The documented split is Vercel (Vite) + Render (API). The Blueprint also defines Render static `neon-arsenal-web`. Neither is ECS.
+3. **Frontend hosting is orthogonal.** The documented split is Vercel (Vite) + Render (API). The Render Blueprint declares only the API and PostgreSQL; the Vercel project owns the static frontend. Neither is ECS.
 4. **PostgreSQL remains the source of truth** wherever the process runs. Moving compute to Fargate would not change reservation, payment, or webhook invariants.
 5. **Revisit only with a human supersession** of this ADR, plus a concrete reason such as: a measured scaling trigger that Render cannot meet, a compliance requirement for a specific AWS control, or an explicit owner request to migrate. Until then, agents must not “start AWS to look senior.”
 
@@ -45,4 +45,4 @@ Rejected alternatives:
 
 - `render.yaml` (already the production Blueprint).
 - Application behavior, PayPal contracts, or domain invariants.
-- Capture-after-expiry compensation, which was decided later in ADR 0023 and does not change deployment topology.
+- Capture-after-expiry compensation, which was decided later in ADR 0024 and does not change deployment topology.

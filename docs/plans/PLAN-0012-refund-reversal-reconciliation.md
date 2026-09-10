@@ -19,7 +19,7 @@ updated: 2026-09-08
 ## Source
 
 - Specification: `SPEC-0013` v1
-- ADR: `ADR 0023`
+- ADR: `ADR 0024`
 - Consolidated roadmap: Initiative 04 — Refund, reversão de ledger e reconciliação
 - Baseline inspected: `d0309efae576a4ab385e1cd13711b741ac857a2d`
 
@@ -56,7 +56,7 @@ Expected migration responsibilities:
 4. Add constraints/indexes that prevent duplicate economic compensation and support reconciliation scans.
 5. Use only forward migrations; do not rewrite applied migrations.
 
-Exact column/model naming is an implementation choice constrained by SPEC-0013 and ADR 0023.
+Exact column/model naming is an implementation choice constrained by SPEC-0013 and ADR 0024.
 
 ## Implementation Sequence
 
@@ -103,7 +103,7 @@ Local focused commands are Task-specific. Final convergence requires:
 ## Dependencies
 
 - `SPEC-0013` Accepted.
-- ADR 0023 Accepted.
+- ADR 0024 Accepted.
 - Roadmap PR 02 / BRL contract merged.
 - Roadmap PR 03 security hardening merged as PR #221 / baseline `d0309efae576a4ab385e1cd13711b741ac857a2d`.
 - PayPal provider behavior for full refunds must be verified against the SDK/API used by the repository during TASK-0014.
@@ -136,3 +136,4 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 
 - `v1` — Ready implementation decomposition after PR 03 convergence — 2026-09-08
 - 2026-09-09 — Plan completed after PR #227 merged; Initiative 04 converged.
+- 2026-09-10 — ADR reference renumbered from accidental duplicate `0023` to canonical `0024`; decision unchanged.
