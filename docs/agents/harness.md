@@ -39,7 +39,7 @@ For an executable Task:
 2. Read the named Task and its source Plan and Specification.
 3. Read only the architecture, invariant, role, provider, and operational documents referenced by those artifacts or implicated by the risk.
 4. Search for the owning implementation and closest tests before opening broad directories.
-5. Run `python scripts/docs/validate_contracts.py` before broad edits when artifact state may have changed.
+5. Run `python scripts/verify.py` before broad edits when repository artifact or agent-contract state may have changed.
 6. Confirm Task status, source versions, dependencies, baseline, and allowed-file boundary.
 
 Do not load every document by default.
