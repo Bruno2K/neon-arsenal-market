@@ -2,6 +2,7 @@
 """Run the deterministic repository verification entrypoint used by agents and CI."""
 from __future__ import annotations
 
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -40,6 +41,22 @@ def fail(message: str) -> int:
     return 1
 
 
+def is_executable_guidance(line: str, retired: str) -> bool:
+    """Reject instructions that direct execution of a retired entrypoint, not historical mentions."""
+    if retired not in line:
+        return False
+    normalized = line.strip().lower()
+    if any(marker in normalized for marker in ("retired", "removed", "historical", "must not", "do not")):
+        return False
+    command_patterns = (
+        r"^(?:[-*]\s*)?(?:run|execute|invoke|call|use)\b",
+        r"^(?:\$\s*)?(?:python\d*|bash|sh|powershell|pwsh)\b",
+        r"^(?:\$\s*)?\./",
+        r"^run:\s*",
+    )
+    return any(re.search(pattern, normalized) for pattern in command_patterns)
+
+
 def validate_entrypoint_contract() -> int:
     required = (
         ROOT / "scripts" / "docs" / "validate_contracts.py",
@@ -67,12 +84,12 @@ def validate_entrypoint_contract() -> int:
         for path in paths:
             if not path.is_file():
                 continue
-            content = path.read_text(encoding="utf-8")
-            for retired in RETIRED_GUIDANCE_REFERENCES:
-                if retired in content:
-                    return fail(
-                        f"active guidance {path.relative_to(ROOT)} references retired entrypoint {retired}"
-                    )
+            for line in path.read_text(encoding="utf-8").splitlines():
+                for retired in RETIRED_GUIDANCE_REFERENCES:
+                    if is_executable_guidance(line, retired):
+                        return fail(
+                            f"active guidance {path.relative_to(ROOT)} directs execution of retired entrypoint {retired}"
+                        )
     return 0
 
 
