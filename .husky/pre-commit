@@ -1,7 +1,7 @@
 #!/usr/bin/env sh
 
 # ── lint-staged: lint & format only staged files ─────────────────────────────
-npx lint-staged
+npx --no-install lint-staged
 
 # ── TypeScript: client ────────────────────────────────────────────────────────
 echo "⏳ Type-checking client..."

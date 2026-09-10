@@ -34,7 +34,6 @@ ENV NODE_ENV=production
 # Install only production dependencies (no --ignore-scripts so bcrypt native bindings compile)
 COPY package*.json ./
 RUN npm ci --omit=dev \
-  && npm install prisma@5 --save-dev \
   && apk del python3 make g++
 
 # Copy built output and Prisma client

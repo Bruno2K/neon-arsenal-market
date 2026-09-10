@@ -29,11 +29,22 @@ EOF
 fi
 
 # ─── 2. Start the local cluster (needed for migrate/seed below) ──────────────
-sudo pg_ctlcluster 16 main start 2>/dev/null || true
+if ! sudo -u postgres pg_isready -q; then
+  sudo pg_ctlcluster 16 main start
+fi
+
+postgres_ready=false
 for _ in $(seq 1 30); do
-  sudo -u postgres pg_isready -q && break
+  if sudo -u postgres pg_isready -q; then
+    postgres_ready=true
+    break
+  fi
   sleep 1
 done
+if [ "$postgres_ready" != true ]; then
+  echo "PostgreSQL did not become ready within 30 seconds." >&2
+  exit 1
+fi
 
 # ─── 3. Role + database (idempotent) ─────────────────────────────────────────
 sudo -u postgres psql -v ON_ERROR_STOP=1 <<SQL
@@ -44,8 +55,10 @@ DO \$\$ BEGIN
 END \$\$;
 ALTER ROLE ${DB_USER} CREATEDB;
 SQL
-sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'" \
-  | grep -q 1 || sudo -u postgres createdb -O "${DB_USER}" "${DB_NAME}"
+database_exists="$(sudo -u postgres psql -Atqc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}'")"
+if [ "$database_exists" != 1 ]; then
+  sudo -u postgres createdb -O "${DB_USER}" "${DB_NAME}"
+fi
 
 # ─── 4. Local dev env files (gitignored; created if absent) ──────────────────
 if [ ! -f server/.env ]; then
@@ -79,9 +92,9 @@ fi
 
 # ─── 5. Node dependencies ────────────────────────────────────────────────────
 echo "==> Installing npm dependencies (root)"
-npm install
+npm ci
 echo "==> Installing npm dependencies (server)"
-npm install --prefix server
+npm ci --prefix server
 
 # ─── 6. Prisma client, migrations, build, seed ───────────────────────────────
 echo "==> Prisma generate + migrate deploy"

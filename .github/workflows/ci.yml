@@ -57,10 +57,10 @@ jobs:
         run: npm test -- --reporter=verbose
 
   # ─────────────────────────────────────────────
-  # Backend: typecheck + unit tests
+  # Backend: lint + typecheck + unit/integration tests
   # ─────────────────────────────────────────────
   backend:
-    name: Backend (typecheck · unit · integration)
+    name: Backend (lint · typecheck · unit · integration)
     runs-on: ubuntu-latest
 
     services:
@@ -101,6 +101,9 @@ jobs:
 
       - name: Generate Prisma client
         run: npx prisma generate
+
+      - name: Lint
+        run: npm run lint
 
       - name: Apply Prisma migrations
         run: npm run test:db:prepare
