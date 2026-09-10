@@ -49,3 +49,12 @@ The workflow uploads evidence before enforcing the final k6-threshold and invari
 Successful three-run bundles can support an environment-qualified controlled CI capacity statement. They are **not** a Render or production capacity claim: GitHub runner CPU/network, host contention, and local loopback traffic differ from a public deployment. A material spread between equivalent repetitions means runner variability or another unknown is unresolved; report it and do not claim a stable point.
 
 Do not use these results to justify Redis, SQS/Kafka or AWS. Revisit those only after a concrete production constraint exists. If a real deployed capacity test becomes necessary later, provision a dedicated paid/free provider environment only after deciding its budget and observability requirements.
+
+
+### Catalog benchmark and the production per-client limiter
+
+The `catalog` profile measures the read hot path and PostgreSQL capacity, not the public per-client request quota. The production default limiter (`100 requests / 15 minutes`) would otherwise terminate every sustained catalog probe from the single k6 source IP before backend capacity is exercised.
+
+Only for `LOAD_PROFILE=catalog` in this disposable internal CI environment, the workflow sets `RATE_LIMIT_API_MAX=100000`. The value is recorded in the evidence metadata. Other profiles keep the production limiter behavior unchanged.
+
+A catalog result therefore means **controlled CI API + PostgreSQL hot-path capacity with the per-client quota lifted for measurement**. It is not evidence that a single production client is permitted to send that request rate, and it is not Render/production capacity.
