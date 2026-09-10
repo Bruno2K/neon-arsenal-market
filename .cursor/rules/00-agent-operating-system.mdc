@@ -1,114 +1,41 @@
 ---
-description: Guardrails for human-directed, AI-assisted engineering in Neon Arsenal Market
+description: Thin Cursor adapter for the repository-native agent harness
 alwaysApply: true
 ---
 
-# Neon Arsenal — Agent Operating System
+# Neon Arsenal — Cursor adapter
 
-You are the engineering agent for this repository. Your job is to implement requested work while preserving correctness, security, reliability, testability, observability, performance, maintainability, and the documented architecture.
+Cursor must follow the same repository-native contract as every other coding agent. This file is an adapter, not a second source of engineering policy.
 
-## Mandatory context
+## Canonical authority
 
-For non-trivial work, start with:
+Read and obey, in order of relevance:
 
-1. `AGENTS.md`
-2. `docs/architecture/ai-engineering-authority.md`
-3. the relevant agent protocol/rules
-4. the relevant architecture and invariant documents
-5. the authoritative Specification, Plan, or Task, plus an external Issue when one exists
-6. relevant source, schema, migrations, tests, and provider documentation
+1. `AGENTS.md` for global engineering/domain guardrails.
+2. `docs/agents/harness.md` for entry modes, context budget, execution loop, tool contract, evaluation, handoff, and stop conditions.
+3. The authoritative Specification, ADR/invariant, Plan, and Task for the requested work.
+4. The owning code, schema/migrations, closest tests, provider/runbook documentation required by the risk.
 
-Do not load the entire repository unnecessarily. Follow the context policy and search before opening large files.
+Provider-specific guidance never overrides repository authority. GitHub Issues are optional context, not authorization for material behavior.
 
-## Artifact-driven operating mode
+## Execution
 
-Use the repository's persistent engineering artifact chain:
+Use progressive disclosure. Do not load the entire repository or all agent documentation by default. For a named Task, respect its status, dependencies, allowed files, source versions, acceptance criteria, and verification command. For an unqualified `next`, use the harness rules and choose only an unambiguously eligible `Ready` Task.
 
-```text
-Intent → Specification → Plan → Task → Implementation → Evidence
+Keep changes small and scoped. Preserve correctness, security, data integrity, documented invariants, and public contracts. Do not introduce speculative infrastructure or abstractions to make the project look more sophisticated.
+
+Use the minimum review lenses justified by risk. Payment, money, concurrency, authorization, destructive migrations, provider ambiguity, and material architecture changes require the corresponding stricter review/human gates defined by `AGENTS.md` and the harness.
+
+## Verification
+
+Run task-specific checks first. Use the canonical repository verification entrypoint when repository/agent contracts are affected:
+
+```bash
+python scripts/verify.py
 ```
 
-For material work, the Specification is the contract for what must be true; the Plan explains how; Tasks define bounded execution units. GitHub Issues are optional intake/tracking references and do not replace a material Specification.
+Never claim a test, CI run, deployment, or tool action happened unless it was actually executed or observed. Two failures from the same unresolved root cause trigger the harness stop condition instead of an unbounded loop.
 
-Use the authority model at `docs/architecture/ai-engineering-authority.md` to resolve conflicts. Never invent requirements to make artifacts agree.
+## Completion
 
-## Operating mode
-
-Treat the single Cursor Agent as an adaptive multi-role engineering team. Select logical roles based on task risk; do not pretend that separate agents exist when one agent is executing the work.
-
-Typical role selection:
-
-- simple bug: Backend + Verification
-- API change: Backend + Test + Security when relevant + Verification
-- DB/concurrency: Backend + DB/Concurrency + Test + Verification
-- reservation/order lifecycle: Backend + DB/Concurrency + Test + Verification
-- payment/webhook: Backend + Reliability + Security + Test + Verification
-- frontend/UI: Implementation + Verification (add Test/Security when checkout, auth, or contracts are involved)
-- architecture: Planner + Backend + Architecture + Test + Verification
-- infrastructure: Planner + Infra/Backend + Security + Reliability + Verification
-
-Select a `Ready` Task from the validated repository graph whose dependencies are `Done`, then apply the minimum role set required by its risk. A single agent may switch perspective between implementation, testing, review, and verification. There is no parent orchestration runtime. Verification must challenge the implementation against acceptance criteria and invariants.
-
-## Required workflow
-
-For requested work:
-
-1. Identify the authoritative artifact and acceptance criteria; shape a new request through the materiality rule when needed.
-2. Classify risk and select roles.
-3. Load minimum relevant context.
-4. Determine the authoritative artifact chain; for material work, require a Specification.
-5. Produce or follow a Plan and bounded Task when the work is non-trivial.
-6. Inspect existing code, tests, schema, migrations, and conventions.
-7. Implement only the requested scope.
-8. Add or update tests that prove behavior and failure modes.
-9. Review the diff against architecture and invariants.
-10. Run targeted verification, then broader checks when justified.
-11. Run documentation validation with `python3 scripts/docs/validate_contracts.py` when artifact contracts are affected.
-12. Report exact commands/results and remaining risks.
-13. Commit only when the task's completion criteria are satisfied.
-
-Do not mark work complete merely because TypeScript compiles or a happy-path test passes.
-
-## Autonomy boundaries
-
-Proceed without unnecessary interruption for scoped, reversible, convention-backed changes with clear acceptance criteria and explicit user authority.
-
-Stop and request human direction for:
-
-- destructive migrations without a validated strategy
-- secrets or credentials
-- authentication/authorization weakening
-- unknown external-provider behavior
-- undefined payment semantics
-- deleting data or constraints
-- speculative distributed infrastructure
-- changing the modular-monolith architecture materially
-- material compatibility or correctness trade-offs
-- weakening security, tests, CI, or observability
-- contradictory requirements
-
-Never invent provider contracts, environment variables, APIs, or requirements.
-
-## Architecture guardrails
-
-- Preserve the modular monolith unless an explicit architecture decision says otherwise.
-- PostgreSQL is the source of truth for transactional state.
-- Prefer Routes/Controllers → Services/Domain → Repositories → Prisma/PostgreSQL.
-- Use explicit transactions and atomic conditional operations for concurrency-sensitive state.
-- Do not place slow external calls inside database transactions.
-- Do not add Kafka, Redis, RabbitMQ, SQS, microservices, or other infrastructure merely to appear senior.
-- Reuse existing abstractions when they are correct; avoid speculative frameworks and abstractions.
-
-## Completion evidence
-
-Before claiming completion, state:
-
-- artifact chain used
-- files changed
-- invariant(s) affected and preserved
-- tests/checks executed
-- exact results
-- important design decisions
-- known risks or limitations
-
-If verification fails twice for the same root cause, stop rather than looping indefinitely and request human direction.
+Report the artifact/authority used, files changed, invariants/contracts affected, exact checks and outcomes, important trade-offs, and unresolved risk. Human approval remains required for final merge and other gates defined by the repository contract.
