@@ -1,11 +1,11 @@
 ---
 id: SPEC-0009
 status: Accepted
-version: 3
+version: 4
 source_issue: "#55"
 owner: "Neon Arsenal Engineering"
 created: 2026-09-07
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # [SPEC-0009] — Reproducible load testing and capacity evidence
@@ -98,14 +98,14 @@ No runtime, API, schema, deploy or client behavior changes. This adds an operato
 
 ## Acceptance Criteria
 
-- [ ] `AC-01` — A default read-only smoke profile and a configurable catalog arrival-rate profile produce JSON summaries with RPS and latency percentiles. **Evidence:** k6 inspect/runtime
-- [ ] `AC-02` — Order creation is impossible without explicit write opt-in and disposable listing IDs. **Evidence:** static check/runtime
-- [ ] `AC-03` — Payment replay and invalid-webhook profiles exercise existing safety/idempotency boundaries without authorizing capture or valid forged events. **Evidence:** static check/manual review
-- [ ] `AC-04` — Profile thresholds fail on checks/custom failures and p95/p99 regressions. **Evidence:** k6 inspect
-- [ ] `AC-05` — The procedure requires correlated CPU, memory, connections, waits, deadlocks and invariant evidence. **Evidence:** static check
-- [ ] `AC-06` — A report template separates measured facts from hypotheses and records the first bottleneck. **Evidence:** static check
-- [ ] `AC-07` — At least one controlled, isolated production-like run covers each profile and three equivalent repetitions support any committed capacity claim. GitHub-hosted evidence must disclose runner variability and must not be called Render or production capacity. **Evidence:** runtime artifacts
-- [ ] `AC-08` — Existing API/payment/schema/deploy behavior is unchanged. **Evidence:** diff review and existing tests
+- [x] `AC-01` — A default read-only smoke profile and a configurable catalog arrival-rate profile produce JSON summaries with RPS and latency percentiles. **Evidence:** runtime
+- [x] `AC-02` — Order creation is impossible without explicit write opt-in and disposable listing IDs. **Evidence:** static check
+- [x] `AC-03` — Payment replay and invalid-webhook profiles exercise existing safety/idempotency boundaries without authorizing capture or valid forged events. **Evidence:** manual review
+- [x] `AC-04` — Profile thresholds fail on checks/custom failures and p95/p99 regressions. **Evidence:** runtime
+- [x] `AC-05` — The procedure requires correlated CPU, memory, connections, waits, deadlocks and invariant evidence. **Evidence:** static check
+- [x] `AC-06` — A report template separates measured facts from hypotheses and records the first bottleneck. **Evidence:** static check
+- [x] `AC-07` — At least one controlled, isolated production-like run covers each profile and three equivalent repetitions support any committed capacity claim. GitHub-hosted evidence must disclose runner variability and must not be called Render or production capacity. **Evidence:** runtime
+- [ ] `AC-08` — Existing API/payment/schema/deploy behavior remains unchanged as a standing regression criterion. **Evidence:** integration
 
 ## Verification Strategy
 
@@ -120,6 +120,7 @@ No runtime, API, schema, deploy or client behavior changes. This adds an operato
 
 - ADR 0006 (hot-path indexes), ADR 0007 (current Render platform), ADR 0018 (Redis not adopted), ADR 0019 (broker/worker not adopted)
 - `docs/architecture/capacity.md`, `docs/architecture/scaling-path.md`, `docs/performance.md`
+- `docs/performance/load-test-report-2026-09-10-catalog.md`
 
 ## Traceability
 
@@ -128,14 +129,16 @@ SPEC → PLAN → TASK(S) → PR → EVIDENCE
 ```
 
 - External tracker: `#55` (optional)
-- Spec: `SPEC-0009`
-- Plan: `PLAN-0006` v3
-- Tasks: `TASK-0010` v3
-- PR: pending
-- Evidence: pending runtime evidence
+- Spec: `SPEC-0009` v4
+- Plan: `PLAN-0006` v4
+- Task: `TASK-0010` v4
+- Implementation/qualification PRs: `#229`–`#239`
+- Per-profile controlled runs: smoke `34401063625`; webhook rejection `34403607329`; orders `34418517461`; payment replay `34420854485`; catalog qualification `34439840030`
+- Committed catalog capacity evidence: workflow run `34439840030`, three equivalent repetitions at a 150-RPS hold target, with frozen API image and synchronized resource/invariant artifacts.
 
 ## Change History
 
+- `v4` — Closed runtime qualification: all five profiles have controlled evidence and catalog has three equivalent frozen-image repetitions supporting a qualified 150-RPS controlled-CI claim; AC-08 remains a standing regression criterion — 2026-09-10
 - `v3` — Accepted a no-cloud-credential controlled CI environment as eligible AC-07 evidence when all profile, repetition, resource and uncertainty requirements are satisfied — 2026-09-09
 - `v2` — Migrated validation commands and traceability to the direct-agent documentation contract — 2026-09-08
 - `v1` — Accepted harness and evidence contract — 2026-09-07
