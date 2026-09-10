@@ -3,16 +3,18 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "../shared/database/index.js";
 import { createCheckoutGraph, createOrder, orderKey } from "./helpers/index.js";
 
-vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+vi.mock("../modules/payments/paypal-provider.gateway.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/payments/paypal-provider.gateway.js")>();
   return {
     ...actual,
-    createPayPalOrder: vi.fn(),
-    getPayPalApprovalLink: vi.fn(),
+    paypalProvider: {
+      ...actual.paypalProvider,
+      createOrder: vi.fn(),
+    },
   };
 });
 
-import { createPayPalOrder, getPayPalApprovalLink } from "../shared/utils/paypal.js";
+import { paypalProvider } from "../modules/payments/paypal-provider.gateway.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
 
 function uniqueViolation(error: unknown) {
@@ -22,8 +24,7 @@ function uniqueViolation(error: unknown) {
 
 describe("payment link idempotency (postgres)", () => {
   beforeEach(() => {
-    vi.mocked(createPayPalOrder).mockReset();
-    vi.mocked(getPayPalApprovalLink).mockReset();
+    vi.mocked(paypalProvider.createOrder).mockReset();
   });
   it("replays POST /payments without a second PayPal OrdersCreate", async () => {
     const fixture = await createCheckoutGraph();
@@ -33,8 +34,10 @@ describe("payment link idempotency (postgres)", () => {
       orderKey("payment-replay")
     );
 
-    vi.mocked(createPayPalOrder).mockResolvedValue({ id: "PAYPAL-REPLAY", links: [] } as never);
-    vi.mocked(getPayPalApprovalLink).mockReturnValue("https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-REPLAY");
+    vi.mocked(paypalProvider.createOrder).mockResolvedValue({
+      id: "PAYPAL-REPLAY",
+      approvalUrl: "https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-REPLAY",
+    });
 
     const first = await paymentsService.createPaymentLink(fixture.customer.id, { orderId: order.id });
     const second = await paymentsService.createPaymentLink(fixture.customer.id, { orderId: order.id });
@@ -42,7 +45,7 @@ describe("payment link idempotency (postgres)", () => {
     const links = await prisma.paymentLink.findMany({ where: { orderId: order.id } });
     const stored = await prisma.order.findUnique({ where: { id: order.id } });
 
-    expect(createPayPalOrder).toHaveBeenCalledTimes(1);
+    expect(paypalProvider.createOrder).toHaveBeenCalledTimes(1);
     expect(second).toEqual(first);
     expect(links).toHaveLength(1);
     expect(links[0].status).toBe("COMPLETED");
@@ -59,14 +62,11 @@ describe("payment link idempotency (postgres)", () => {
     );
 
     let createCalls = 0;
-    vi.mocked(createPayPalOrder).mockImplementation(async () => {
+    vi.mocked(paypalProvider.createOrder).mockImplementation(async () => {
       createCalls += 1;
       await Promise.resolve();
-      return { id: "PAYPAL-CONCURRENT", links: [] };
+      return { id: "PAYPAL-CONCURRENT" };
     });
-    vi.mocked(getPayPalApprovalLink).mockReturnValue(
-      "https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-CONCURRENT"
-    );
 
     const results = await Promise.allSettled([
       paymentsService.createPaymentLink(fixture.customer.id, { orderId: order.id }),
@@ -109,12 +109,9 @@ describe("payment link idempotency (postgres)", () => {
       orderKey("payment-paypal-fail")
     );
 
-    vi.mocked(createPayPalOrder)
+    vi.mocked(paypalProvider.createOrder)
       .mockRejectedValueOnce(new Error("PayPal unavailable"))
-      .mockResolvedValueOnce({ id: "PAYPAL-RETRY", links: [] } as never);
-    vi.mocked(getPayPalApprovalLink).mockReturnValue(
-      "https://www.sandbox.paypal.com/checkoutnow?token=PAYPAL-RETRY"
-    );
+      .mockResolvedValueOnce({ id: "PAYPAL-RETRY" });
 
     await expect(
       paymentsService.createPaymentLink(fixture.customer.id, { orderId: order.id })
@@ -125,7 +122,7 @@ describe("payment link idempotency (postgres)", () => {
     const retry = await paymentsService.createPaymentLink(fixture.customer.id, { orderId: order.id });
 
     expect(retry.paypalOrderId).toBe("PAYPAL-RETRY");
-    expect(createPayPalOrder).toHaveBeenCalledTimes(2);
+    expect(paypalProvider.createOrder).toHaveBeenCalledTimes(2);
     expect(await prisma.paymentLink.count({ where: { orderId: order.id } })).toBe(1);
   });
 

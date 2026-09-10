@@ -5,23 +5,26 @@ const providerState = vi.hoisted(() => ({
   refunds: new Map<string, { id: string; status: "COMPLETED" }>(),
 }));
 
-vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+vi.mock("../modules/payments/paypal-provider.gateway.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/payments/paypal-provider.gateway.js")>();
   return {
     ...actual,
-    refundPayPalCapture: vi.fn(async (captureId: string, requestId: string) => {
-      providerState.calls.push({ captureId, requestId });
-      const replay = providerState.refunds.get(requestId);
-      if (replay) return replay;
-      const created = { id: `PROVIDER-REFUND-${providerState.refunds.size + 1}`, status: "COMPLETED" as const };
-      providerState.refunds.set(requestId, created);
-      return created;
-    }),
+    paypalProvider: {
+      ...actual.paypalProvider,
+      refundCapture: vi.fn(async (captureId: string, requestId: string) => {
+        providerState.calls.push({ captureId, requestId });
+        const replay = providerState.refunds.get(requestId);
+        if (replay) return replay;
+        const created = { id: `PROVIDER-REFUND-${providerState.refunds.size + 1}`, status: "COMPLETED" as const };
+        providerState.refunds.set(requestId, created);
+        return created;
+      }),
+    },
   };
 });
 
 import { prisma } from "../shared/database/index.js";
-import { refundPayPalCapture } from "../shared/utils/paypal.js";
+import { paypalProvider } from "../modules/payments/paypal-provider.gateway.js";
 import { paymentsService } from "../modules/payments/payments.service.js";
 import {
   buildPayPalRefundRequestId,
@@ -165,14 +168,14 @@ describe("TASK-0014 idempotent PayPal refund execution (postgres)", () => {
     );
     const refund = await obligation(order.id, "CAPTURE-TIMEOUT");
     const timeout = Object.assign(new Error("timeout"), { statusCode: 504 });
-    vi.mocked(refundPayPalCapture).mockRejectedValueOnce(timeout);
+    vi.mocked(paypalProvider.refundCapture).mockRejectedValueOnce(timeout);
 
     await expect(refundsService.executeProviderRefund(refund.id)).rejects.toBe(timeout);
     const unresolved = await prisma.refund.findUniqueOrThrow({ where: { id: refund.id } });
     expect(unresolved.status).toBe("PROCESSING");
     expect(unresolved.completedAt).toBeNull();
 
-    vi.mocked(refundPayPalCapture).mockImplementationOnce(async (captureId, requestId) => {
+    vi.mocked(paypalProvider.refundCapture).mockImplementationOnce(async (captureId, requestId) => {
       providerState.calls.push({ captureId, requestId });
       const result = { id: "PROVIDER-REFUND-TIMEOUT", status: "COMPLETED" as const };
       providerState.refunds.set(requestId, result);
@@ -180,7 +183,7 @@ describe("TASK-0014 idempotent PayPal refund execution (postgres)", () => {
     });
     await refundsService.executeProviderRefund(refund.id);
 
-    const requestIds = vi.mocked(refundPayPalCapture).mock.calls.map((call) => call[1]);
+    const requestIds = vi.mocked(paypalProvider.refundCapture).mock.calls.map((call) => call[1]);
     expect(requestIds).toEqual([
       buildPayPalRefundRequestId(refund.id),
       buildPayPalRefundRequestId(refund.id),
@@ -198,7 +201,7 @@ describe("TASK-0014 idempotent PayPal refund execution (postgres)", () => {
       orderKey("refund-provider-pending")
     );
     const refund = await obligation(order.id, "CAPTURE-PENDING");
-    vi.mocked(refundPayPalCapture).mockResolvedValueOnce({
+    vi.mocked(paypalProvider.refundCapture).mockResolvedValueOnce({
       id: "PROVIDER-REFUND-PENDING",
       status: "PENDING",
     });

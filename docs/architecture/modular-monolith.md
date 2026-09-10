@@ -79,13 +79,14 @@ Ledger *writes* on confirm belong to Payments. Ledger *projection reconcile* bel
 
 ## Payments layering
 
-Payments is **not** split into application/domain/infrastructure here.
+Payments is **not** split into application/domain/infrastructure.
 
-- PayPal HTTP and webhook crypto already sit in `shared/utils`.
+- Payment and refund orchestration consume one module-local outbound PayPal gateway (ADR 0025).
+- The gateway delegates to the existing PayPal SDK/HTTP utilities and owns provider response/error normalization.
+- Webhook verification/parsing remains a separate inbound trust boundary in `shared/utils`.
 - `confirmPayment` must remain one local transaction.
 - `OrdersCreate` and `OrdersCapture` are not retried.
-
-A later change may split the file only with a Specification that preserves those rules.
+- Prisma is intentionally not abstracted by the provider seam.
 
 ## How to add a dependency
 

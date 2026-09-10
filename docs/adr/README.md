@@ -30,6 +30,7 @@ Issue #71 inventory. Decisions already recorded before this change are listed, n
 | [0022](./0022-single-checkout-currency.md) | Single BRL checkout currency; cs2.sh USD remains catalog reference only |
 | [0023](./0023-rate-limit-client-identity.md) | Explicit, non-spoofable client identity at the Render edge |
 | [0024](./0024-refund-compensation.md) | Idempotent full refund compensation for captured-but-unfulfillable payments |
+| [0025](./0025-paypal-provider-boundary.md) | Narrow outbound PayPal gateway for payment/refund orchestration |
 
 ADR identifiers are unique and durable. Historical references to refund compensation as `ADR 0023` refer to the same decision now canonicalized as `ADR 0024`; the renumber corrected an accidental duplicate identifier and did not change the decision.
 

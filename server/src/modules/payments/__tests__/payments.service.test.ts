@@ -41,15 +41,15 @@ vi.mock("../../../shared/database/index.js", () => ({
   },
 }));
 
-vi.mock("../../../shared/utils/paypal.js", () => ({
-  createPayPalOrder: vi.fn(),
-  capturePayPalOrder: vi.fn(),
-  getPayPalApprovalLink: vi.fn(),
-  getPayPalOrder: vi.fn(),
-  isPayPalApprovedStatus: (value: unknown) => value === "APPROVED",
-  isPayPalCompletedStatus: (value: unknown) => value === "COMPLETED",
-  isPayPalOrderAlreadyCapturedError: (err: unknown) =>
-    err instanceof Error && /ORDER_ALREADY_CAPTURED/i.test(err.message),
+vi.mock("../paypal-provider.gateway.js", () => ({
+  paypalProvider: {
+    createOrder: vi.fn(),
+    captureOrder: vi.fn(),
+    getOrder: vi.fn(),
+    refundCapture: vi.fn(),
+    getRefund: vi.fn(),
+    classifyRefundFailure: vi.fn(),
+  },
 }));
 
 vi.mock("../refunds.service.js", () => ({
@@ -69,7 +69,7 @@ vi.mock("../refunds.service.js", () => ({
 }));
 
 import { prisma } from "../../../shared/database/index.js";
-import { createPayPalOrder, capturePayPalOrder, getPayPalApprovalLink, getPayPalOrder } from "../../../shared/utils/paypal.js";
+import { paypalProvider } from "../paypal-provider.gateway.js";
 import { paymentsService } from "../payments.service.js";
 import { refundsService } from "../refunds.service.js";
 import { Prisma } from "@prisma/client";
@@ -102,8 +102,10 @@ describe("paymentsService", () => {
       vi.mocked(prisma.$transaction).mockImplementation(async (fn: (client: typeof prisma) => unknown) =>
         fn(prisma)
       );
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-1", links: [] } as never);
-      vi.mocked(getPayPalApprovalLink).mockReturnValue("https://paypal.com/approve/123");
+      vi.mocked(paypalProvider.createOrder).mockResolvedValue({
+        id: "paypal-order-1",
+        approvalUrl: "https://paypal.com/approve/123",
+      });
       vi.mocked(prisma.order.update).mockResolvedValue({} as never);
     };
 
@@ -112,7 +114,12 @@ describe("paymentsService", () => {
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
-      expect(createPayPalOrder).toHaveBeenCalledWith("150.00", "BRL", "order-1", undefined);
+      expect(paypalProvider.createOrder).toHaveBeenCalledWith({
+        amount: "150.00",
+        currency: "BRL",
+        orderId: "order-1",
+        checkoutUrls: undefined,
+      });
       expect(result.approvalUrl).toBe("https://paypal.com/approve/123");
       expect(result.orderId).toBe("order-1");
     });
@@ -128,9 +135,11 @@ describe("paymentsService", () => {
         cancelUrl,
       });
 
-      expect(createPayPalOrder).toHaveBeenCalledWith("150.00", "BRL", "order-1", {
-        returnUrl,
-        cancelUrl,
+      expect(paypalProvider.createOrder).toHaveBeenCalledWith({
+        amount: "150.00",
+        currency: "BRL",
+        orderId: "order-1",
+        checkoutUrls: { returnUrl, cancelUrl },
       });
     });
 
@@ -139,7 +148,7 @@ describe("paymentsService", () => {
 
       await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
-      const urls = vi.mocked(createPayPalOrder).mock.calls[0]?.[3];
+      const urls = vi.mocked(paypalProvider.createOrder).mock.calls[0]?.[0].checkoutUrls;
       expect(urls).toBeUndefined();
     });
 
@@ -173,8 +182,7 @@ describe("paymentsService", () => {
 
     it("falls back to the PayPal checkout URL when the approve link is missing", async () => {
       setupCreateLink();
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-1", links: [] } as never);
-      vi.mocked(getPayPalApprovalLink).mockReturnValue(undefined);
+      vi.mocked(paypalProvider.createOrder).mockResolvedValue({ id: "paypal-1" });
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
@@ -184,8 +192,10 @@ describe("paymentsService", () => {
 
     it("stores paypalOrderId on the order", async () => {
       setupCreateLink();
-      vi.mocked(createPayPalOrder).mockResolvedValue({ id: "paypal-order-99" } as never);
-      vi.mocked(getPayPalApprovalLink).mockReturnValue("https://approve.url");
+      vi.mocked(paypalProvider.createOrder).mockResolvedValue({
+        id: "paypal-order-99",
+        approvalUrl: "https://approve.url",
+      });
 
       await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
@@ -212,7 +222,7 @@ describe("paymentsService", () => {
         cancelUrl: "https://app.example/orders/order-1/cancel",
       });
 
-      expect(createPayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.createOrder).not.toHaveBeenCalled();
       expect(prisma.paymentLink.create).not.toHaveBeenCalled();
       expect(result).toEqual({
         orderId: "order-1",
@@ -239,7 +249,7 @@ describe("paymentsService", () => {
         statusCode: 409,
         message: expect.stringContaining("still in progress"),
       });
-      expect(createPayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.createOrder).not.toHaveBeenCalled();
     });
 
     it("replays when a concurrent claim has already completed", async () => {
@@ -265,13 +275,13 @@ describe("paymentsService", () => {
 
       const result = await paymentsService.createPaymentLink("user-1", { orderId: "order-1" });
 
-      expect(createPayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.createOrder).not.toHaveBeenCalled();
       expect(result.paypalOrderId).toBe("paypal-won");
     });
 
     it("releases the in-progress claim when OrdersCreate fails", async () => {
       setupCreateLink();
-      vi.mocked(createPayPalOrder).mockRejectedValue(new Error("PayPal unavailable"));
+      vi.mocked(paypalProvider.createOrder).mockRejectedValue(new Error("PayPal unavailable"));
 
       await expect(
         paymentsService.createPaymentLink("user-1", { orderId: "order-1" })
@@ -643,12 +653,12 @@ describe("paymentsService", () => {
       vi.mocked(prisma.order.findMany).mockResolvedValue([
         { id: "order-1", paypalOrderId: "paypal-1" },
       ] as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
       setupWebhookTransaction();
 
       const result = await paymentsService.reconcilePendingPaypalOrders();
 
-      expect(getPayPalOrder).toHaveBeenCalledWith("paypal-1");
+      expect(paypalProvider.getOrder).toHaveBeenCalledWith("paypal-1");
       expect(prisma.order.updateMany).toHaveBeenCalled();
       expect(result).toEqual({ scanned: 1, confirmed: 1 });
     });
@@ -657,11 +667,11 @@ describe("paymentsService", () => {
       vi.mocked(prisma.order.findMany).mockResolvedValue([
         { id: "order-1", paypalOrderId: "paypal-1", items: [] },
       ] as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "CREATED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "CREATED" });
 
       const result = await paymentsService.reconcilePendingPaypalOrders();
 
-      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.captureOrder).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(result).toEqual({ scanned: 1, confirmed: 0 });
     });
@@ -683,13 +693,13 @@ describe("paymentsService", () => {
           ],
         },
       ] as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
-      vi.mocked(capturePayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
+      vi.mocked(paypalProvider.captureOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
       setupWebhookTransaction();
 
       const result = await paymentsService.reconcilePendingPaypalOrders();
 
-      expect(capturePayPalOrder).toHaveBeenCalledWith("paypal-1");
+      expect(paypalProvider.captureOrder).toHaveBeenCalledWith("paypal-1");
       expect(prisma.order.updateMany).toHaveBeenCalled();
       expect(result).toEqual({ scanned: 1, confirmed: 1 });
     });
@@ -711,11 +721,11 @@ describe("paymentsService", () => {
           ],
         },
       ] as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
 
       const result = await paymentsService.reconcilePendingPaypalOrders();
 
-      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.captureOrder).not.toHaveBeenCalled();
       expect(prisma.$transaction).not.toHaveBeenCalled();
       expect(result).toEqual({ scanned: 1, confirmed: 0 });
     });
@@ -741,13 +751,13 @@ describe("paymentsService", () => {
 
     it("captures APPROVED PayPal orders and confirms locally", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(liveOrder() as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
-      vi.mocked(capturePayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
+      vi.mocked(paypalProvider.captureOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
       setupWebhookTransaction();
 
       const result = await paymentsService.capturePayment("user-1", "order-1");
 
-      expect(capturePayPalOrder).toHaveBeenCalledWith("paypal-1");
+      expect(paypalProvider.captureOrder).toHaveBeenCalledWith("paypal-1");
       expect(prisma.order.updateMany).toHaveBeenCalled();
       expect(result).toMatchObject({
         orderId: "order-1",
@@ -758,12 +768,12 @@ describe("paymentsService", () => {
 
     it("confirms without capturing when PayPal already reports COMPLETED", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(liveOrder() as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
       setupWebhookTransaction();
 
       await paymentsService.capturePayment("user-1", "order-1");
 
-      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.captureOrder).not.toHaveBeenCalled();
       expect(prisma.order.updateMany).toHaveBeenCalled();
     });
 
@@ -776,7 +786,7 @@ describe("paymentsService", () => {
           paymentStatus: "PENDING",
           totalAmount: stale.totalAmount,
         } as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({
         id: "paypal-1",
         status: "COMPLETED",
         captureId: "capture-1",
@@ -809,7 +819,7 @@ describe("paymentsService", () => {
           paymentStatus: "PENDING",
           totalAmount: stale.totalAmount,
         } as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "COMPLETED" });
       vi.mocked(prisma.$transaction).mockRejectedValue(
         new AppError(409, "Reservation expired or listing is no longer reserved")
       );
@@ -838,12 +848,12 @@ describe("paymentsService", () => {
           ],
         }) as never
       );
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1", status: "APPROVED" });
 
       await expect(paymentsService.capturePayment("user-1", "order-1")).rejects.toMatchObject({
         statusCode: 409,
       });
-      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.captureOrder).not.toHaveBeenCalled();
     });
 
     it("rejects another customer's order", async () => {
@@ -851,16 +861,16 @@ describe("paymentsService", () => {
       await expect(paymentsService.capturePayment("other-user", "order-1")).rejects.toMatchObject({
         statusCode: 403,
       });
-      expect(getPayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.getOrder).not.toHaveBeenCalled();
     });
 
     it("does not confirm when PayPal status is a local or unknown label", async () => {
       vi.mocked(prisma.order.findUnique).mockResolvedValue(liveOrder() as never);
-      vi.mocked(getPayPalOrder).mockResolvedValue({ id: "paypal-1" });
+      vi.mocked(paypalProvider.getOrder).mockResolvedValue({ id: "paypal-1" });
 
       const result = await paymentsService.capturePayment("user-1", "order-1");
 
-      expect(capturePayPalOrder).not.toHaveBeenCalled();
+      expect(paypalProvider.captureOrder).not.toHaveBeenCalled();
       expect(prisma.order.updateMany).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         orderId: "order-1",
