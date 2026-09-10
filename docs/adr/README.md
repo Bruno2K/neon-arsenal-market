@@ -29,6 +29,9 @@ Issue #71 inventory. Decisions already recorded before this change are listed, n
 | [0021](./0021-interview-focused-ai-workflow.md) | AI workflow remains subordinate to backend interview evidence |
 | [0022](./0022-single-checkout-currency.md) | Single BRL checkout currency; cs2.sh USD remains catalog reference only |
 | [0023](./0023-rate-limit-client-identity.md) | Explicit, non-spoofable client identity at the Render edge |
+| [0024](./0024-refund-compensation.md) | Idempotent full refund compensation for captured-but-unfulfillable payments |
+
+ADR identifiers are unique and durable. Historical references to refund compensation as `ADR 0023` refer to the same decision now canonicalized as `ADR 0024`; the renumber corrected an accidental duplicate identifier and did not change the decision.
 
 PostgreSQL as source of truth is already a decision in ADR 0007 §4 and is assumed by 0001–0003, 0005, 0011, 0012, and 0016. No duplicate SoT ADR.
 
