@@ -1,150 +1,44 @@
-# AI Agent Team
+# AI agent guidance
 
-## Objective
+This directory contains the repository-native operating contract for human-directed AI-assisted development.
 
-This repository uses AI coding agents as tools in a human-directed engineering workflow. The goal is to produce interview-ready evidence of Senior Backend judgment without accumulating speculative complexity or presenting agent infrastructure as the product.
+## Start here
 
-The agents must optimize for **correctness, small diffs, verification, and useful engineering evidence** rather than code volume.
+Use this order:
 
-## Source of truth
+1. `AGENTS.md` — global engineering and domain guardrails.
+2. `docs/agents/harness.md` — canonical execution protocol.
+3. The named Specification, ADR/invariant, Plan, and Task for the work.
+4. The owning code, schema/migrations, closest tests, and provider/runbook documentation required by the risk.
 
-Read in this order:
+Do not read every file in this directory by default. The harness defines progressive context loading.
 
-1. `AGENTS.md` — global engineering rules.
-2. `docs/agents/README.md` — team operating model.
-3. `docs/agents/harness.md` — direct entry, context, execution, and evidence protocol.
-4. The named Specification, Plan, or Task.
-5. `docs/agents/roles.md` — responsibilities and boundaries.
-6. Relevant architecture and invariant documents.
-7. The relevant source code, schema, migrations, and tests.
-8. Relevant ADRs, provider, and operational documentation.
+## Canonical documents
 
-If code and documentation disagree, the agent must inspect the code and flag the documentation as stale. It must not silently invent behavior.
+- [`harness.md`](harness.md) — entry modes, authority resolution, context budget, execution loop, tool contract, evaluation, handoff, portability, and stop conditions.
+- [`verification.md`](verification.md) — deterministic repository verification entrypoint and drift policy.
+- [`roles.md`](roles.md) — optional review lenses selected by risk; not separate mandatory agents.
+- [`decision-policy.md`](decision-policy.md) — human gates and bounded autonomy.
+- [`context-policy.md`](context-policy.md) — additional context-loading guidance when a task needs it.
+- [`plan-contract.md`](plan-contract.md) and [`task-contract.md`](task-contract.md) — repository artifact contracts.
+- [`handoff-template.md`](handoff-template.md) — use only when work is being handed to another person or agent.
 
-## Team model
+Provider adapters such as `.cursor/rules/` must stay thin and cannot redefine these contracts.
 
-The team is intentionally **sequential by default**. Parallel agents are used only when their work has no overlapping files or semantic dependencies.
+## Verification
 
-When work is decomposed into repository Tasks, their graph is the control plane: an agent selects a `Ready` Task whose dependencies are `Done`, loads its bounded context, and applies the minimum relevant roles. Small reversible requests may proceed directly with proportionate checks and PR evidence.
+The canonical deterministic repository check is:
 
-Canonical entry modes and `next` semantics are defined in [`harness.md`](harness.md). No Python prompt generator, parent orchestrator, or external tracker is required to start an agent. File-disjoint Tasks may run in parallel only under the harness's semantic-independence rules.
-
-## Agentic engineering coverage
-
-The repository implements the disciplines as one proportional system rather than as separate products:
-
-- **Specification-Driven Development:** Specifications define material behavior and acceptance.
-- **Context Engineering:** the context policy and Task `Required Context` sections enforce progressive disclosure.
-- **Harness Engineering:** persistent instructions, isolation, CI, tests, documentation validation, retry limits, and human gates constrain execution.
-- **Graph Engineering:** Plans and Tasks express state, dependencies, branching outcomes, termination, and safe parallelism.
-- **Tool Engineering:** the harness defines bounded, least-privilege, retry-aware tool contracts; MCP is optional.
-- **Agent Engineering:** roles are scoped reasoning lenses, selected by risk instead of permanent autonomous workers.
-- **Evaluation Engineering:** deterministic checks plus the material-work rubric decide convergence and route failures back into the workflow.
-- **State and Memory Engineering:** active artifacts, Git, evidence, and handoffs hold state; validated learning is promoted into ADRs, invariants, tests, runbooks, or stable guidance.
-- **Observability / AgentOps:** PRs and handoffs record retries, tool failures, human gates, recovery, and available cost/runtime signals in proportion to autonomy.
-- **Security, Governance, and HITL:** the decision policy, sandbox, protected secrets, bounded retries, review ownership, and explicit human stop conditions limit impact.
-
-This coverage does not make the agent workflow the product. It exists to improve the correctness, reviewability, and interview evidence of Neon Arsenal.
-
-Recommended roles:
-
-- **Planner** — converts a roadmap item into an implementation plan and acceptance criteria.
-- **Backend Engineer** — implements the smallest coherent change.
-- **Database/Concurrency Engineer** — reviews transaction boundaries, constraints, locking and race conditions when relevant.
-- **Test Engineer** — adds tests that prove invariants and failure modes.
-- **Reliability Engineer** — reviews retries, idempotency, webhooks, timeouts, observability and recovery.
-- **Architecture Reviewer** — checks boundaries, coupling, ADRs and scalability trade-offs.
-- **Security Reviewer** — checks authentication, authorization, validation, secrets and external trust boundaries.
-- **Release/Verification Agent** — runs checks, inspects the final diff and prepares the completion report.
-
-Do not run all roles for every task. Select the minimum set required by the risk profile.
-
-## Task lifecycle for decomposed work
-
-```text
-Backlog
-  ↓
-Planner
-  ↓
-Implementation
-  ↓
-Targeted tests
-  ↓
-Risk review
-  ↓
-Verification
-  ↓
-Documentation
-  ↓
-Done
+```bash
+python scripts/verify.py
 ```
 
-A task must have one clear owner at a time. Reviewers do not rewrite the implementation unless explicitly assigned to do so.
+Task-specific tests and checks remain authoritative for product behavior. A green repository verification run proves the agent/documentation contract, not application correctness by itself.
 
-## Planning artifacts
+## Working model
 
-Material work follows the repository-native Plan contract in [`plan-contract.md`](plan-contract.md) and the canonical template in [`../templates/plan.md`](../templates/plan.md). A `Ready` Plan is bound to one accepted Specification version; executors stop and replan when that source changes materially.
+The repository is sequential by default. Parallel work is allowed only for dependency-independent Tasks with disjoint write scopes and no shared invariant/schema/generated-artifact mutation.
 
-Executable work follows the repository-native Task contract in [`task-contract.md`](task-contract.md) and the canonical template in [`../templates/task.md`](../templates/task.md). A `Ready` Task is bound to one `Ready` Plan version, has one owner, and defines its allowed files and exact verification command.
+GitHub Issues are optional coordination context. Material behavior is authorized by repository Specifications and the artifact chain defined by the harness.
 
-## Token-efficiency rules
-
-1. Start with the smallest relevant context. Do not load the whole repository.
-2. Read `AGENTS.md` and the relevant architecture document first.
-3. Search before opening large files.
-4. Inspect only files touched by the task plus their direct dependencies.
-5. Reuse existing abstractions before designing new ones.
-6. Do not ask multiple agents to independently solve the same problem.
-7. Prefer one implementation agent followed by one focused reviewer over several competing implementations.
-8. Do not repeat repository exploration already captured in a handoff.
-9. Handoffs must contain facts, files changed, decisions, tests run, failures, and remaining risks — not a narrative transcript.
-10. Stop when acceptance criteria are satisfied. Do not continue improving unrelated code.
-
-## Handoff contract
-
-Every agent that finishes work must leave a compact handoff containing:
-
-- Task ID.
-- What changed.
-- Files changed.
-- Business invariant affected.
-- Architectural decision, if any.
-- Tests/checks executed and exact result.
-- Known limitations or unresolved risks.
-- Recommended next action, if one exists.
-
-The next agent should trust the handoff only as a navigation aid; it must verify critical claims against the repository.
-
-## Bounded decision policy
-
-Within an explicit user request, agents may:
-
-- implement scoped roadmap tasks;
-- add or modify tests;
-- update documentation required by the implementation;
-- create ADRs for meaningful architectural decisions;
-- refactor code when necessary to restore an explicit architectural boundary;
-- reject a proposed change when it violates a documented invariant.
-
-Agents must stop and request human direction when:
-
-- requirements conflict with each other;
-- a destructive data migration is required without an approved migration strategy;
-- a production credential or secret is required;
-- an external provider behavior is uncertain and cannot be verified;
-- the task requires a major architectural pivot not represented in the roadmap;
-- there is a material trade-off between correctness and backwards compatibility that the repository does not already decide;
-- a change would intentionally weaken security or data integrity.
-
-## Definition of done
-
-A task is not done because code compiles. It is done when:
-
-- acceptance criteria are satisfied;
-- relevant tests exist and pass;
-- transaction/concurrency behavior is understood when applicable;
-- failure and retry behavior is understood when applicable;
-- public API documentation is updated when applicable;
-- architecture documentation is updated when a boundary or decision changed;
-- the final diff contains no unrelated work;
-- the agent can state what was verified and what was not.
+The objective is correctness, bounded context, small diffs, explicit evidence, and useful Senior Backend engineering judgment—not agent infrastructure as a product.
