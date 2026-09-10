@@ -1,352 +1,277 @@
 # Neon Arsenal Market
 
-A full-stack CS2 skin marketplace built to explore backend architecture, authentication, payments, transactional workflows, and production-oriented engineering practices.
+Backend-first marketplace portfolio project for Counter-Strike 2 skins, built to demonstrate Senior Backend Engineering through correctness, financial consistency, failure recovery, operational evidence, and explicit trade-offs.
 
-## Overview
+The product surface is a React/Vite marketplace. The engineering focus is the TypeScript/Express/PostgreSQL backend: unique-item reservation, idempotent order creation, PayPal capture/webhook reconciliation, refund compensation, append-only seller ledger behavior, security hardening, observability, and reproducible load-test evidence.
 
-Neon Arsenal Market simulates a marketplace where users can buy and sell Counter-Strike 2 skins.
+## Engineering focus
 
-The project focuses primarily on the backend and its business rules, including:
+The repository is intentionally more than a CRUD demo. The strongest backend stories are:
 
-- Authentication and authorization
-- Seller management and approval
-- Unique physical listings
-- Order lifecycle and inventory states
-- PayPal payment integration
-- Seller commissions and balances
-- Input validation and rate limiting
-- PostgreSQL persistence
-- API documentation
-- Dockerized local infrastructure
-- Automated testing and CI
-- Optional OpenTelemetry traces and metrics
+- atomic reservation of unique listings under concurrent buyers;
+- customer-scoped order idempotency persisted in PostgreSQL;
+- explicit order/listing/payment state transitions;
+- authenticated PayPal webhook processing and reconciliation;
+- automatic full compensation when a capture cannot be fulfilled locally;
+- append-only seller financial history with balance projection;
+- transactional outbox and in-process recovery loops;
+- PostgreSQL integration/concurrency tests;
+- API versioning and OpenAPI contract checks;
+- request IDs, structured logs and optional OpenTelemetry;
+- controlled k6 evidence with a reproducible catalog workload;
+- repository-native AI-assisted engineering contracts and deterministic verification.
 
-## Engineering Case Study
-
-This repository is also an interview-oriented proof of concept for Senior Backend engineering in a high-scale commerce context. Its flagship stories are concurrent purchase of a unique listing, reliable payment confirmation, and evidence-based operation and performance. AI agents assist bounded implementation and review; the project owner remains accountable for requirements, architecture, trade-offs, and acceptance.
-
-See [`docs/portfolio/mercado-livre-backend-poc.md`](docs/portfolio/mercado-livre-backend-poc.md) for the positioning, evidence targets, and public Mercado Livre engineering references. The project does not claim to reproduce Mercado Livre's private internal process or production scale.
+AI coding agents are implementation/review tools. Requirements, architecture, trade-offs, human approval, and final acceptance remain human-owned.
 
 ## Architecture
 
-The backend is organized by domain modules using a layered structure:
-
 ```text
-server/src/
-├── modules/
-│   ├── auth/
-│   ├── users/
-│   ├── sellers/
-│   ├── products/
-│   ├── listings/
-│   ├── orders/
-│   ├── payments/
-│   ├── commissions/
-│   ├── reviews/
-│   └── admin/
-│
-└── shared/
-    ├── database/
-    ├── errors/
-    ├── middleware/
-    ├── routes/
-    └── utils/
+React / Vite
+     |
+     | HTTP/JSON
+     v
+Express modular monolith
+     |
+     +-- auth
+     +-- users
+     +-- sellers
+     +-- products / catalog
+     +-- listings
+     +-- orders
+     +-- payments
+     +-- commissions / ledger
+     +-- reviews
+     +-- favorites
+     +-- admin
+     |
+     v
+Prisma → PostgreSQL
+
+External boundaries:
+- PayPal
+- Resend
+- cs2.sh (optional catalog import)
 ```
 
-The main backend flow follows:
+Preferred backend dependency direction:
 
 ```text
-Controller → Service → Repository → PostgreSQL
+Routes / Controllers → Services / Domain → Repositories → Prisma / PostgreSQL
 ```
 
-with shared concerns such as authentication, validation, rate limiting, error handling, logging, and infrastructure isolated from business modules.
+The application remains a modular monolith. Redis, Kafka, SQS, microservices and similar infrastructure are not added merely to make the project appear more complex.
 
-## Backend Highlights
+Architecture map: [`docs/architecture/current-state.md`](docs/architecture/current-state.md)
 
-### Authentication
+## Critical workflows
 
-- JWT access tokens
-- Refresh token families (rotation + reuse revocation)
-- Per-email login throttle
-- Password policy (8–72, letter + number)
-- Email verification flow
-- Role-based authorization
-- Password hashing with bcrypt
+### Unique-item checkout
 
-### Orders & Inventory
-
-Listings represent unique items and move through explicit states:
+Listings represent unique inventory. Order creation reserves listings with a PostgreSQL transaction and conditional state change so two concurrent buyers cannot both acquire the same item.
 
 ```text
 ACTIVE → RESERVED → SOLD
        ↘ CANCELED
 ```
 
-Order creation creates the order and reserves its listings inside a database transaction.
+`POST /orders` requires an `Idempotency-Key`; the key, canonical request hash, order and reservation effects converge inside PostgreSQL.
 
-### Payments
+### Payments and reconciliation
 
-PayPal is integrated into the order flow through:
+PayPal is treated as an unreliable external system. Provider calls are kept outside critical PostgreSQL transactions, while local state transitions remain transactional and idempotent.
 
 ```text
-Order
-  ↓
-Payment creation
-  ↓
-PayPal
-  ↓
-Webhook
-  ↓
-Payment confirmation
-  ↓
-Order confirmation + listings marked SOLD
-  ↓
-Seller transaction + balance update
+Local order
+   ↓
+PayPal order / capture
+   ↓
+Webhook or reconciliation
+   ↓
+Trusted COMPLETED state
+   ↓
+Order + listing + ledger + balance + outbox transaction
 ```
 
-### Seller Commissions
+Duplicate/out-of-order delivery, retries, process crashes and remote-success/local-failure states are explicit failure modes.
 
-When a payment is confirmed, seller transactions are generated from the order items and commissions are calculated from the seller's commission rate.
+### Refund compensation
 
-### Validation & Security
+If PayPal has already captured funds but the marketplace can no longer fulfill the order because the valid reservation was lost or expired, the system creates a durable compensation obligation and converges through an idempotent full refund.
 
-- Zod request validation
-- Configurable IP-based rate limiting
-- Restricted CORS
-- JWT authentication
-- bcrypt password hashing
-- Centralized application errors
-- Request IDs
-- Structured logging with Pino
+Seller financial history is append-only: an applied credit is compensated by a separate reversal rather than destructive mutation.
 
-## Tech Stack
+See [`SPEC-0013`](docs/specs/SPEC-0013-refund-financial-compensation.md) and [`ADR 0024`](docs/adr/0024-refund-compensation.md).
 
-### Backend
+## Performance evidence
 
-- Node.js
-- TypeScript
-- Express
-- Prisma
-- PostgreSQL
+The repository contains a controlled GitHub Actions k6 harness and a reproducible catalog capacity result.
 
-### Frontend
+In the documented CI topology — API limited to 1 CPU / 512 MiB and PostgreSQL to 1 CPU / 1 GiB — the catalog profile reproduced a **150 RPS hold for 60 seconds across three equivalent repetitions**, with zero HTTP failures and zero dropped iterations. This is controlled-CI evidence, not a claim about Render production capacity.
 
-- React
-- TypeScript
-- Vite
-- React Router
-- TanStack Query
-- Tailwind CSS
-- shadcn/ui
+Report: [`docs/performance/load-test-report-2026-09-10-catalog.md`](docs/performance/load-test-report-2026-09-10-catalog.md)
 
-### Infrastructure
+## Tech stack
 
-- Docker
-- Docker Compose
-- GitHub Actions
-- Vercel
-- Render
+**Backend:** Node.js 20, TypeScript, Express, Prisma, PostgreSQL, Zod, Pino, Vitest.
 
-### Integrations
+**Frontend:** React, TypeScript, Vite, React Router, TanStack Query, Tailwind CSS, shadcn/ui.
 
-- PayPal
-- Resend
+**Infrastructure/tooling:** Docker, Docker Compose, GitHub Actions, Vercel, Render, k6.
+
+**Integrations:** PayPal, Resend, optional cs2.sh catalog import.
 
 ## Deployment
 
-For the common split deployment, use Vercel for the Vite frontend and Render for the Express API:
-
-- In Vercel, add `API_URL` as **Config** (not Sensitive) with the public Render API origin, for example `https://neon-arsenal-market-api.onrender.com`. Do not use the `VITE_` prefix. A production frontend build fails if this still points at localhost.
-- In Render, set `FRONTEND_URL` to the public frontend origin. Use a comma-separated list when allowing both production and preview origins.
-- In Render, set `RESEND_API_KEY` and `EMAIL_FROM` so production registration can send verification codes.
-- Keep `SEED_DEMO_DATA=true` only for demo/test deployments. On boot the API upserts the fake catalog (accounts, products, listings) shown on the login page. Re-running the seed is idempotent and does not overwrite rows that already exist.
-- `vercel.json` rewrites React Router paths to `index.html`, and the production build also emits `dist/404.html`, so direct page refreshes do not return Vercel's NOT_FOUND page. In the Vercel project, set Framework Preset to **Vite**, not Other.
-
-The Render Blueprint also defines an optional `neon-arsenal-web` static site. If you deploy the frontend on Render instead of Vercel, set its `API_URL`; the Blueprint includes the same SPA rewrite to `index.html`.
-
-### Testing & Documentation
-
-- Vitest
-- OpenAPI / Swagger UI
-
-## Project Structure
+Primary portfolio topology:
 
 ```text
-.
-├── src/                  # React application
-├── server/
-│   ├── src/
-│   │   ├── modules/      # Domain modules
-│   │   └── shared/       # Shared infrastructure
-│   └── prisma/           # Database schema and migrations
-├── docker-compose.yml
-├── Dockerfile
-└── package.json
+Vercel frontend → Render API → Render PostgreSQL
 ```
 
-## Running Locally
+- Vercel builds the React/Vite frontend from the repository root.
+- Render runs `neon-arsenal-api` from `server/Dockerfile` and injects the managed PostgreSQL `DATABASE_URL`.
+- `render.yaml` also contains an optional Render static frontend alternative; it is not required for the primary Vercel topology.
+- `/health` is liveness and `/ready` is readiness.
 
-### Requirements
+Canonical deployment map: [`docs/operations/deployment.md`](docs/operations/deployment.md)
 
-- Node.js 18+
-- Docker
-- Docker Compose
+## Running locally
 
-### Install
+Requirements:
+
+- Node.js 20
+- npm
+- Docker + Docker Compose
+
+Install dependencies:
 
 ```bash
 git clone https://github.com/Bruno2K/neon-arsenal-market.git
 cd neon-arsenal-market
-
 npm ci
-cd server
-npm ci
-cd ..
+npm ci --prefix server
 ```
 
-### Environment
-
-Create the required environment files using the provided examples:
+Copy the example environment files and provide local values:
 
 ```text
 .env.example
 server/.env.example
 ```
 
-The application uses PostgreSQL for the main database and Docker Compose can provision the local database.
-
-### Start the infrastructure
+Start API + PostgreSQL:
 
 ```bash
 docker compose up --build
 ```
 
-For frontend development with hot reload:
+Start the containerized Vite dev frontend too:
 
 ```bash
 docker compose --profile dev up --build
 ```
 
-### Start the application
+Or run frontend/backend development processes directly:
 
 ```bash
 npm run dev:fullstack
 ```
 
-The frontend runs on:
+Default local endpoints:
 
 ```text
-http://localhost:5173
+Frontend: http://localhost:5173
+API:      http://localhost:3001
+Swagger:  http://localhost:3001/docs
+Ready:    http://localhost:3001/ready
+Health:   http://localhost:3001/health
 ```
 
-The API runs on:
+## API contract
+
+The current public API is `/api/v1`. Existing unversioned domain routes remain compatibility aliases of the same handlers.
+
+Raw OpenAPI document:
 
 ```text
-http://localhost:3001
+GET /docs/json
 ```
 
-## API Documentation
+Versioning policy: [`docs/architecture/api-versioning.md`](docs/architecture/api-versioning.md)
 
-The current public API contract is **`/api/v1`**. Unversioned domain paths (`/auth`, `/listings`, `/orders`, `/payments`, …) are compatibility aliases of the same v1 handlers.
+## Verification
 
-```text
-http://localhost:3001/api/v1/listings
-http://localhost:3001/listings
+Canonical repository/agent-contract verification:
+
+```bash
+python scripts/verify.py
 ```
-
-Swagger UI is available at:
-
-```text
-http://localhost:3001/docs
-```
-
-The raw OpenAPI document is available at:
-
-```text
-http://localhost:3001/docs/json
-```
-
-Compatibility policy (additive vs breaking changes, deprecation, client migration): [`docs/architecture/api-versioning.md`](docs/architecture/api-versioning.md).
-
-## Testing
 
 Frontend:
 
 ```bash
+npm run lint
+npm run typecheck
 npm test
+npm run build
 ```
 
-Backend (from `server/`):
+Backend:
 
 ```bash
-npm run test:unit            # no PostgreSQL
-npm run test:integration     # real PostgreSQL; fails if the database is down
-npm run test:all             # unit then integration
+npm run typecheck --prefix server
+npm run test:unit --prefix server
+npm run test:contract --prefix server
+npm run test:integration --prefix server
+npm run build --prefix server
 ```
 
-Integration tests apply Prisma migrations (`prisma migrate deploy`) and run against PostgreSQL. They are not skipped when `DATABASE_URL` is missing.
-
-Local isolated database:
+Integration tests require PostgreSQL and apply real Prisma migrations. A local isolated test database is available with:
 
 ```bash
 docker compose --profile test up db-test -d
 ```
 
-Then set `TEST_DATABASE_URL=postgresql://neon:test@localhost:5433/neon_arsenal_test` and run `npm run test:db:prepare` followed by `npm run test:integration` in `server/`.
+Testing details: [`docs/testing.md`](docs/testing.md)
 
-See `docs/testing.md` for isolation, concurrency and CI details.
-
-## Health & Readiness
-
-The API exposes separate liveness and readiness endpoints:
+## Repository map
 
 ```text
-GET /health
-GET /ready
+.
+├── src/                         # React frontend
+├── server/
+│   ├── src/                     # Express modular monolith
+│   ├── prisma/                  # schema + forward migrations
+│   └── Dockerfile               # production API image
+├── docs/
+│   ├── adr/                     # architecture decisions
+│   ├── architecture/            # current system + invariants/trade-offs
+│   ├── specs/                   # material behavior contracts
+│   ├── plans/                   # implementation decomposition
+│   ├── tasks/                   # bounded executable work
+│   ├── operations/              # deployment/runbooks/SLOs
+│   └── performance/             # benchmark evidence
+├── load-tests/k6/               # controlled load-test harness
+├── .github/workflows/           # CI + reproducible evidence workflows
+├── Dockerfile.frontend          # local/containerized frontend path
+├── docker-compose.yml           # local/test topology
+├── render.yaml                  # Render API/DB + optional static frontend
+└── vercel.json                  # primary public frontend deployment
 ```
 
-`/health` checks process liveness, while `/ready` verifies database connectivity. Both stay at the host root (not under `/api/v1`) so Render and Docker probes do not depend on the public API version.
+## Engineering documentation
 
-## Observability
+Useful entry points:
 
-The API keeps Pino and `X-Request-Id`. OpenTelemetry is **disabled by default**.
+- [`AGENTS.md`](AGENTS.md) — global engineering/domain guardrails for coding agents.
+- [`docs/agents/harness.md`](docs/agents/harness.md) — repository-native execution protocol.
+- [`docs/architecture/current-state.md`](docs/architecture/current-state.md) — current architecture.
+- [`docs/architecture/domain-invariants.md`](docs/architecture/domain-invariants.md) — critical domain invariants.
+- [`docs/architecture/failure-modes.md`](docs/architecture/failure-modes.md) — failure reasoning.
+- [`docs/architecture/capacity.md`](docs/architecture/capacity.md) — capacity evidence and scaling implications.
+- [`docs/operations/runbook.md`](docs/operations/runbook.md) — operational recovery.
+- [`docs/adr/README.md`](docs/adr/README.md) — architecture decision index.
 
-```bash
-OTEL_ENABLED=true npm run dev --prefix server
-```
+## Project status
 
-Exporters: `none` (default), `console`, or `otlp`. A missing collector does not prevent the process from starting. See `docs/observability.md`. Operator dashboard definitions and SLOs that cite those instruments: `docs/operations/dashboards.md`, `docs/operations/slos.md`.
-
-## Engineering Notes
-
-This project is intentionally more than a CRUD application.
-
-The main areas explored are:
-
-- Domain-oriented backend modules
-- Transactional workflows
-- Authentication and token lifecycle
-- Inventory state management
-- Payment integration
-- External webhook processing
-- Seller financial flows
-- API validation and security
-- Containerized development
-- Production-oriented health checks
-- Automated testing and API documentation
-
-## Future Improvements
-
-Potential next iterations include:
-
-- Stronger concurrency control around listing reservation
-- Idempotency for remaining payment initiation flows
-- Improved monetary precision using database-native decimal operations
-- Asynchronous processing for non-critical workflows
-- Distributed rate limiting
-- Optional production OTLP collector (dashboard/SLO definitions already live under `docs/operations/`)
-- Benchmarks and query plans for the hottest checkout paths
-
-## Project Status
-
-Portfolio project focused on backend engineering, system design, and production-oriented development with TypeScript.
+Active portfolio project focused on Senior Backend Engineering evidence. Current priorities favor correctness, security, reliability, operational clarity and measurable evidence over feature count or speculative distributed infrastructure.
