@@ -10,33 +10,33 @@ const provider = vi.hoisted(() => ({
   getFailures: [] as Error[],
 }));
 
-vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+vi.mock("../modules/payments/paypal-provider.gateway.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/payments/paypal-provider.gateway.js")>();
   return {
     ...actual,
-    refundPayPalCapture: vi.fn(async (captureId: string, requestId: string) => {
-      provider.postCalls.push({ captureId, requestId });
-      const failure = provider.postFailures.shift();
-      if (failure) throw failure;
-      let providerRefundId = provider.refundsByRequest.get(requestId);
-      if (!providerRefundId) {
-        providerRefundId = `PROVIDER-${provider.refundsByRequest.size + 1}`;
-        provider.refundsByRequest.set(requestId, providerRefundId);
-        provider.statuses.set(providerRefundId, "COMPLETED");
-      }
-      return { id: providerRefundId, status: provider.statuses.get(providerRefundId) ?? "PENDING" };
-    }),
+    paypalProvider: {
+      ...actual.paypalProvider,
+      refundCapture: vi.fn(async (captureId: string, requestId: string) => {
+        provider.postCalls.push({ captureId, requestId });
+        const failure = provider.postFailures.shift();
+        if (failure) throw failure;
+        let providerRefundId = provider.refundsByRequest.get(requestId);
+        if (!providerRefundId) {
+          providerRefundId = `PROVIDER-${provider.refundsByRequest.size + 1}`;
+          provider.refundsByRequest.set(requestId, providerRefundId);
+          provider.statuses.set(providerRefundId, "COMPLETED");
+        }
+        return { id: providerRefundId, status: provider.statuses.get(providerRefundId) ?? "PENDING" };
+      }),
+      getRefund: vi.fn(async (providerRefundId: string) => {
+        provider.getCalls.push(providerRefundId);
+        const failure = provider.getFailures.shift();
+        if (failure) throw failure;
+        return { id: providerRefundId, status: provider.statuses.get(providerRefundId) ?? "PENDING" };
+      }),
+    },
   };
 });
-
-vi.mock("../modules/payments/paypal-refunds.client.js", () => ({
-  getPayPalRefund: vi.fn(async (providerRefundId: string) => {
-    provider.getCalls.push(providerRefundId);
-    const failure = provider.getFailures.shift();
-    if (failure) throw failure;
-    return { id: providerRefundId, status: provider.statuses.get(providerRefundId) ?? "PENDING" };
-  }),
-}));
 
 import { prisma } from "../shared/database/index.js";
 import { commissionsService } from "../modules/commissions/commissions.service.js";

@@ -59,7 +59,7 @@ Prisma / PostgreSQL
 
 Shared infrastructure belongs in `server/src/shared/`. Business behavior belongs in `server/src/modules/<domain>/`.
 
-Logical module names, allowed import edges, and composition-root exceptions are in `docs/architecture/modular-monolith.md`. The executable graph is `server/src/shared/architecture/moduleBoundaries.ts` (ADR 0016, `SPEC-0006`). Catalog is the `products` folder; Ledger is the `commissions` folder. Do not rename those folders. Payments stays one application service: PayPal HTTP is already in `shared/utils`, and `confirmPayment` remains a single local transaction. Do not add a module-to-module service call to look layered.
+Logical module names, allowed import edges, and composition-root exceptions are in `docs/architecture/modular-monolith.md`. The executable graph is `server/src/shared/architecture/moduleBoundaries.ts` (ADR 0016, `SPEC-0006`). Catalog is the `products` folder; Ledger is the `commissions` folder. Do not rename those folders. Payments stays one application service: outbound PayPal mechanics are consumed through the narrow module-local gateway from ADR 0025, while `confirmPayment` remains a single local transaction. Do not add a module-to-module service call to look layered.
 
 ### Important current inconsistency
 

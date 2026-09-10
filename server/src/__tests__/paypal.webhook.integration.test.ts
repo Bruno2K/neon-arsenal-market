@@ -1,14 +1,17 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
-vi.mock("../shared/utils/paypal.js", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../shared/utils/paypal.js")>();
+vi.mock("../modules/payments/paypal-provider.gateway.js", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../modules/payments/paypal-provider.gateway.js")>();
   return {
     ...actual,
-    refundPayPalCapture: vi.fn(async (captureId: string) => ({
-      id: `REFUND-${captureId}`,
-      status: "COMPLETED" as const,
-    })),
+    paypalProvider: {
+      ...actual.paypalProvider,
+      refundCapture: vi.fn(async (captureId: string) => ({
+        id: `REFUND-${captureId}`,
+        status: "COMPLETED" as const,
+      })),
+    },
   };
 });
 import { prisma } from "../shared/database/index.js";

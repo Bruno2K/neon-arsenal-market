@@ -2,17 +2,6 @@ import { prisma } from "../../shared/database/index.js";
 import { AppError } from "../../shared/errors/AppError.js";
 import { logger } from "../../shared/logger.js";
 import {
-  capturePayPalOrder,
-  createPayPalOrder,
-  getPayPalApprovalLink,
-  getPayPalOrder,
-  isPayPalApprovedStatus,
-  isPayPalCompletedStatus,
-  isPayPalOrderAlreadyCapturedError,
-  type ParsedPayPalOrder,
-  type PayPalOrderStatus,
-} from "../../shared/utils/paypal.js";
-import {
   PAYPAL_EVENT_CAPTURE_COMPLETED,
   PAYPAL_EVENT_ORDER_APPROVED,
   parsePayPalWebhookEvent,
@@ -43,6 +32,11 @@ import {
 import { outboxRepository } from "../../shared/outbox/outbox.repository.js";
 import { OutboxEventType } from "../../shared/outbox/outbox.types.js";
 import { refundsService } from "./refunds.service.js";
+import {
+  paypalProvider,
+  type PaypalOrderStatus,
+  type PaypalProviderOrder,
+} from "./paypal-provider.gateway.js";
 
 const WEBHOOK_PROVIDER = PaymentProvider.PAYPAL;
 
@@ -82,13 +76,17 @@ export const paymentsService = {
           input.returnUrl || input.cancelUrl
             ? { returnUrl: input.returnUrl, cancelUrl: input.cancelUrl }
             : undefined;
-        const paypalOrder = await createPayPalOrder(amount, MONEY_CURRENCY, order.id, checkoutUrls);
+        const paypalOrder = await paypalProvider.createOrder({
+          amount,
+          currency: MONEY_CURRENCY,
+          orderId: order.id,
+          checkoutUrls,
+        });
         openedPaypalOrderId = paypalOrder.id;
         if (!openedPaypalOrderId) {
           throw new AppError(500, "Failed to create PayPal order");
         }
-        const approvalLink =
-          getPayPalApprovalLink(paypalOrder) ?? paypalCheckoutUrl(openedPaypalOrderId);
+        const approvalLink = paypalOrder.approvalUrl ?? paypalCheckoutUrl(openedPaypalOrderId);
 
         await prisma.$transaction(async (tx) => {
           await tx.paymentLink.update({
@@ -465,7 +463,7 @@ type OrderForPaypalSync = {
 
 type RemotePaypalSyncOutcome = {
   paymentStatus: Extract<PaymentStatus, "PAID" | "PENDING" | "REFUNDED">;
-  paypalStatus?: PayPalOrderStatus;
+  paypalStatus?: PaypalOrderStatus;
 };
 
 function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): boolean {
@@ -482,17 +480,6 @@ function orderHoldAllowsCapture(order: OrderForPaypalSync, now = new Date()): bo
   });
 }
 
-async function captureApprovedPaypalOrder(paypalOrderId: string): Promise<ParsedPayPalOrder> {
-  try {
-    return await capturePayPalOrder(paypalOrderId);
-  } catch (err) {
-    if (isPayPalOrderAlreadyCapturedError(err)) {
-      return getPayPalOrder(paypalOrderId);
-    }
-    throw err;
-  }
-}
-
 /**
  * Trusted PayPal REST only. APPROVED does not sell listings. Capture is skipped
  * when the local hold is dead so we do not take funds after expiry.
@@ -505,17 +492,17 @@ async function syncRemotePaypalPayment(
     return { paymentStatus: "PENDING" };
   }
 
-  let remote = await getPayPalOrder(order.paypalOrderId);
+  let remote: PaypalProviderOrder = await paypalProvider.getOrder(order.paypalOrderId);
 
-  if (isPayPalApprovedStatus(remote.status) && options.captureIfApproved) {
+  if (remote.status === "APPROVED" && options.captureIfApproved) {
     if (!orderHoldAllowsCapture(order)) {
       logger.warn({ orderId: order.id }, "paypal capture skipped: reservation expired");
       throw new AppError(409, "Reservation expired or listing is no longer reserved");
     }
-    remote = await captureApprovedPaypalOrder(order.paypalOrderId);
+    remote = await paypalProvider.captureOrder(order.paypalOrderId);
   }
 
-  if (isPayPalCompletedStatus(remote.status)) {
+  if (remote.status === "COMPLETED") {
     const outcome = await applyTrustedCompletedCapture(order.id, remote.captureId);
     return { paymentStatus: outcome.paymentStatus, paypalStatus: remote.status };
   }

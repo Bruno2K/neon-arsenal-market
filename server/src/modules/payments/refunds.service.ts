@@ -15,10 +15,10 @@ import {
   PAYPAL_REFUND_RECONCILE_BATCH_SIZE,
 } from "../../shared/config/paypal.js";
 import {
-  refundPayPalCapture,
-  type PayPalRefundStatus,
-} from "../../shared/utils/paypal.js";
-import { getPayPalRefund } from "./paypal-refunds.client.js";
+  paypalProvider,
+  type PaypalProviderRefund,
+  type PaypalRefundStatus,
+} from "./paypal-provider.gateway.js";
 
 export type CreateRefundObligationInput = {
   orderId: string;
@@ -32,7 +32,7 @@ export type RecordProviderConfirmedRefundInput = {
 };
 
 export type RecordProviderRefundObservationInput = RecordProviderConfirmedRefundInput & {
-  status: Exclude<PayPalRefundStatus, "COMPLETED">;
+  status: Exclude<PaypalRefundStatus, "COMPLETED">;
 };
 
 export type RefundReconciliationResult = {
@@ -182,7 +182,7 @@ export const refundsService = {
     }
 
     const requestId = buildPayPalRefundRequestId(refund.id);
-    const providerResult = await refundPayPalCapture(
+    const providerResult = await paypalProvider.refundCapture(
       refund.providerCaptureId,
       requestId
     );
@@ -273,7 +273,7 @@ export const refundsService = {
               const reconciled = candidate.providerRefundId
                 ? await applyProviderObservation(
                     candidate.id,
-                    await getPayPalRefund(candidate.providerRefundId)
+                    await paypalProvider.getRefund(candidate.providerRefundId)
                   )
                 : await refundsService.executeProviderRefund(candidate.id);
 
@@ -302,7 +302,7 @@ export const refundsService = {
                 logger.error(refundLog(candidate, reconciled.refund.status, "unresolved_age_threshold"), "refund reconciliation requires operator investigation");
               }
             } catch (err) {
-              const reason = classifyRetryableRefundFailure(err);
+              const reason = paypalProvider.classifyRefundFailure(err);
               await recordRetryableFailure(candidate.id, candidate.status, reason);
               itemSpan.setAttribute("refund.status_after", candidate.status === "FAILED" ? "FAILED" : "PROCESSING");
               itemSpan.setAttribute("refund.reconciliation_reason", reason);
@@ -327,7 +327,7 @@ export const refundsService = {
   },
 };
 
-async function applyProviderObservation(refundId: string, provider: { id: string; status: PayPalRefundStatus }) {
+async function applyProviderObservation(refundId: string, provider: PaypalProviderRefund) {
   if (provider.status === "COMPLETED") {
     return refundsService.recordProviderConfirmedCompletion({
       refundId,
@@ -354,15 +354,6 @@ async function recordRetryableFailure(
       failureReason: previousStatus === "FAILED" ? undefined : reason,
     },
   });
-}
-
-function classifyRetryableRefundFailure(err: unknown): string {
-  const message = err instanceof Error ? err.message : "unknown_error";
-  if (err instanceof AppError && err.statusCode === 504) return "paypal_timeout";
-  if (/PREVIOUS_REQUEST_IN_PROGRESS|failed: 409/i.test(message)) return "paypal_request_in_progress";
-  if (/failed: 429/i.test(message)) return "paypal_throttled";
-  if (/failed: 5\d\d/i.test(message)) return "paypal_provider_unavailable";
-  return "reconciliation_technical_failure";
 }
 
 function refundLog(
