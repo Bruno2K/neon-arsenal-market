@@ -60,6 +60,7 @@ jobs:
       POSTGRES_IMAGE: postgres:16-alpine
       API_IMAGE: neon-arsenal-loadtest:${{ github.sha }}
       K6_IMAGE: grafana/k6:2.2.0
+      CATALOG_BENCHMARK_RATE_LIMIT_MAX: 100000
       API_CONTAINER: neon-arsenal-api
       POSTGRES_CONTAINER: neon-arsenal-postgres
       LOAD_NETWORK: neon-arsenal-loadtest
@@ -288,6 +289,10 @@ jobs:
           api_image_id=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
           postgres_image_id=$(docker image inspect --format '{{.Id}}' "$POSTGRES_IMAGE")
           k6_image_id=$(docker image inspect --format '{{.Id}}' "$K6_IMAGE")
+          effective_api_rate_limit="production-default"
+          if [[ "$LOAD_PROFILE" == "catalog" ]]; then
+            effective_api_rate_limit="$CATALOG_BENCHMARK_RATE_LIMIT_MAX"
+          fi
           node_version=$(docker run --rm --entrypoint node "$API_IMAGE" --version)
           postgres_version=$(docker exec "$POSTGRES_CONTAINER" psql -X -A -t -U neon -d neon_arsenal_loadtest -c 'SHOW server_version')
           api_limits=$(docker inspect --format '{{json .HostConfig}}' "$API_CONTAINER" | jq '{NanoCpus, Memory, MemorySwap, RestartPolicy}')
@@ -313,7 +318,7 @@ jobs:
             --arg startUtc "$(cat "$ARTIFACT_DIR/start-utc.txt" 2>/dev/null || echo unavailable)" \
             --arg endUtc "$(cat "$ARTIFACT_DIR/end-utc.txt" 2>/dev/null || echo unavailable)" \
             --arg apiImage "$API_IMAGE" --arg apiImageId "$api_image_id" --arg postgresImage "$POSTGRES_IMAGE" \
-            --arg postgresImageId "$postgres_image_id" --arg k6Image "$K6_IMAGE" --arg k6ImageId "$k6_image_id" --arg nodeVersion "$node_version" \
+            --arg postgresImageId "$postgres_image_id" --arg k6Image "$K6_IMAGE" --arg k6ImageId "$k6_image_id" --arg apiRateLimitMax "$effective_api_rate_limit" --arg nodeVersion "$node_version" \
             --arg postgresVersion "$postgres_version" --arg postgresMaxConnections "$POSTGRES_MAX_CONNECTIONS" \
             --arg postgresSharedBuffers "$POSTGRES_SHARED_BUFFERS" \
             --arg k6Version "$(cat "$ARTIFACT_DIR/k6-version.txt" 2>/dev/null || echo unavailable)" \
@@ -327,7 +332,7 @@ jobs:
               workload: {profile: $profile, offeredRps: ($targetRps | tonumber), orderListingCount: ($orderListingCount | tonumber)},
               api: {image: $apiImage, imageId: $apiImageId, nodeVersion: $nodeVersion, replicas: 1, limits: $apiLimits, finalState: $apiState},
               postgres: {image: $postgresImage, imageId: $postgresImageId, version: $postgresVersion, maxConnections: ($postgresMaxConnections | tonumber), sharedBuffers: $postgresSharedBuffers, limits: $postgresLimits},
-              dataset: $dataset, k6: {image: $k6Image, imageId: $k6ImageId, version: $k6Version},
+              dataset: $dataset, apiRateLimitMax: $apiRateLimitMax, k6: {image: $k6Image, imageId: $k6ImageId, version: $k6Version},
               externalNetwork: "API, PostgreSQL, and k6 run only on the internal Docker network; provider egress is unavailable."
             }' > "$ARTIFACT_DIR/environment.json"
 

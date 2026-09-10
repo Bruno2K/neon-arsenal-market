@@ -70,3 +70,8 @@ After evidence exists, compare the bottleneck to `docs/architecture/scaling-path
 - Kafka requires an independently demonstrated ordering, replay, partition-throughput, or multi-consumer requirement. SQS remains the current backlog candidate; do not substitute Kafka by name alone.
 
 Use `docs/performance/load-test-report-template.md` for every accepted run.
+
+
+### Interpreting catalog probes
+
+For isolated catalog capacity probes, the harness may raise the configurable per-client API limiter ceiling so the limiter does not become the measurement boundary before the catalog/API/PostgreSQL hot path is exercised. Any such override must be isolated to the disposable benchmark environment, recorded with the run evidence, and must not be interpreted as a production client quota or as a weakening of the deployed security policy.
