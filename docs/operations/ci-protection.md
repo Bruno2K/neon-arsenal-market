@@ -9,7 +9,7 @@ Production remains Render (`render.yaml`, ADR 0007). This document does not add 
 |---|---|
 | `documentation-contracts` | `python3 scripts/docs/validate_contracts.py` and its focused tests |
 | `frontend` | lint, `tsc --noEmit`, unit tests |
-| `backend` | Prisma generate + migrate, typecheck, unit, integration (Postgres 16) |
+| `backend` | Prisma generate + migrate, lint, typecheck, unit, integration (Postgres 16) |
 | `contract` | `cd server && npm run test:contract` — OpenAPI vs real HTTP handlers |
 | `security` | Blocking runtime High/Critical and all Critical npm audit gates at the root and in `server/` |
 | `trivy` | Blocking High/Critical filesystem scan of `server/` (Dockerfile + lockfile). No GHCR/ECR. Local image command: `docs/operations/container-hardening.md` |
@@ -17,7 +17,7 @@ Production remains Render (`render.yaml`, ADR 0007). This document does not add 
 
 Node 20. Backend integration uses `postgres:16-alpine` with the same `DATABASE_URL` pattern as before.
 
-The server package has no `lint` script (root ESLint ignores `server/`). Frontend lint remains the lint gate. Do not invent a second ESLint toolchain for the API in this change.
+Frontend lint is scoped to the frontend configuration and source files. Backend lint uses the server-owned ESLint configuration through `npm run lint --prefix server`; both are CI gates.
 
 ## Repo-local protection files
 
@@ -32,7 +32,7 @@ Dependabot opens PRs. It does not auto-merge. Reviewers still run the same CI.
 
 These #69 items stay human/admin work. Agents must not invent them:
 
-1. **GitHub branch protection and required checks** — enabling rules, required status checks, required reviews, or conversation resolution needs org/admin write. Suggested required checks once an admin can apply them: `Documentation contracts`, `Frontend (lint · typecheck · test)`, `Backend (typecheck · unit · integration)`, `Contract (OpenAPI)`, `Security (npm audit)`, `Build check`.
+1. **GitHub branch protection and required checks** — enabling rules, required status checks, required reviews, or conversation resolution needs org/admin write. Suggested required checks once an admin can apply them: `Documentation contracts`, `Frontend (lint · typecheck · test)`, `Backend (lint · typecheck · unit · integration)`, `Contract (OpenAPI)`, `Security (npm audit)`, `Build check`.
 2. **Controlled production promotion** — the repository now has a manual, ephemeral GitHub Actions load-test workflow (`docs/operations/load-test-ci.md`), but it is deliberately not a production deploy workflow. Production deploys follow Render auto-deploy / dashboard rollback (`docs/operations/runbook.md`).
 3. **Container registry / deploy-time image CVE gate** — `server/Dockerfile` is built by Render. There is no GHCR/ECR push. CI now runs a **filesystem** Trivy job on `server/` (report-only). A failing image gate still needs a registry or a Render-side scanner; do not invent one.
 4. **AWS / Terraform / ECS promotion** — blocked while ADR 0007 selects Render.

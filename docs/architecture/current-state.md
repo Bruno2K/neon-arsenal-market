@@ -37,6 +37,10 @@ Express API --> cs2.sh (optional catalog import; ADR 0014)
 
 The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, security headers, HTTP server spans, CORS, JSON parsing (`100kb` limit + webhook `rawBody`), rate limiting, health/docs routes, domain routes at both unversioned paths and `/api/v1` (SPEC-0007 / ADR 0017), 404 handling and centralized error handling. Express does not trust caller-provided `X-Forwarded-For`; limiter and audit identity use Render's overwritten `CF-Connecting-IP` only when the platform sets `RENDER=true`, otherwise the socket peer (ADR 0023). `/health`, `/ready`, and `/docs` stay host-rooted. Policy: `docs/architecture/api-versioning.md`. `startApiProcess` refuses default JWT secrets when `NODE_ENV=production`, binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry, PayPal-reconciliation, seller-ledger-reconciliation, and outbox-dispatcher jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins. Security checklist: `docs/security/api-hardening-checklist.md`.
 
+## Frontend boundaries
+
+The current client uses the **Neon Arsenal** identity and a dark editorial visual language without neon glow, scan lines, grid patterns, or global uppercase headings. Seller information architecture keeps `/seller/listings` as unique-item CRUD and `/seller/products` as the read-only Product catalog backed by `listProducts`; Product mutations remain ADMIN-only. These are current product boundaries, not an execution queue. A future behavior or identity change must come from the appropriate authoritative Specification or explicit scoped request.
+
 Observability is optional. `OTEL_ENABLED` defaults to off so `npm run dev` does not need a collector. See `docs/observability.md` and `docs/adr/0004-opentelemetry.md`. Operator dashboards, SLOs, and request/trace diagnosis reuse those instruments (`docs/operations/dashboards.md`, `docs/operations/slos.md`, `SPEC-0008`). They do not add Grafana, Prometheus, Redis, or AWS.
 
 ## Backend layering
@@ -93,7 +97,7 @@ Webhook handling:
 2. Claim `PaymentWebhookEvent` by PayPal event id (`id`, e.g. `WH-...`).
 3. Confirm locally only on `PAYMENT.CAPTURE.COMPLETED`. `CHECKOUT.ORDER.APPROVED` is persisted as ignored.
 4. After the buyer approves, PayPal leaves the order `APPROVED` until `OrdersCapture`. `POST /payments/capture` (return page) and GET reconciliation of a live hold perform that capture. `confirmPayment` still requires PayPal `COMPLETED`.
-5. `confirmPayment` claims the pending order, sells held listings, writes `SellerTransaction` (authoritative ledger) plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012). Price, commission, and net use the shared money policy (`docs/architecture/money-policy.md`); there is no refund path.
+5. `confirmPayment` claims the pending order, sells held listings, writes the seller-ledger credit plus the `Seller.balance` projection, and inserts `PAYMENT_CONFIRMED` / `ORDER_CONFIRMED` outbox rows in one PostgreSQL transaction (ADR 0011, ADR 0012). Price, commission, and net use the shared money policy (`docs/architecture/money-policy.md`). If trusted capture completion cannot be fulfilled, the system creates one durable full-refund obligation and reconciles provider completion before applying local refund state and any append-only seller compensation (ADR 0023).
 
 A process crash after PayPal capture is recovered by webhook retry (unique event id) or the in-process reconciliation job, which GETs PayPal order status for stale `PENDING` orders (every 60s, minimum age 2 minutes, batch 20), captures live `APPROVED` holds, and reuses `confirmPayment`.
 

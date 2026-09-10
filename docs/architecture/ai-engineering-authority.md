@@ -21,7 +21,7 @@ The repository is the durable engineering system of record. GitHub Issues or oth
 | Business invariant | Domain invariant catalog + tests/schema | Defines truths that must survive refactors, retries, races, and crashes. |
 | Current implementation | Code | Describes executable behavior today; disagreement with docs is a defect to resolve, not permission to invent behavior. |
 | Acceptance evidence | Tests/checks/runtime evidence | Proves whether a requirement is satisfied. |
-| Agent procedure | `AGENTS.md` + `.cursor/rules/` | Defines how agents operate, not what product behavior should be. |
+| Agent procedure | `AGENTS.md` + `docs/agents/harness.md` | Defines how agents operate, not what product behavior should be. Provider adapters only point to this authority. |
 
 ## Conflict resolution
 

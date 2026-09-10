@@ -20,4 +20,4 @@ C2 acceptance: if C1 kept Render, do not add Terraform; land a skip commit whose
 
 - The P-back catalog can close: this commit is the C2 skip.
 - Agents must not “fill in” AWS to look complete. Interview cloud talk starts from C4 + ADR 0007.
-- R2 capture-after-expiry refund/void remains an unrelated open human decision.
+- Capture-after-expiry compensation remains unrelated to cloud topology; it was decided later in ADR 0023.
