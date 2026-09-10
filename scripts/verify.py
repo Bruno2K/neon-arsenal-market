@@ -8,9 +8,17 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 CANONICAL_COMMAND = "scripts/verify.py"
-RETIRED_ENTRYPOINTS = (
+RETIRED_GUIDANCE_REFERENCES = (
     "scripts/ai-factory/",
-    "scripts/orchestrator/",
+    "scripts/next.sh",
+    "scripts/p-back-next.sh",
+    "scripts/p-front-next.sh",
+)
+RETIRED_PATHS = (
+    "scripts/ai-factory",
+    "scripts/orchestrator",
+    "scripts/p-back",
+    "scripts/p-front",
     "scripts/next.sh",
     "scripts/p-back-next.sh",
     "scripts/p-front-next.sh",
@@ -43,6 +51,10 @@ def validate_entrypoint_contract() -> int:
     if missing:
         return fail(f"missing verification surfaces: {', '.join(missing)}")
 
+    reintroduced = [path for path in RETIRED_PATHS if (ROOT / path).exists()]
+    if reintroduced:
+        return fail(f"retired agent tooling was reintroduced: {', '.join(reintroduced)}")
+
     verification_doc = (ROOT / "docs" / "agents" / "verification.md").read_text(encoding="utf-8")
     workflow = (ROOT / ".github" / "workflows" / "repository-verification.yml").read_text(encoding="utf-8")
     if CANONICAL_COMMAND not in verification_doc:
@@ -56,7 +68,7 @@ def validate_entrypoint_contract() -> int:
             if not path.is_file():
                 continue
             content = path.read_text(encoding="utf-8")
-            for retired in RETIRED_ENTRYPOINTS:
+            for retired in RETIRED_GUIDANCE_REFERENCES:
                 if retired in content:
                     return fail(
                         f"active guidance {path.relative_to(ROOT)} references retired entrypoint {retired}"
