@@ -6,9 +6,9 @@ Accepted
 
 ## Context
 
-The payment path correctly refuses to confirm a captured payment when the order no longer owns a valid listing reservation. This preserves unique-item correctness, but a PayPal order may already be `COMPLETED`. The application then has an external financial effect with no local fulfillment and requires deterministic compensation.
+The current payment path correctly refuses to confirm a captured payment when the order no longer owns a valid listing reservation. This preserves unique-item correctness, but a PayPal order may already be `COMPLETED`. The application then has an external financial effect with no local fulfillment and no refund path.
 
-The seller ledger originally allowed one `SellerTransaction` per `(sellerId, orderId)`, and `Seller.balance` was a projection of PAID rows. That representation could not express an append-only credit followed by a distinct reversing movement for the same order.
+The seller ledger is currently one `SellerTransaction` per `(sellerId, orderId)`, and `Seller.balance` is a projection of PAID rows. That representation cannot express an append-only credit followed by a distinct reversing movement for the same order.
 
 ## Decision
 
@@ -26,7 +26,7 @@ The seller ledger originally allowed one `SellerTransaction` per `(sellerId, ord
 
 ## Ledger consequence
 
-ADR 0011's original `@@unique([sellerId, orderId])` and PAID-only projection model had to evolve before append-only reversals could be implemented. The replacement preserves:
+ADR 0011's `@@unique([sellerId, orderId])` and PAID-only projection model must evolve before append-only reversals can be implemented. The replacement must preserve:
 
 - authoritative PostgreSQL ledger;
 - Decimal BRL arithmetic;
@@ -35,7 +35,7 @@ ADR 0011's original `@@unique([sellerId, orderId])` and PAID-only projection mod
 - deterministic `Seller.balance` projection;
 - migration compatibility with existing PAID rows.
 
-The implementation uses the minimum model required by SPEC-0013 and does not generalize the ledger into a separate finance platform.
+The implementation Plan may choose a generalized ledger-entry type or a narrowly extended `SellerTransaction` model, but it must not solve reversal by destructively overwriting historical credit.
 
 ## Failure model
 
@@ -58,19 +58,19 @@ Every arrow may be retried. Durable uniqueness and provider identity prevent dup
 
 ## Consequences
 
-- The system has a real compensation story for distributed partial failure without introducing distributed transactions.
+- The system gains a real compensation story for distributed partial failure without introducing distributed transactions.
 - Unique-item correctness remains stronger than payment-arrival timing.
-- Refund state and ledger compensation require durable schema support.
-- Reconciliation is responsible for both pending capture confirmation and refund convergence.
-- Non-converged states remain operator-visible instead of being hidden behind a terminal application error.
-- A future architecture-seam PR may use this payment/refund boundary if abstraction provides measurable testability benefit, but this ADR does not require a general hexagonal rewrite.
+- Refund implementation requires a forward schema migration and ledger contract update.
+- Reconciliation becomes responsible for both pending capture confirmation and refund convergence.
+- The project gains explicit operator-visible states instead of treating a 409 after remote capture as an acceptable terminal condition.
+- The future architecture-seam PR may use this payment/refund boundary if abstraction provides measurable testability benefit, but this ADR does not require a general hexagonal rewrite.
 
 ## Supersedes / amends
 
-- Amends ADR 0011 sections that predate the refund-compensation model and assumed one row per `(sellerId, orderId)` was sufficient.
+- Amends ADR 0011 sections that state refunds must not be invented and that one row per `(sellerId, orderId)` is sufficient. Those constraints remain valid for payment confirmation until the refund migration replaces them.
 - Extends ADR 0012's local-transaction/external-side-effect model to refund compensation.
 - Preserves ADR 0022: all refund and ledger amounts are BRL.
 
 ## Renumbering note
 
-This decision was originally committed as `ADR 0023 — refund compensation`. PR08 renumbered it to `ADR 0024` because `ADR 0023 — rate-limit client identity` already existed. The decision itself is unchanged; only the durable identifier was corrected to restore unique ADR numbering.
+This accepted decision was originally committed as `ADR 0023 — refund compensation`. PR08 renumbered it to `ADR 0024` because `ADR 0023 — rate-limit client identity` already existed. The decision text above is otherwise preserved; only the durable identifier was corrected.
