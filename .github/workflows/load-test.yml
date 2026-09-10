@@ -33,8 +33,51 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    name: Freeze load-test images
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    env:
+      API_IMAGE: neon-arsenal-loadtest:${{ github.sha }}
+      POSTGRES_IMAGE: postgres:16-alpine
+      K6_IMAGE: grafana/k6:2.2.0
+    outputs:
+      postgres_image: ${{ steps.freeze.outputs.postgres_image }}
+      k6_image: ${{ steps.freeze.outputs.k6_image }}
+      api_image_id: ${{ steps.freeze.outputs.api_image_id }}
+    steps:
+      - name: Checkout exact revision
+        uses: actions/checkout@v7
+      - name: Build and freeze production API image
+        id: freeze
+        shell: bash
+        run: |
+          set -euo pipefail
+          docker build --pull --tag "$API_IMAGE" server
+          api_image_id=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
+          docker save "$API_IMAGE" --output api-image.tar
+          docker pull "$POSTGRES_IMAGE"
+          postgres_image=$(docker image inspect --format '{{index .RepoDigests 0}}' "$POSTGRES_IMAGE")
+          docker pull "$K6_IMAGE"
+          k6_image=$(docker image inspect --format '{{index .RepoDigests 0}}' "$K6_IMAGE")
+          {
+            echo "api_image_id=$api_image_id"
+            echo "postgres_image=$postgres_image"
+            echo "k6_image=$k6_image"
+          } >> "$GITHUB_OUTPUT"
+      - name: Upload frozen API image
+        uses: actions/upload-artifact@v4
+        with:
+          name: controlled-ci-api-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: api-image.tar
+          if-no-files-found: error
+          retention-days: 1
+
   k6:
     name: k6 (${{ inputs.profile }}, repetition ${{ matrix.repetition }})
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
@@ -57,9 +100,9 @@ jobs:
       POSTGRES_MEMORY_LIMIT: 1g
       POSTGRES_MAX_CONNECTIONS: "100"
       POSTGRES_SHARED_BUFFERS: 256MB
-      POSTGRES_IMAGE: postgres:16-alpine
+      POSTGRES_IMAGE: ${{ needs.prepare.outputs.postgres_image }}
       API_IMAGE: neon-arsenal-loadtest:${{ github.sha }}
-      K6_IMAGE: grafana/k6:2.2.0
+      K6_IMAGE: ${{ needs.prepare.outputs.k6_image }}
       CATALOG_BENCHMARK_RATE_LIMIT_MAX: 100000
       API_CONTAINER: neon-arsenal-api
       POSTGRES_CONTAINER: neon-arsenal-postgres
@@ -81,12 +124,20 @@ jobs:
           echo "ARTIFACT_DIR=artifacts/k6/$run_id" >> "$GITHUB_ENV"
           mkdir -p "artifacts/k6/$run_id"
 
-      - name: Build production API image
+      - name: Load frozen production API image
+        uses: actions/download-artifact@v4
+        with:
+          name: controlled-ci-api-image-${{ github.run_id }}-${{ github.run_attempt }}
+          path: .load-test-image
+      - name: Verify frozen production API image
         shell: bash
         run: |
           set -euo pipefail
-          docker build --pull --tag "$API_IMAGE" server
-          docker image inspect --format '{{.Id}}' "$API_IMAGE" > "$ARTIFACT_DIR/api-image-id.txt"
+          docker load --input .load-test-image/api-image.tar
+          actual_api_image_id=$(docker image inspect --format '{{.Id}}' "$API_IMAGE")
+          expected_api_image_id='${{ needs.prepare.outputs.api_image_id }}'
+          [[ "$actual_api_image_id" == "$expected_api_image_id" ]]
+          printf '%s\n' "$actual_api_image_id" > "$ARTIFACT_DIR/api-image-id.txt"
 
       - name: Start isolated PostgreSQL 16
         shell: bash
@@ -347,7 +398,7 @@ jobs:
         shell: bash
         run: |
           {
-            echo "## Controlled CI k6 evidence — ${LOAD_PROFILE} — repetition ${{ matrix.repetition }}"
+            echo "## Controlled CI k6 evidence  ${LOAD_PROFILE}  repetition ${{ matrix.repetition }}"
             echo
             echo "This is not Render or production capacity. GitHub-hosted runner variability remains explicit."
             echo
