@@ -26,6 +26,6 @@ Rejected alternatives: retrying every HTTP client by default; Redis/SQS for retr
 
 ## Consequences
 
-- Render/Railway can drain an instance via `/ready` while `/health` remains a liveness probe.
+- Render can drain an instance via `/ready` while `/health` remains a liveness probe.
 - Multiple replicas may still run expiry and reconciliation sweeps; those remain safe because of conditional PostgreSQL updates.
 - Verification email is the only retried call with a user-visible duplicate side effect, and only of the same short-lived code.
