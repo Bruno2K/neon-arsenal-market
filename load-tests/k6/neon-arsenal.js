@@ -56,10 +56,13 @@ const profiles = {
   },
   payment_replay: {
     payment_replay: {
-      executor: "constant-vus",
+      executor: "constant-arrival-rate",
       exec: "paymentReplay",
-      vus: intEnv("LOAD_VUS", 2),
+      rate: intEnv("LOAD_TARGET_RPS", 2),
+      timeUnit: "1s",
       duration: __ENV.LOAD_DURATION || "30s",
+      preAllocatedVUs: intEnv("LOAD_PREALLOCATED_VUS", 2),
+      maxVUs: intEnv("LOAD_MAX_VUS", 5),
     },
   },
   webhook_rejection: {

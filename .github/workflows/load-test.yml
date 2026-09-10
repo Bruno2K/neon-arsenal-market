@@ -175,7 +175,7 @@ jobs:
                 'LOAD_COOLDOWN_DURATION=15s' 'LOAD_PREALLOCATED_VUS=20' 'LOAD_MAX_VUS=100' >> "$GITHUB_ENV"
               ;;
             orders) printf '%s\n' 'ALLOW_WRITES=true' 'LOAD_VUS=5' 'LOAD_MAX_DURATION=2m' >> "$GITHUB_ENV" ;;
-            payment_replay) printf '%s\n' 'LOAD_VUS=2' 'LOAD_DURATION=30s' >> "$GITHUB_ENV" ;;
+            payment_replay) printf '%s\n' 'LOAD_TARGET_RPS=2' 'LOAD_DURATION=30s' 'LOAD_PREALLOCATED_VUS=2' 'LOAD_MAX_VUS=5' >> "$GITHUB_ENV" ;;
             webhook_rejection)
               printf '%s\n' 'LOAD_DURATION=30s' 'LOAD_PREALLOCATED_VUS=5' 'LOAD_MAX_VUS=20' >> "$GITHUB_ENV"
               ;;
