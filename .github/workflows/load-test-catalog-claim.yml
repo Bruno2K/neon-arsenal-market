@@ -50,7 +50,7 @@ jobs:
           docker image inspect --format '{{.Id}}' "$API_IMAGE" | tee api-image-id.txt
           docker save "$API_IMAGE" --output api-image.tar
       - name: Upload frozen API image
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalog-claim-api-image-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
@@ -283,7 +283,7 @@ jobs:
 
       - name: Upload evidence bundle
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: catalog-claim-r${{ matrix.repetition }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: artifacts/k6/${{ github.run_id }}-${{ github.run_attempt }}-r${{ matrix.repetition }}/
