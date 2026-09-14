@@ -267,9 +267,21 @@ not additional Senior Backend evidence.
 
 ## Remote CI
 
-Pending: this PR's remote CI run(s) will be linked here once pushed and reported in the
-PR body/final report. Baseline `main` CI and repository-verification runs are linked above
-under Authorization and scope.
+[PR #260](https://github.com/Bruno2K/neon-arsenal-market/pull/260), head
+`252d9c6049323869c42502385dd35462ef9c1c1e`. All checks **PASS**:
+
+- Agent harness and documentation contracts
+- Backend (lint · typecheck · unit · integration) — 1m48s
+- Contract (OpenAPI)
+- Documentation contracts
+- Frontend (lint · typecheck · test)
+- Security (Trivy High/Critical gate)
+- Security (npm audit)
+- Build check
+- Vercel preview deployment
+
+Baseline `main` CI and repository-verification runs are linked above under
+Authorization and scope.
 
 ## Residual risks
 
