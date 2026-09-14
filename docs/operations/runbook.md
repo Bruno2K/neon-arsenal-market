@@ -20,7 +20,7 @@ Secrets (`PAYPAL_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `JWT_*`, `CS2SH_API_KEY`) s
 
 Rollback: Render Dashboard → previous deploy. Schema rollback is a new Prisma migration, not `migrate down`.
 
-CI jobs, CODEOWNERS, Dependabot, and residual main-protection / staging items: [`ci-protection.md`](./ci-protection.md).
+CI jobs, dependency updates, and residual main-protection / staging items: [`ci-protection.md`](./ci-protection.md).
 
 ## Sandbox checkout (PayPal login)
 

@@ -23,8 +23,9 @@ Frontend lint is scoped to the frontend configuration and source files. Backend 
 
 | File | Role |
 |---|---|
-| `.github/CODEOWNERS` | Default + `server/`, `.github/`, `docs/` owners (`@Bruno2K`) |
 | `.github/dependabot.yml` | Weekly npm (root + `server/`) and GitHub Actions updates |
+
+`CODEOWNERS` is intentionally absent: the repository has one maintainer, so the previous file did not create independent review or enforce branch protection. Review ownership remains a GitHub repository setting, not a claim made by a redundant file.
 
 Dependabot opens PRs. It does not auto-merge. Reviewers still run the same CI.
 
@@ -34,7 +35,7 @@ These #69 items stay human/admin work. Agents must not invent them:
 
 1. **GitHub branch protection and required checks** — enabling rules, required status checks, required reviews, or conversation resolution needs org/admin write. Suggested required checks once an admin can apply them: `Documentation contracts`, `Frontend (lint · typecheck · test)`, `Backend (lint · typecheck · unit · integration)`, `Contract (OpenAPI)`, `Security (npm audit)`, `Build check`.
 2. **Controlled production promotion** — the repository now has a manual, ephemeral GitHub Actions load-test workflow (`docs/operations/load-test-ci.md`), but it is deliberately not a production deploy workflow. Production deploys follow Render auto-deploy / dashboard rollback (`docs/operations/runbook.md`).
-3. **Container registry / deploy-time image CVE gate** — `server/Dockerfile` is built by Render. There is no GHCR/ECR push. CI now runs a **filesystem** Trivy job on `server/` (report-only). A failing image gate still needs a registry or a Render-side scanner; do not invent one.
+3. **Container registry / deploy-time image CVE gate** — `server/Dockerfile` is built by Render. There is no GHCR/ECR push. CI runs a blocking High/Critical **filesystem** Trivy job on `server/`; this covers the deployable context but is not a scan of the final Render-built image. A deploy-time image gate still needs a registry or a Render-side scanner; do not invent one.
 4. **AWS / Terraform / ECS promotion** — blocked while ADR 0007 selects Render.
 5. **Development-only High findings** — runtime High/Critical and all Critical findings now fail CI. The narrower Vite development-server exception, its exposure, owner and removal condition are recorded in `docs/security/dependency-vulnerability-policy.md`; it does not apply to production dependencies.
 
