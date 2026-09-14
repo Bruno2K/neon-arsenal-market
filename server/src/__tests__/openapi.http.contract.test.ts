@@ -2,7 +2,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import type { Server } from "node:http";
 import { listingsRepository } from "../modules/listings/listings.repository.js";
 import { productsRepository } from "../modules/products/products.repository.js";
-import { app } from "../app.js";
+import { app, apiModules } from "../app.js";
+import { healthRoutes } from "../shared/routes/health.routes.js";
+import { listManifestOperations } from "../shared/docs/routeInventory.js";
 import { openApiSpec } from "../shared/docs/openapi.js";
 import {
   assertErrorBody,
@@ -89,23 +91,28 @@ describe("OpenAPI document (single spec)", () => {
     expect(spec.components.schemas.CursorPage.required).toEqual(["items", "limit", "nextCursor"]);
   });
 
-  it("documents every implemented public operation used by contract tests", () => {
-    const required = [
-      "/health",
-      "/ready",
-      "/auth/login",
-      "/auth/me",
-      "/listings",
-      "/products",
-      "/favorites",
-      "/orders",
-      "/payments/webhook",
-      "/admin/audit-logs",
-    ];
-    for (const path of required) {
-      expect(spec.paths[path], path).toBeDefined();
+  it(
+    "AUD-016 (PR11): documents exactly the real route surface — the manifest-derived operation " +
+      "set (server/src/app.ts `apiModules`, walked by shared/docs/routeInventory.ts) exactly matches " +
+      "the flattened openApiSpec.paths methods. No route can drift silently undocumented, and no " +
+      "documented path can reference a route that no longer exists.",
+    () => {
+      const realOperations = listManifestOperations([
+        { prefix: "", router: healthRoutes },
+        ...apiModules,
+      ]);
+
+      const documentedOperations = Object.entries(spec.paths)
+        .flatMap(([path, methods]) =>
+          Object.keys(methods)
+            .filter((method) => method !== "parameters")
+            .map((method) => `${method.toUpperCase()} ${path}`)
+        )
+        .sort();
+
+      expect(documentedOperations).toEqual(realOperations);
     }
-  });
+  );
 
   it("documents Idempotency-Key on POST /orders and PayPal webhook headers", () => {
     const orderParams = operation("/orders", "post").parameters ?? [];

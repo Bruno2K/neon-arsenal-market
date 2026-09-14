@@ -97,11 +97,14 @@ export const listingsService = {
   },
 
   async create(userId: string, input: CreateListingInput) {
-    // Verify seller exists
+    // Verify seller exists and is approved (AUD-009, PR11): OpenAPI documents 403 for
+    // an unapproved seller; only the existence check was previously enforced here,
+    // letting pending/rejected sellers publish purchasable inventory.
     const seller = await prisma.seller.findUnique({
       where: { userId },
     });
     if (!seller) throw new AppError(404, "Seller not found");
+    if (!seller.isApproved) throw new AppError(403, "Seller is not approved");
 
     // Verify product exists
     const product = await prisma.product.findUnique({
@@ -146,8 +149,9 @@ export const listingsService = {
       }
     }
 
+    // AUD-015 (PR11): price is not part of UpdateListingInput. PATCH /listings/:id/price
+    // (`updatePrice`) is the only path that may change Listing.price.
     const updateData: Prisma.ListingUpdateInput = {};
-    if (input.price !== undefined) updateData.price = input.price;
     if (input.tradeLockUntil !== undefined) {
       updateData.tradeLockUntil = input.tradeLockUntil === null ? null : new Date(input.tradeLockUntil as string);
     }
@@ -349,15 +353,22 @@ export const listingsService = {
       }
     }
 
-    if (listing.status === "SOLD") {
-      throw new AppError(400, "Cannot cancel a SOLD listing");
-    }
-
+    // INV-LISTING-SOLD-IRREVERSIBLE: the ownership/existence read above can race with a
+    // concurrent payment confirmation moving this row RESERVED -> SOLD. The actual guard
+    // against overwriting a sold listing must be the conditional WHERE below, not the
+    // pre-transaction read, otherwise a cancel that observed a pre-SOLD status could still
+    // unconditionally overwrite a SOLD row that committed in between.
     return prisma.$transaction(async (tx) => {
-      const updated = await tx.listing.update({
-        where: { id: listingId },
+      const guarded = await tx.listing.updateMany({
+        where: { id: listingId, status: { not: "SOLD" } },
         data: { status: "CANCELED" },
       });
+
+      if (guarded.count !== 1) {
+        throw new AppError(400, "Cannot cancel a SOLD listing");
+      }
+
+      const updated = await tx.listing.findUniqueOrThrow({ where: { id: listingId } });
       await auditRepository.create(
         {
           actorId: actor?.actorId ?? userId,

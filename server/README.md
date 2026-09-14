@@ -85,31 +85,40 @@ Variáveis: `OTEL_ENABLED`, `OTEL_EXPORTER` (`none` | `console` | `otlp`), `OTEL
 | `POST /auth/refresh`  | Renovar tokens                     |
 | `GET /auth/me`        | Usuário atual (Bearer)             |
 | `GET/PATCH /users/me` | Perfil (auth)                      |
-| `GET /sellers`        | Listar vendedores                  |
-| `POST /sellers/apply` | Virar vendedor (auth)              |
-| `GET/PATCH /sellers/:id` | Detalhe/atualizar (auth)        |
-| `PATCH /sellers/:id/approve` | Aprovar (ADMIN)                |
+| `GET /sellers`, `GET /sellers/:id` | Público, sem auth. Sempre `isApproved: true` (sem filtro do cliente) e projeção estreita `{ id, storeName, rating, user: { id, name } }` — nunca `email`, `balance`, `commissionRate` ou `isApproved` (AUD-008). `:id` de vendedor pendente/inexistente é 404 em ambos os casos. |
+| `GET /sellers/me`     | Linha completa do próprio vendedor autenticado |
+| `POST /sellers/apply` | Virar vendedor (auth). `commissionRate` não é aceito; novo vendedor usa o default do banco (0.1) e não é controlável por nenhuma API (AUD-005) |
+| `PATCH /sellers/:id`  | Atualizar `storeName` (dono ou ADMIN). `commissionRate` não é um campo aceito |
+| `PATCH /sellers/:id/approve`, `PATCH /admin/sellers/:id/approve` | Aprovar/suspender vendedor (ADMIN) — dois caminhos equivalentes no surface atual |
+| `GET /admin/sellers`  | Linhas completas de todo vendedor, qualquer status (ADMIN) — usado pelas telas de admin desde que `GET /sellers` público ficou restrito (AUD-008) |
 | `GET /products`       | Listar produtos (query: game, weapon, search, page, limit, cursor) |
 | `GET /listings`       | Listar listings (query: status, filtros, page, limit, cursor). Sem `cursor`: `{ items, total, page, limit }`. Com `cursor`: `{ items, limit, nextCursor }`, ordem `createdAt DESC, id DESC`. |
-| `GET/POST/PATCH/DELETE /products` | CRUD (POST/PATCH/DELETE = SELLER/ADMIN) |
-| `POST /orders`        | Criar pedido (CUSTOMER, body: items: [{ productId, quantity }]) |
-| `GET /orders`, `GET /orders/:id` | Listar/detalhe (auth)        |
+| `POST /listings`      | Criar listing (SELLER aprovado; 403 se o vendedor ainda não foi aprovado — AUD-009) |
+| `GET /listings/:id`, `PATCH /listings/:id` | Detalhe / atualizar `tradeLockUntil` (dono ou ADMIN). `price` no body é **rejeitado com 400** (não silenciosamente ignorado) — o único caminho válido é `PATCH /listings/:id/price` (AUD-015) |
+| `PATCH /listings/:id/price` | Único caminho de mutação de preço: atualiza `Listing.price`, `PriceHistory` e `AuditLog` na mesma transação |
+| `POST /listings/:id/reserve`, `/mark-sold`, `/cancel` | Ciclo de vida da reserva/venda/cancelamento |
+| `GET /listings/seller/my-listings` | Listings do vendedor autenticado, qualquer status |
+| `GET /listings/:listingId/price-history` | Histórico de preço do listing |
+| `GET/POST/PATCH/DELETE /products` | CRUD (POST/PATCH/DELETE = ADMIN) |
+| `POST /orders`        | Criar pedido (CUSTOMER, body: `items: [{ listingId }]`; header `Idempotency-Key` obrigatório) |
+| `GET /orders`, `GET /orders/:id` | Listar/detalhe (auth; escopo por papel) |
 | `PATCH /orders/:id/status` | Transição explícita (CUSTOMER: cancelar PENDING/CONFIRMED ou SHIPPED→DELIVERED; ADMIN: grafo completo; SELLER: 403). Terminais: DELIVERED, CANCELLED |
+| `PATCH /orders/:id/tracking` | Código/transportadora de rastreio (SELLER envolvido ou ADMIN) |
 | `POST /payments/create` | Link PayPal (body: orderId) (auth)  |
 | `POST /payments/capture` | Captura PayPal após aprovação (auth, dono do pedido) |
 | `POST /payments/webhook` | Webhook PayPal (sem auth)        |
 | `GET /commissions/transactions` | Transações (SELLER/ADMIN)   |
 | `GET /commissions/balance` | Saldo (SELLER)                 |
 | `GET /reviews/product/:productId` | Reviews do produto        |
-| `GET/POST/PATCH/DELETE /reviews` | CRUD reviews (auth)       |
+| `GET/POST/PATCH/DELETE /reviews` | CRUD reviews (auth; dono do review para PATCH/DELETE) |
 | `GET /admin/users`     | Listar usuários (ADMIN)            |
 | `GET /admin/orders`    | Listar pedidos (ADMIN)             |
-| `PATCH /admin/sellers/:id/approve` | Aprovar vendedor (ADMIN)  |
+| `GET /admin/audit-logs` | Trilha de auditoria (ADMIN)       |
 
 ## Roles
 
-- **ADMIN** — Aprovar vendedores, listar usuários e pedidos, editar produtos de qualquer loja.
-- **SELLER** — Aplicar como vendedor, CRUD próprios produtos, ver pedidos em que participa, transações e saldo.
+- **ADMIN** — Aprovar vendedores, listar usuários/pedidos/vendedores completos, CRUD do catálogo de produtos, grafo completo de status de pedido.
+- **SELLER** — Aplicar como vendedor (após aprovação), CRUD dos próprios listings (não do catálogo de produtos), ver pedidos em que participa, transações e saldo.
 - **CUSTOMER** — Criar pedidos, ver próprios pedidos, atualizar status (ex.: cancelar), reviews.
 
 ## Prisma Studio

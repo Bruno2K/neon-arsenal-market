@@ -44,8 +44,8 @@ export default function IndexPage() {
     queryFn: () => listProducts({ limit: 24 }),
   });
   const sellersQuery = useQuery({
-    queryKey: ["sellers", { approved: true }],
-    queryFn: () => listSellers({ approved: true }),
+    queryKey: ["sellers"],
+    queryFn: () => listSellers(),
   });
 
   const listings = listingsQuery.data?.items ?? [];

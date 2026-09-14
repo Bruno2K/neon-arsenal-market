@@ -30,6 +30,16 @@ export const adminController = {
     }
   },
 
+  /** AUD-008 (PR11): full seller rows (all statuses) for ADMIN management only. */
+  async listSellers(_req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const sellers = await adminService.listSellers();
+      res.json(sellers);
+    } catch (e) {
+      next(e);
+    }
+  },
+
   async approveSeller(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const seller = await adminService.approveSeller(

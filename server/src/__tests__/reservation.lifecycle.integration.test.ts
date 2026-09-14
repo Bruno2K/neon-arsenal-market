@@ -178,6 +178,55 @@ describe("reservation lifecycle (postgres)", () => {
     expect(txns).toHaveLength(0);
   });
 
+  it(
+    "AUD-001: cancel never overwrites a listing that a concurrent payment already sold",
+    async () => {
+      const fixture = await createCheckoutGraph();
+      const listingId = fixture.listings[0].id;
+      const created = await createOrder(fixture.customer.id, [listingId], orderKey("cancel-vs-confirm"));
+
+      const results = await Promise.allSettled([
+        paymentsService.confirmPayment(created.id),
+        listingsService.cancel(listingId, fixture.sellerUser.id, "SELLER"),
+      ]);
+
+      const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+      const order = await prisma.order.findUnique({ where: { id: created.id } });
+
+      // Payment confirmation must win: INV-LISTING-SOLD-IRREVERSIBLE forbids a
+      // SOLD listing from ever being observed as CANCELED afterward, regardless
+      // of which call the process scheduler happened to start first.
+      expect(listing?.status).toBe("SOLD");
+      expect(order?.paymentStatus).toBe("PAID");
+      expect(results[0].status).toBe("fulfilled");
+      expect(results[1].status).toBe("rejected");
+      if (results[1].status === "rejected") {
+        expect(results[1].reason).toMatchObject({
+          statusCode: 400,
+          message: "Cannot cancel a SOLD listing",
+        });
+      }
+    }
+  );
+
+  it("rejects cancelling a listing that a payment confirmed moments earlier", async () => {
+    const fixture = await createCheckoutGraph();
+    const listingId = fixture.listings[0].id;
+    const created = await createOrder(fixture.customer.id, [listingId], orderKey("cancel-after-confirm"));
+
+    await paymentsService.confirmPayment(created.id);
+
+    await expect(
+      listingsService.cancel(listingId, fixture.sellerUser.id, "SELLER")
+    ).rejects.toMatchObject({
+      statusCode: 400,
+      message: "Cannot cancel a SOLD listing",
+    });
+
+    const listing = await prisma.listing.findUnique({ where: { id: listingId } });
+    expect(listing?.status).toBe("SOLD");
+  });
+
   it("does not create two seller transactions for concurrent payment confirmations", async () => {
     const fixture = await createCheckoutGraph();
     const listingId = fixture.listings[0].id;

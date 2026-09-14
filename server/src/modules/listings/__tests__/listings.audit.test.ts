@@ -5,6 +5,7 @@ vi.mock("../../../shared/database/index.js", () => ({
   prisma: {
     listing: {
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
       update: vi.fn(),
       updateMany: vi.fn(),
     },
@@ -51,6 +52,11 @@ describe("listingsService sensitive-action audit", () => {
     vi.mocked(prisma.auditLog.create).mockResolvedValue({} as never);
     vi.mocked(prisma.priceHistory.create).mockResolvedValue({} as never);
     vi.mocked(prisma.listing.update).mockResolvedValue(listing as never);
+    vi.mocked(prisma.listing.updateMany).mockResolvedValue({ count: 1 } as never);
+    vi.mocked(prisma.listing.findUniqueOrThrow).mockResolvedValue({
+      ...listing,
+      status: "CANCELED",
+    } as never);
   });
 
   it("writes an audit row when the seller changes listing price", async () => {
@@ -95,8 +101,8 @@ describe("listingsService sensitive-action audit", () => {
       actorRole: "SELLER",
     });
 
-    expect(prisma.listing.update).toHaveBeenCalledWith({
-      where: { id: "listing-1" },
+    expect(prisma.listing.updateMany).toHaveBeenCalledWith({
+      where: { id: "listing-1", status: { not: "SOLD" } },
       data: { status: "CANCELED" },
     });
     expect(prisma.auditLog.create).toHaveBeenCalledWith(

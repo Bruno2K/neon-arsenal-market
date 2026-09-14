@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { applySeller, listSellers } from "../sellers";
+import { applySeller, getSellerById, listSellers } from "../sellers";
 
 const get = vi.fn();
 const post = vi.fn();
@@ -17,23 +17,41 @@ describe("listSellers", () => {
     get.mockResolvedValue([]);
   });
 
-  it("GETs /sellers with no query when called without params", async () => {
+  // AUD-008 (PR11): public, unauthenticated, always approved-only server-side.
+  // There is no client-controlled filter to send anymore.
+  it("GETs /sellers with no arguments and no query string", async () => {
     await listSellers();
     expect(get).toHaveBeenCalledWith("/sellers");
   });
+});
 
-  it("sends approved=true when requested", async () => {
-    await listSellers({ approved: true });
-    expect(get).toHaveBeenCalledWith("/sellers?approved=true");
+describe("getSellerById", () => {
+  beforeEach(() => {
+    get.mockReset();
+    get.mockResolvedValue({
+      id: "seller-1",
+      storeName: "Store",
+      rating: 0,
+      user: null,
+    });
+  });
+
+  it("GETs /sellers/:id", async () => {
+    await getSellerById("seller-1");
+    expect(get).toHaveBeenCalledWith("/sellers/seller-1");
   });
 });
 
 describe("applySeller", () => {
-  it("POSTs storeName only to /sellers/apply", async () => {
-    post.mockResolvedValue({ id: "s1" });
-    await applySeller({ storeName: "Loja Nova" });
+  beforeEach(() => {
+    post.mockReset();
+    post.mockResolvedValue({});
+  });
+
+  it("only sends storeName; no caller-controlled commissionRate (AUD-005)", async () => {
+    await applySeller({ storeName: "My Store" });
     expect(post).toHaveBeenCalledWith("/sellers/apply", {
-      storeName: "Loja Nova",
+      storeName: "My Store",
     });
   });
 });

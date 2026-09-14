@@ -229,7 +229,7 @@ describe("Index", () => {
     expect(document.querySelector(".neon-text")).toBeNull();
 
     expect(listListings).toHaveBeenCalledWith({ status: "ACTIVE", limit: 8 });
-    expect(listSellers).toHaveBeenCalledWith({ approved: true });
+    expect(listSellers).toHaveBeenCalledWith();
     expect(screen.getAllByText("AK-47 | Redline (Field-Tested)")).toHaveLength(
       1,
     );

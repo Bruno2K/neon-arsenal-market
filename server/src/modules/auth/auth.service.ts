@@ -128,11 +128,12 @@ export const authService = {
     });
 
     if (pending.role === "SELLER" && pending.storeName) {
+      // commissionRate is deliberately omitted: Prisma applies Seller.commissionRate's
+      // database default (0.1). See AUD-005 (PR11) — no caller-controlled write path.
       await prisma.seller.create({
         data: {
           userId: user.id,
           storeName: pending.storeName,
-          commissionRate: 0.1,
           isApproved: false,
         },
       });

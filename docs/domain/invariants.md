@@ -85,8 +85,8 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 **Enforced:**
 
 - Schema: `ListingStatus` includes `SOLD`; there is no database CHECK forbidding `SOLD → ACTIVE`. Irreversibility is application + conditional updates.
-- Service: `VALID_STATUS_TRANSITIONS.SOLD = []` in `listingsService.update`; `listingsService.cancel` rejects `SOLD`; `expireReservations` `WHERE status = 'RESERVED'`; `paymentsService.confirmPayment` sells only `RESERVED` + matching `reservedByOrderId`.
-- Tests: `server/src/__tests__/reservation.lifecycle.integration.test.ts` (does not expire `SOLD`; payment vs expiry races); `server/src/modules/listings/__tests__/listings.reservation.test.ts`; `server/src/modules/listings/__tests__/listings.invariants.test.ts` (`SOLD` PATCH/cancel).
+- Service: `VALID_STATUS_TRANSITIONS.SOLD = []` in `listingsService.update`; `expireReservations` `WHERE status = 'RESERVED'`; `paymentsService.confirmPayment` sells only `RESERVED` + matching `reservedByOrderId`. `listingsService.cancel` guards the transition with a conditional `tx.listing.updateMany({ where: { id, status: { not: "SOLD" } }, data: { status: "CANCELED" } })` inside the same transaction as its audit write; the pre-transaction ownership read is authorization-only and is never the correctness mechanism, so a payment that commits `SOLD` between that read and the transaction cannot be overwritten (AUD-001, PR11).
+- Tests: `server/src/__tests__/reservation.lifecycle.integration.test.ts` (does not expire `SOLD`; payment vs expiry races; `AUD-001: cancel never overwrites a listing that a concurrent payment already sold` races `paymentsService.confirmPayment` against `listingsService.cancel` on the same reservation over real PostgreSQL); `server/src/modules/listings/__tests__/listings.reservation.test.ts`; `server/src/modules/listings/__tests__/listings.invariants.test.ts` (`SOLD` PATCH/cancel).
 
 **Related:** `INV-LISTING-RESERVATION-TTL`.
 
@@ -166,8 +166,8 @@ Related IDs below keep this catalog aligned with the architecture narrative. Cit
 **Enforced:**
 
 - Schema: `Seller.commissionRate`, `Seller.balance`, `Refund.amount`, and ledger amounts are `Decimal`. Economic events are unique by `(sellerId, entryType, economicEventId)`. CHECK constraints preserve the signed `net = gross - commission` identity.
-- Service: `aggregateGrossBySeller` + `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction. Currency, scale, and rounding mode are `server/src/shared/money/policy.ts`.
-- Tests: `server/src/shared/money/__tests__/policy.test.ts`; `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`.
+- Service: `aggregateGrossBySeller` + `computeSellerLedgerAmounts` then `paymentsService.confirmPayment` writes the row and `balance: { increment: netAmount }` inside the claim transaction. Currency, scale, and rounding mode are `server/src/shared/money/policy.ts`. `Seller.commissionRate` is fixed at the schema default (`@default(0.1)`) — `applySellerDto` and `updateSellerDto` do not accept the field, so no current API surface (seller or ADMIN) can set or change it (AUD-005, PR11). A dedicated admin commission-management capability is frozen backlog.
+- Tests: `server/src/shared/money/__tests__/policy.test.ts`; `server/src/shared/money/__tests__/sellerLedger.test.ts`; `server/src/modules/payments/__tests__/payments.service.test.ts`; `server/src/__tests__/seller.ledger.integration.test.ts`; `server/src/__tests__/postgres.constraints.integration.test.ts`; `server/src/modules/sellers/__tests__/sellers.service.test.ts` (`AUD-005`); `server/src/__tests__/sellers.public.integration.test.ts` (`AUD-005`/`AUD-008`).
 
 **Related:** `INV-SELLER-TXN-UNIQUE`, `INV-SELLER-LEDGER-SOURCE`, `INV-PAYMENT-TRUSTED-CONFIRM`.
 

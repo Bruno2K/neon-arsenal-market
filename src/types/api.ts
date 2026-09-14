@@ -38,6 +38,19 @@ export interface Seller {
   user?: { id: string; name: string; email: string };
 }
 
+/**
+ * GET /sellers and GET /sellers/:id (AUD-008, PR11) — the only seller shape an
+ * unauthenticated caller ever sees. Approved-only; no email, balance,
+ * commissionRate, or isApproved. Full rows (`Seller`) remain available to the
+ * seller themselves (GET /sellers/me) and to ADMIN (GET /admin/sellers).
+ */
+export interface PublicSeller {
+  id: string;
+  storeName: string;
+  rating: number;
+  user: { id: string; name: string } | null;
+}
+
 export type PaymentStatus = "PENDING" | "PAID" | "REFUNDED";
 
 /** GET /commissions/balance — Seller.balance projection as a Decimal JSON string. */
