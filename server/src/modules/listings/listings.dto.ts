@@ -22,10 +22,16 @@ export const createListingDto = z.object({
   steamAssetId: z.string().max(STEAM_ASSET_ID_MAX).optional(),
 });
 
-export const updateListingDto = z.object({
-  price: z.number().positive().optional(),
-  tradeLockUntil: z.string().datetime().optional().or(z.date().optional()).nullable(),
-});
+// AUD-015 (PR11): `price` is intentionally not a field on this schema, and the
+// object is `.strict()` so a `price` key is rejected with a 400 instead of being
+// silently ignored. This closes the duplicate, unaudited price-mutation path that
+// bypassed the transaction/PriceHistory/AuditLog used by PATCH /listings/:id/price,
+// which remains the only supported way to change `Listing.price`.
+export const updateListingDto = z
+  .object({
+    tradeLockUntil: z.string().datetime().optional().or(z.date().optional()).nullable(),
+  })
+  .strict();
 
 export const updateListingPriceDto = z.object({
   newPrice: z.number().positive("Price must be positive"),

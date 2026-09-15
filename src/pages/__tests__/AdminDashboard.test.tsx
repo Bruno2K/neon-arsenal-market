@@ -7,7 +7,7 @@ import type { Order, Seller } from "@/types/api";
 
 const listAdminOrders = vi.fn();
 const adminApproveSeller = vi.fn();
-const listSellers = vi.fn();
+const listAdminSellers = vi.fn();
 const listProducts = vi.fn();
 const getCs2ShImportStatus = vi.fn();
 const startCs2ShImport = vi.fn();
@@ -15,12 +15,9 @@ const startCs2ShImport = vi.fn();
 vi.mock("@/api/admin", () => ({
   listAdminOrders: (...args: unknown[]) => listAdminOrders(...args),
   adminApproveSeller: (...args: unknown[]) => adminApproveSeller(...args),
+  listAdminSellers: (...args: unknown[]) => listAdminSellers(...args),
   getCs2ShImportStatus: (...args: unknown[]) => getCs2ShImportStatus(...args),
   startCs2ShImport: (...args: unknown[]) => startCs2ShImport(...args),
-}));
-
-vi.mock("@/api/sellers", () => ({
-  listSellers: (...args: unknown[]) => listSellers(...args),
 }));
 
 vi.mock("@/api/products", () => ({
@@ -77,7 +74,7 @@ describe("AdminDashboard", () => {
   beforeEach(() => {
     listAdminOrders.mockReset();
     adminApproveSeller.mockReset();
-    listSellers.mockReset();
+    listAdminSellers.mockReset();
     listProducts.mockReset();
     getCs2ShImportStatus.mockReset();
     startCs2ShImport.mockReset();
@@ -94,7 +91,7 @@ describe("AdminDashboard", () => {
   });
 
   it("uses current admin lists and approve contract without leftover marketplace chrome", async () => {
-    listSellers.mockResolvedValue([
+    listAdminSellers.mockResolvedValue([
       seller(),
       seller({
         id: "seller-ok",
@@ -114,7 +111,7 @@ describe("AdminDashboard", () => {
     expect(screen.getByText("12")).toBeTruthy();
     expect(screen.getAllByText("Loja Pendente").length).toBeGreaterThan(0);
     expect(screen.getAllByText("10%").length).toBeGreaterThan(0);
-    expect(listSellers).toHaveBeenCalled();
+    expect(listAdminSellers).toHaveBeenCalled();
     expect(listAdminOrders).toHaveBeenCalled();
     expect(listProducts).toHaveBeenCalledWith({ limit: 1 });
     expect(screen.queryByText(/SKINMARKET/i)).toBeNull();
@@ -132,7 +129,7 @@ describe("AdminDashboard", () => {
   });
 
   it("gives each empty admin section one real CTA", async () => {
-    listSellers.mockResolvedValue([]);
+    listAdminSellers.mockResolvedValue([]);
     listAdminOrders.mockResolvedValue([]);
     listProducts.mockResolvedValue({ items: [], total: 0, page: 1, limit: 1 });
 
@@ -157,7 +154,7 @@ describe("AdminDashboard", () => {
 
   it("keeps Importar catálogo when other admin lists fail", async () => {
     listAdminOrders.mockRejectedValue(new Error("boom"));
-    listSellers.mockRejectedValue(new Error("boom"));
+    listAdminSellers.mockRejectedValue(new Error("boom"));
     listProducts.mockRejectedValue(new Error("boom"));
 
     renderDashboard();

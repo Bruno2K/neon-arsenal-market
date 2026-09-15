@@ -8,6 +8,7 @@ Evidence records are point-in-time claims. Commands, dependency findings, baseli
 
 These records remain useful maps from important engineering claims to implementation, tests, or operational reasoning:
 
+- [`final-senior-backend-audit-2026-09-14.md`](final-senior-backend-audit-2026-09-14.md) — PR11 final adversarial Senior Backend credibility audit: full PASS/P0/P1/P2 findings matrix, human policy gate, and regression evidence for every P0 fix.
 - [`rate-limit-and-vulnerability-policy.md`](rate-limit-and-vulnerability-policy.md) — Render client-identity and dependency-policy evidence.
 - [`refund-reconciliation-operations.md`](refund-reconciliation-operations.md) — refund recovery, idempotency, ledger compensation, and operations evidence.
 - [`single-checkout-currency.md`](single-checkout-currency.md) — BRL checkout invariant and migration evidence.

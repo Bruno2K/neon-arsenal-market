@@ -69,7 +69,6 @@ describe("sellersService", () => {
 
       const result = await sellersService.apply("user-1", {
         storeName: "Store Alpha",
-        commissionRate: 0.1,
       });
 
       expect(prisma.seller.create).toHaveBeenCalledWith(
@@ -87,11 +86,28 @@ describe("sellersService", () => {
       expect(result.storeName).toBe("Store Alpha");
     });
 
+    it("AUD-005: never forwards a caller-supplied commissionRate to Prisma.seller.create", async () => {
+      vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser() as any);
+      vi.mocked(sellersRepository.findByUserId).mockResolvedValue(null);
+      vi.mocked(prisma.seller.create).mockResolvedValue(mockSeller() as any);
+      vi.mocked(prisma.user.update).mockResolvedValue({} as any);
+
+      // `commissionRate` is not part of `ApplySellerInput` (removed by the DTO at the
+      // HTTP boundary); this simulates a bypass attempt reaching the service directly.
+      await sellersService.apply(
+        "user-1",
+        { storeName: "Store Alpha", commissionRate: 0 } as never
+      );
+
+      const createCall = vi.mocked(prisma.seller.create).mock.calls[0][0];
+      expect(createCall.data).not.toHaveProperty("commissionRate");
+    });
+
     it("throws 404 when user not found", async () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
 
       await expect(
-        sellersService.apply("unknown-user", { storeName: "Shop", commissionRate: 0.1 })
+        sellersService.apply("unknown-user", { storeName: "Shop" })
       ).rejects.toMatchObject({ statusCode: 404 });
     });
 
@@ -100,7 +116,7 @@ describe("sellersService", () => {
       vi.mocked(sellersRepository.findByUserId).mockResolvedValue(mockSeller() as any);
 
       await expect(
-        sellersService.apply("user-1", { storeName: "Dup Shop", commissionRate: 0.1 })
+        sellersService.apply("user-1", { storeName: "Dup Shop" })
       ).rejects.toMatchObject({ statusCode: 409, message: "Already a seller" });
     });
 
@@ -108,7 +124,7 @@ describe("sellersService", () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(mockUser({ role: "ADMIN" }) as any);
 
       await expect(
-        sellersService.apply("admin-id", { storeName: "Admin Store", commissionRate: 0.1 })
+        sellersService.apply("admin-id", { storeName: "Admin Store" })
       ).rejects.toMatchObject({ statusCode: 403 });
     });
   });
@@ -183,6 +199,61 @@ describe("sellersService", () => {
 
       const result = await sellersService.getById("seller-1");
       expect(result.id).toBe("seller-1");
+    });
+  });
+
+  describe("listPublic() — AUD-008", () => {
+    it("forces isApproved: true and never exposes email/balance/commissionRate", async () => {
+      vi.mocked(sellersRepository.findMany).mockResolvedValue([
+        mockSeller({ id: "seller-approved", isApproved: true, balance: 42, email: "leak@test.com" }),
+      ] as any);
+
+      const result = await sellersService.listPublic();
+
+      expect(sellersRepository.findMany).toHaveBeenCalledWith({ isApproved: true });
+      expect(result).toEqual([
+        {
+          id: "seller-approved",
+          storeName: "Store Alpha",
+          rating: 0,
+          user: { id: "user-1", name: "Bruno" },
+        },
+      ]);
+    });
+  });
+
+  describe("getPublicById() — AUD-008", () => {
+    it("returns the narrow projection for an approved seller", async () => {
+      vi.mocked(sellersRepository.findById).mockResolvedValue(
+        mockSeller({ isApproved: true, balance: 42, commissionRate: 0.2 }) as any
+      );
+
+      const result = await sellersService.getPublicById("seller-1");
+
+      expect(result).toEqual({
+        id: "seller-1",
+        storeName: "Store Alpha",
+        rating: 0,
+        user: { id: "user-1", name: "Bruno" },
+      });
+    });
+
+    it("404s for a pending (unapproved) seller instead of leaking it", async () => {
+      vi.mocked(sellersRepository.findById).mockResolvedValue(
+        mockSeller({ isApproved: false }) as any
+      );
+
+      await expect(sellersService.getPublicById("seller-1")).rejects.toMatchObject({
+        statusCode: 404,
+      });
+    });
+
+    it("404s when the seller does not exist", async () => {
+      vi.mocked(sellersRepository.findById).mockResolvedValue(null);
+
+      await expect(sellersService.getPublicById("missing")).rejects.toMatchObject({
+        statusCode: 404,
+      });
     });
   });
 

@@ -4,21 +4,25 @@ import { getAuthUser } from "../../shared/helpers/getAuthUser.js";
 import { requestParam } from "../../shared/http/requestFields.js";
 
 export const sellersController = {
-  async list(req: Request, res: Response, next: NextFunction): Promise<void> {
+  /**
+   * AUD-008 (PR11): public, unauthenticated. Always approved-only and always the
+   * narrow public projection — no email, balance, commissionRate, or isApproved.
+   * There is no client-controlled filter; `GET /admin/sellers` is the ADMIN-only
+   * full-row equivalent (all statuses) used by the admin management screens.
+   */
+  async list(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const isApproved = req.query.approved as string | undefined;
-      const filters =
-        isApproved !== undefined ? { isApproved: isApproved === "true" } : undefined;
-      const list = await sellersService.list(filters);
+      const list = await sellersService.listPublic();
       res.json(list);
     } catch (e) {
       next(e);
     }
   },
 
+  /** AUD-008 (PR11): public, unauthenticated, approved-only, narrow projection. */
   async getById(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const seller = await sellersService.getById(requestParam(req, "id"));
+      const seller = await sellersService.getPublicById(requestParam(req, "id"));
       res.json(seller);
     } catch (e) {
       next(e);

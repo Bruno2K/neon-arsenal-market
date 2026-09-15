@@ -63,10 +63,12 @@ inverse uses Decimal `negated()` without adding a rounding boundary.
 
 ## Refunds
 
-`MONEY_REFUNDS_IMPLEMENTED = false` continues to mean that PayPal refund HTTP
-execution is not implemented. TASK-0013 adds a durable full-BRL `Refund`
-obligation and local append-only seller compensation only; it does not invoke
-PayPal or write `PaymentStatus.REFUNDED`.
+PayPal refund HTTP execution is implemented (AUD-028, PR11): `refunds.service.ts`
+calls `paypalProvider.refundCapture` and, on a trusted provider `COMPLETED`
+result, writes `Order.paymentStatus = "REFUNDED"` in the same transaction as the
+seller-ledger compensation. The stale `MONEY_REFUNDS_IMPLEMENTED = false` flag
+that used to contradict this has been removed from `policy.ts`; there is no
+remaining "refunds not implemented" gate anywhere in the codebase.
 
 `Refund.amount` must be positive, have at most two decimal places, and equal the
 order's full BRL total when the obligation is created. Partial and commercial

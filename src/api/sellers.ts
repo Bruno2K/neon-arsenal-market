@@ -1,23 +1,21 @@
 import { api } from "./client";
-import type { Seller } from "@/types/api";
+import type { Seller, PublicSeller } from "@/types/api";
 
 export function getSellerMe(): Promise<Seller> {
   return api.get<Seller>("/sellers/me");
 }
 
-export function listSellers(params?: {
-  approved?: boolean;
-}): Promise<Seller[]> {
-  const search = new URLSearchParams();
-  if (typeof params?.approved === "boolean") {
-    search.set("approved", String(params.approved));
-  }
-  const qs = search.toString();
-  return api.get<Seller[]>(`/sellers${qs ? `?${qs}` : ""}`);
+/**
+ * AUD-008 (PR11): public, unauthenticated, always approved-only. Server no
+ * longer accepts a client-controlled approval filter. Full rows for ADMIN
+ * management live at `listAdminSellers` (`@/api/admin`).
+ */
+export function listSellers(): Promise<PublicSeller[]> {
+  return api.get<PublicSeller[]>("/sellers");
 }
 
-export function getSellerById(id: string): Promise<Seller> {
-  return api.get<Seller>(`/sellers/${id}`);
+export function getSellerById(id: string): Promise<PublicSeller> {
+  return api.get<PublicSeller>(`/sellers/${id}`);
 }
 
 export function applySeller(body: { storeName: string }): Promise<Seller> {

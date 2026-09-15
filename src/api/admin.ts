@@ -39,6 +39,15 @@ export function listAdminOrders(params?: {
 }
 
 // ─── Sellers ──────────────────────────────────────────────────────────────────
+/**
+ * AUD-008 (PR11) remediation plumbing: full seller rows (all statuses, balance,
+ * commissionRate) for ADMIN management screens. The public GET /sellers is now
+ * approved-only with a narrow projection, so admin UIs must use this endpoint.
+ */
+export function listAdminSellers(): Promise<Seller[]> {
+  return api.get<Seller[]>("/admin/sellers");
+}
+
 export function adminApproveSeller(
   id: string,
   isApproved: boolean,

@@ -129,21 +129,29 @@ describe(`property-based invariants (seed=${PROPERTY_SEED})`, () => {
     );
   });
 
-  it(`${DomainInvariant.LISTING_SOLD_IRREVERSIBLE}: listing PATCH DTO never accepts a client status`, () => {
-    fc.assert(
-      fc.property(fc.constantFrom(...LISTING_STATUSES), fc.integer({ min: 1, max: 10_000 }), (status, cents) => {
-        const parsed = updateListingDto.safeParse({
-          price: cents / 100,
-          status,
-        });
-        expect(parsed.success).toBe(true);
-        if (parsed.success) {
-          expect(parsed.data).not.toHaveProperty("status");
-        }
-      }),
-      PROPERTY
-    );
-  });
+  it(
+    `${DomainInvariant.LISTING_SOLD_IRREVERSIBLE}: listing PATCH DTO never accepts a client status or price ` +
+      "(AUD-015: rejected, not silently stripped)",
+    () => {
+      fc.assert(
+        fc.property(fc.constantFrom(...LISTING_STATUSES), fc.integer({ min: 1, max: 10_000 }), (status, cents) => {
+          const parsed = updateListingDto.safeParse({
+            price: cents / 100,
+            status,
+          });
+          // `.strict()` rejects both fields outright; neither is silently stripped.
+          expect(parsed.success).toBe(false);
+
+          const priceOnly = updateListingDto.safeParse({ price: cents / 100 });
+          expect(priceOnly.success).toBe(false);
+
+          const tradeLockOnly = updateListingDto.safeParse({ tradeLockUntil: null });
+          expect(tradeLockOnly.success).toBe(true);
+        }),
+        PROPERTY
+      );
+    }
+  );
 
   it(`${DomainInvariant.PAYMENT_TRUSTED_CONFIRM}: order status DTO strips client paymentStatus`, () => {
     fc.assert(

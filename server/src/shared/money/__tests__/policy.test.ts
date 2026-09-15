@@ -6,7 +6,6 @@ import {
   MONEY_CURRENCY,
   MONEY_PAYPAL_ROUNDING,
   MONEY_PRICE_SCALE,
-  MONEY_REFUNDS_IMPLEMENTED,
   addMoney,
   aggregateGrossBySeller,
   formatPayPalAmount,
@@ -31,10 +30,6 @@ describe("monetary policy", () => {
     expect(SELLER_LEDGER_CURRENCY).toBe(MONEY_CURRENCY);
     expect(SELLER_LEDGER_PRICE_SCALE).toBe(MONEY_PRICE_SCALE);
     expect(Prisma.Decimal.rounding).toBe(Prisma.Decimal.ROUND_HALF_UP);
-  });
-
-  it("does not implement refund math", () => {
-    expect(MONEY_REFUNDS_IMPLEMENTED).toBe(false);
   });
 });
 

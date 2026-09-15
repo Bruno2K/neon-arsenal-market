@@ -93,19 +93,22 @@ describe("API authorization and payment threat suite (postgres)", () => {
     expect(response.json.error).toBe("Not your order");
   });
 
-  it(`${DomainInvariant.AUTH_OWNERSHIP}: a seller cannot reprice another seller's listing`, async () => {
+  it(`${DomainInvariant.AUTH_OWNERSHIP}: a seller cannot update another seller's listing`, async () => {
     const fixture = await createCheckoutGraph();
     const otherSellerUser = await createUser({ name: "Rival Seller", role: "SELLER" });
     await createSeller(otherSellerUser.id);
     const listingId = fixture.listings[0].id;
 
+    // AUD-015 (PR11): `price` is no longer a valid field on this DTO at all (400
+    // regardless of ownership) — use `tradeLockUntil` so this test still isolates
+    // the ownership check, not body validation.
     const patch = await jsonRequest(baseUrl, `/listings/${listingId}`, {
       method: "PATCH",
       headers: {
         Authorization: bearer(otherSellerUser),
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ price: 1 }),
+      body: JSON.stringify({ tradeLockUntil: null }),
     });
     expect(patch.status).toBe(403);
     expect(patch.json.error).toBe("Not your listing");

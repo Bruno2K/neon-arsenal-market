@@ -160,14 +160,63 @@ export const openApiSpec = {
       },
       Seller: {
         type: "object",
+        description:
+          "Full seller row. Returned only to the seller themselves (GET /sellers/me) and to ADMIN " +
+          "(GET /admin/sellers, PATCH /admin/sellers/{id}/approve). The unauthenticated public surface " +
+          "(GET /sellers, GET /sellers/{id}) returns the narrower PublicSeller shape instead (AUD-008).",
         properties: {
           id: { type: "string" },
           userId: { type: "string" },
           storeName: { type: "string" },
-          commissionRate: { type: "number", example: 0.1 },
+          commissionRate: {
+            type: "number",
+            example: 0.1,
+            description:
+              "Fixed at the database default for every seller; no API surface (seller or ADMIN) can set or change it (AUD-005).",
+          },
           balance: { type: "number", example: 0 },
           rating: { type: "number", example: 0 },
           isApproved: { type: "boolean" },
+        },
+      },
+      PublicSeller: {
+        type: "object",
+        description:
+          "Unauthenticated, approved-only projection (AUD-008). No email, balance, commissionRate, or isApproved.",
+        required: ["id", "storeName", "rating", "user"],
+        properties: {
+          id: { type: "string" },
+          storeName: { type: "string" },
+          rating: { type: "number", example: 0 },
+          user: {
+            type: "object",
+            nullable: true,
+            properties: {
+              id: { type: "string" },
+              name: { type: "string", example: "Bruno" },
+            },
+          },
+        },
+      },
+      Review: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          productId: { type: "string" },
+          userId: { type: "string" },
+          rating: { type: "integer", minimum: 1, maximum: 5 },
+          comment: { type: "string", nullable: true },
+          createdAt: { type: "string", format: "date-time" },
+        },
+      },
+      PriceHistory: {
+        type: "object",
+        properties: {
+          id: { type: "string" },
+          listingId: { type: "string" },
+          oldPrice: { type: "number", example: 149.99 },
+          newPrice: { type: "number", example: 139.99 },
+          changedAt: { type: "string", format: "date-time" },
         },
       },
       AuditLog: {
@@ -418,6 +467,41 @@ export const openApiSpec = {
         },
       },
     },
+    "/users/me": {
+      get: {
+        tags: ["Users"],
+        summary: "Get the authenticated caller's user record",
+        responses: {
+          200: { description: "Current user", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } },
+          401: { description: "Missing or invalid access token" },
+        },
+      },
+      patch: {
+        tags: ["Users"],
+        summary: "Update the authenticated caller's own name/email/password",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  name: { type: "string" },
+                  email: { type: "string", format: "email" },
+                  password: { type: "string", minLength: 8, maxLength: 72 },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "User updated", content: { "application/json": { schema: { $ref: "#/components/schemas/User" } } } },
+          400: { description: "Invalid body" },
+          401: { description: "Missing or invalid access token" },
+          409: { description: "Email already in use" },
+        },
+      },
+    },
     "/listings": {
       post: {
         tags: ["Listings"],
@@ -545,6 +629,148 @@ export const openApiSpec = {
         },
       },
     },
+    "/listings/{id}": {
+      get: {
+        tags: ["Listings"],
+        summary: "Get a listing by id",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Listing", content: { "application/json": { schema: { $ref: "#/components/schemas/Listing" } } } },
+          404: { description: "Listing not found" },
+        },
+      },
+      patch: {
+        tags: ["Listings"],
+        summary: "Update a listing's tradeLockUntil (owning seller or ADMIN)",
+        description:
+          "AUD-015: `price` is not an accepted field here and is rejected outright with 400 (`.strict()` DTO), " +
+          "not silently ignored. The only path that may change Listing.price is PATCH /listings/{id}/price, which " +
+          "updates price, PriceHistory, and AuditLog together in one transaction.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: false,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: { tradeLockUntil: { type: "string", format: "date-time", nullable: true } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Listing updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Listing" } } } },
+          400: { description: "Unrecognized key (e.g. price) or invalid body" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Not your listing" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/listings/{id}/price": {
+      patch: {
+        tags: ["Listings"],
+        summary: "Change a listing's price (owning seller or ADMIN) — the only price-mutation path",
+        description:
+          "Atomically updates Listing.price, appends a PriceHistory row, and writes an AuditLog entry in one transaction.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["newPrice"],
+                properties: { newPrice: { type: "number", exclusiveMinimum: 0 } },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Price updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Listing" } } } },
+          400: { description: "Invalid price" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Not your listing" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/listings/{id}/reserve": {
+      post: {
+        tags: ["Listings"],
+        summary: "Reserve an ACTIVE listing (internal to order creation)",
+        description:
+          "Authenticated; any role. Normally invoked as part of POST /orders, not called directly by clients. " +
+          "Atomic conditional update: only one caller can move a given listing ACTIVE → RESERVED.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Listing reserved", content: { "application/json": { schema: { $ref: "#/components/schemas/Listing" } } } },
+          400: { description: "Listing is not ACTIVE" },
+          401: { description: "Missing or invalid access token" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/listings/{id}/mark-sold": {
+      post: {
+        tags: ["Listings"],
+        summary: "Force-mark a listing SOLD (ADMIN)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Listing marked SOLD", content: { "application/json": { schema: { $ref: "#/components/schemas/Listing" } } } },
+          400: { description: "Listing must be RESERVED" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/listings/{id}/cancel": {
+      post: {
+        tags: ["Listings"],
+        summary: "Cancel a listing (owning seller or ADMIN)",
+        description:
+          "AUD-001: guarded by a conditional `updateMany` (`status != SOLD`) inside the same transaction as the audit " +
+          "write, so a payment that concurrently confirms SOLD can never be overwritten back to CANCELED.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          204: { description: "Listing canceled" },
+          400: { description: "Cannot cancel a SOLD listing" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Not your listing" },
+          404: { description: "Listing not found" },
+        },
+      },
+    },
+    "/listings/seller/my-listings": {
+      get: {
+        tags: ["Listings"],
+        summary: "List the authenticated seller's own listings (any status)",
+        responses: {
+          200: {
+            description: "Caller's listings",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Listing" } } } },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not SELLER" },
+        },
+      },
+    },
+    "/listings/{listingId}/price-history": {
+      get: {
+        tags: ["Listings"],
+        summary: "Get the price-change history for a listing",
+        security: [],
+        parameters: [{ name: "listingId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: {
+            description: "Price history, newest first",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/PriceHistory" } } } },
+          },
+        },
+      },
+    },
     "/products": {
       get: {
         tags: ["Products"],
@@ -588,8 +814,125 @@ export const openApiSpec = {
           400: { description: "Invalid cursor or query" },
         },
       },
+      post: {
+        tags: ["Products"],
+        summary: "Create a catalog product (ADMIN)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["weapon", "skinName", "rarity", "exterior"],
+                properties: {
+                  game: { type: "string", default: "CS2" },
+                  weapon: { type: "string" },
+                  skinName: { type: "string" },
+                  rarity: {
+                    type: "string",
+                    enum: [
+                      "Consumer Grade",
+                      "Industrial Grade",
+                      "Mil-Spec Grade",
+                      "Restricted",
+                      "Classified",
+                      "Covert",
+                      "Exceedingly Rare",
+                      "Contraband",
+                      "Extraordinary",
+                    ],
+                  },
+                  exterior: {
+                    type: "string",
+                    enum: ["Factory New", "Minimal Wear", "Field-Tested", "Well-Worn", "Battle-Scarred"],
+                  },
+                  collection: { type: "string" },
+                  imageUrl: { type: "string", format: "uri" },
+                  isStattrak: { type: "boolean", default: false },
+                  isSouvenir: { type: "boolean", default: false },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: {
+            description: "Product created",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
+          },
+          400: { description: "Invalid product body" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+        },
+      },
+    },
+    "/products/{id}": {
+      get: {
+        tags: ["Products"],
+        summary: "Get a product by id",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: {
+            description: "Product",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
+          },
+          404: { description: "Product not found" },
+        },
+      },
+      patch: {
+        tags: ["Products"],
+        summary: "Update a catalog product (ADMIN)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: { "application/json": { schema: { type: "object", description: "Partial Product fields" } } },
+        },
+        responses: {
+          200: {
+            description: "Product updated",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/Product" } } },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          404: { description: "Product not found" },
+        },
+      },
+      delete: {
+        tags: ["Products"],
+        summary: "Delete a catalog product (ADMIN)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          204: { description: "Product deleted" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          404: { description: "Product not found" },
+        },
+      },
     },
     "/orders": {
+      get: {
+        tags: ["Orders"],
+        summary: "List orders for the caller (CUSTOMER: own; SELLER: orders containing their listings; ADMIN: all)",
+        description:
+          "Shape depends on role: CUSTOMER gets their own orders, SELLER gets orders containing at least one of " +
+          "their listings, ADMIN gets every order and may filter by `status`/`paymentStatus`.",
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] }, description: "ADMIN only" },
+          { name: "paymentStatus", in: "query", schema: { type: "string", enum: ["PENDING", "PAID", "REFUNDED"] }, description: "ADMIN only" },
+        ],
+        responses: {
+          200: {
+            description: "Orders for the caller's role",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/Order" } },
+              },
+            },
+          },
+          401: { description: "Missing or invalid access token" },
+        },
+      },
       post: {
         tags: ["Orders"],
         summary: "Create a new order",
@@ -663,6 +1006,46 @@ export const openApiSpec = {
           403: { description: "Role cannot apply this transition, or the order is not the caller's" },
           404: { description: "Order not found" },
           409: { description: "A concurrent request already changed the order status" },
+        },
+      },
+    },
+    "/orders/{id}": {
+      get: {
+        tags: ["Orders"],
+        summary: "Get an order by id (owner CUSTOMER, an involved SELLER, or ADMIN)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Order", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not the customer, an involved seller, or ADMIN" },
+          404: { description: "Order not found" },
+        },
+      },
+    },
+    "/orders/{id}/tracking": {
+      patch: {
+        tags: ["Orders"],
+        summary: "Set tracking code/carrier (SELLER of an item in the order, or ADMIN)",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  trackingCode: { type: "string" },
+                  trackingCarrier: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Order updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Order" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not SELLER of an item in the order, or ADMIN" },
+          404: { description: "Order not found" },
         },
       },
     },
@@ -776,10 +1159,43 @@ export const openApiSpec = {
         },
       },
     },
+    "/sellers": {
+      get: {
+        tags: ["Sellers"],
+        summary: "Browse approved sellers (public, narrow projection)",
+        description:
+          "Unauthenticated. Always approved-only — there is no client-controlled filter. Returns only " +
+          "{ id, storeName, rating, user: { id, name } }; never email, balance, commissionRate, or isApproved (AUD-008). " +
+          "Full rows for ADMIN management are at GET /admin/sellers.",
+        security: [],
+        responses: {
+          200: {
+            description: "Approved sellers, narrow projection",
+            content: {
+              "application/json": {
+                schema: { type: "array", items: { $ref: "#/components/schemas/PublicSeller" } },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/sellers/me": {
+      get: {
+        tags: ["Sellers"],
+        summary: "Get the authenticated caller's own seller row (full)",
+        responses: {
+          200: { description: "Full seller row", content: { "application/json": { schema: { $ref: "#/components/schemas/Seller" } } } },
+          401: { description: "Missing or invalid access token" },
+          404: { description: "Caller has no seller profile" },
+        },
+      },
+    },
     "/sellers/apply": {
       post: {
         tags: ["Sellers"],
         summary: "Apply to become a seller",
+        description: "New sellers get the database default commissionRate (0.1); the field is not caller-controlled (AUD-005).",
         requestBody: {
           required: true,
           content: {
@@ -795,6 +1211,66 @@ export const openApiSpec = {
         responses: {
           201: { description: "Seller profile created (pending approval)" },
           409: { description: "Already a seller" },
+        },
+      },
+    },
+    "/sellers/{id}": {
+      get: {
+        tags: ["Sellers"],
+        summary: "Get an approved seller by id (public, narrow projection)",
+        description:
+          "Unauthenticated. A pending/rejected or missing seller both return 404 — indistinguishable, so this " +
+          "endpoint cannot be used to enumerate non-approved sellers (AUD-008).",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: {
+            description: "Approved seller, narrow projection",
+            content: { "application/json": { schema: { $ref: "#/components/schemas/PublicSeller" } } },
+          },
+          404: { description: "Seller not found or not approved" },
+        },
+      },
+      patch: {
+        tags: ["Sellers"],
+        summary: "Update own storeName (owning seller or ADMIN)",
+        description: "commissionRate is not an accepted field; sending it is ignored (AUD-005).",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", properties: { storeName: { type: "string" } } },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Seller updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Seller" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Cannot update another seller" },
+          404: { description: "Seller not found" },
+        },
+      },
+    },
+    "/sellers/{id}/approve": {
+      patch: {
+        tags: ["Sellers"],
+        summary: "Approve or suspend a seller (ADMIN)",
+        description: "Equivalent to PATCH /admin/sellers/{id}/approve; both exist on the current API surface.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", required: ["isApproved"], properties: { isApproved: { type: "boolean" } } },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Seller approval updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Seller" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          404: { description: "Seller not found" },
         },
       },
     },
@@ -828,6 +1304,96 @@ export const openApiSpec = {
               },
             },
           },
+        },
+      },
+    },
+    "/reviews/product/{productId}": {
+      get: {
+        tags: ["Reviews"],
+        summary: "List reviews for a product",
+        security: [],
+        parameters: [{ name: "productId", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: {
+            description: "Reviews for the product",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Review" } } } },
+          },
+        },
+      },
+    },
+    "/reviews/{id}": {
+      get: {
+        tags: ["Reviews"],
+        summary: "Get a review by id",
+        security: [],
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Review", content: { "application/json": { schema: { $ref: "#/components/schemas/Review" } } } },
+          404: { description: "Review not found" },
+        },
+      },
+      patch: {
+        tags: ["Reviews"],
+        summary: "Update own review",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                properties: {
+                  rating: { type: "integer", minimum: 1, maximum: 5 },
+                  comment: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Review updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Review" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Not your review" },
+          404: { description: "Review not found" },
+        },
+      },
+      delete: {
+        tags: ["Reviews"],
+        summary: "Delete own review",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        responses: {
+          200: { description: "Review deleted" },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Not your review" },
+          404: { description: "Review not found" },
+        },
+      },
+    },
+    "/reviews": {
+      post: {
+        tags: ["Reviews"],
+        summary: "Create a review for a product (one per product per user)",
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["productId", "rating"],
+                properties: {
+                  productId: { type: "string" },
+                  rating: { type: "integer", minimum: 1, maximum: 5 },
+                  comment: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          201: { description: "Review created", content: { "application/json": { schema: { $ref: "#/components/schemas/Review" } } } },
+          401: { description: "Missing or invalid access token" },
+          404: { description: "Product not found" },
+          409: { description: "Caller already reviewed this product" },
         },
       },
     },
@@ -899,6 +1465,78 @@ export const openApiSpec = {
           400: { description: "Invalid listingId" },
           401: { description: "Missing or invalid access token" },
           403: { description: "Caller is not CUSTOMER" },
+        },
+      },
+    },
+    "/admin/users": {
+      get: {
+        tags: ["Admin"],
+        summary: "List all users (ADMIN)",
+        responses: {
+          200: {
+            description: "All users",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/User" } } } },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+        },
+      },
+    },
+    "/admin/orders": {
+      get: {
+        tags: ["Admin"],
+        summary: "List all orders with optional status filters (ADMIN)",
+        parameters: [
+          { name: "status", in: "query", schema: { type: "string", enum: ["PENDING", "CONFIRMED", "SHIPPED", "DELIVERED", "CANCELLED"] } },
+          { name: "paymentStatus", in: "query", schema: { type: "string", enum: ["PENDING", "PAID", "REFUNDED"] } },
+        ],
+        responses: {
+          200: {
+            description: "All orders matching the filters",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Order" } } } },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+        },
+      },
+    },
+    "/admin/sellers": {
+      get: {
+        tags: ["Admin"],
+        summary: "List every seller — all statuses, full rows (ADMIN)",
+        description:
+          "AUD-008 remediation plumbing: the admin seller-management screens depended on the previously-public " +
+          "GET /sellers for full rows (all statuses, balance, commissionRate). That endpoint is now approved-only " +
+          "with a narrow projection, so this replaces — not extends — the existing admin capability.",
+        responses: {
+          200: {
+            description: "Every seller, full rows",
+            content: { "application/json": { schema: { type: "array", items: { $ref: "#/components/schemas/Seller" } } } },
+          },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+        },
+      },
+    },
+    "/admin/sellers/{id}/approve": {
+      patch: {
+        tags: ["Admin"],
+        summary: "Approve or suspend a seller (ADMIN)",
+        description: "Equivalent to PATCH /sellers/{id}/approve; both exist on the current API surface.",
+        parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }],
+        requestBody: {
+          required: true,
+          content: {
+            "application/json": {
+              schema: { type: "object", required: ["isApproved"], properties: { isApproved: { type: "boolean" } } },
+            },
+          },
+        },
+        responses: {
+          200: { description: "Seller approval updated", content: { "application/json": { schema: { $ref: "#/components/schemas/Seller" } } } },
+          401: { description: "Missing or invalid access token" },
+          403: { description: "Caller is not ADMIN" },
+          404: { description: "Seller not found" },
         },
       },
     },

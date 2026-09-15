@@ -5,14 +5,11 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import AdminSellers from "../AdminSellers";
 import type { Seller } from "@/types/api";
 
-const listSellers = vi.fn();
+const listAdminSellers = vi.fn();
 const adminApproveSeller = vi.fn();
 
-vi.mock("@/api/sellers", () => ({
-  listSellers: (...args: unknown[]) => listSellers(...args),
-}));
-
 vi.mock("@/api/admin", () => ({
+  listAdminSellers: (...args: unknown[]) => listAdminSellers(...args),
   adminApproveSeller: (...args: unknown[]) => adminApproveSeller(...args),
 }));
 
@@ -53,13 +50,13 @@ function renderSellers() {
 
 describe("AdminSellers", () => {
   beforeEach(() => {
-    listSellers.mockReset();
+    listAdminSellers.mockReset();
     adminApproveSeller.mockReset();
     adminApproveSeller.mockResolvedValue(seller({ isApproved: true }));
   });
 
   it("lists sellers and approves with adminApproveSeller(id, true)", async () => {
-    listSellers.mockResolvedValue([
+    listAdminSellers.mockResolvedValue([
       seller(),
       seller({
         id: "seller-ok",
@@ -74,7 +71,7 @@ describe("AdminSellers", () => {
     expect(await screen.findByText("Vendedores")).toBeTruthy();
     expect(screen.getByText("Loja Pendente")).toBeTruthy();
     expect(screen.getByText("Loja Aprovada")).toBeTruthy();
-    expect(listSellers).toHaveBeenCalled();
+    expect(listAdminSellers).toHaveBeenCalled();
 
     fireEvent.click(await screen.findByRole("button", { name: "Aprovar" }));
     await waitFor(() => {
@@ -83,7 +80,7 @@ describe("AdminSellers", () => {
   });
 
   it("suspends an approved seller with adminApproveSeller(id, false)", async () => {
-    listSellers.mockResolvedValue([
+    listAdminSellers.mockResolvedValue([
       seller({
         id: "seller-ok",
         storeName: "Loja Aprovada",

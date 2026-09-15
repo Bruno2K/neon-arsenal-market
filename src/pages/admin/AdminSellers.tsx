@@ -1,6 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApproveSeller } from "@/api/admin";
-import { listSellers } from "@/api/sellers";
+import { adminApproveSeller, listAdminSellers } from "@/api/admin";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -35,7 +34,7 @@ export default function AdminSellers() {
     refetch,
   } = useQuery({
     queryKey: ["admin-sellers"],
-    queryFn: () => listSellers(),
+    queryFn: () => listAdminSellers(),
   });
 
   const approveSeller = useMutation({

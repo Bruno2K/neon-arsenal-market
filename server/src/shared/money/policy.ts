@@ -27,13 +27,6 @@ export const MONEY_COMMISSION_ROUNDING = "exact" as const;
  */
 export const MONEY_PAYPAL_ROUNDING = "HALF_UP" as const;
 
-/**
- * PayPal refund execution is not implemented. TASK-0013 adds only durable local
- * obligations and exact seller-ledger compensation; it does not change this
- * provider-capability flag or write PaymentStatus.REFUNDED.
- */
-export const MONEY_REFUNDS_IMPLEMENTED = false;
-
 export function zeroMoney(): Prisma.Decimal {
   return new Prisma.Decimal(0);
 }

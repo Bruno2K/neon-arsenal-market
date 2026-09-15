@@ -21,8 +21,32 @@ import { favoritesRoutes } from "./modules/favorites/favorites.routes.js";
 import { adminRoutes } from "./modules/admin/admin.routes.js";
 import { getAllowedCorsOrigins, isCorsOriginAllowed } from "./shared/config/cors.js";
 import { API_V1_PREFIX } from "./shared/http/apiVersion.js";
+import type { RouteManifestEntry } from "./shared/docs/routeInventory.js";
 
 const app = express();
+
+/**
+ * AUD-016 (PR11): single source of truth for which router is mounted at which
+ * prefix under the public API. Walked by `shared/docs/routeInventory.ts` so a
+ * test can assert the real route surface exactly matches `openApiSpec.paths` —
+ * no separate, driftable list of "documented" routes to keep in sync by hand.
+ * `/auth` additionally gets `authLimiter`; that is applied once below and is
+ * not part of the route-shape manifest itself.
+ */
+const apiModules: RouteManifestEntry[] = [
+  { prefix: "/auth", router: authRoutes },
+  { prefix: "/users", router: usersRoutes },
+  { prefix: "/sellers", router: sellersRoutes },
+  { prefix: "/products", router: productsRoutes },
+  { prefix: "/listings", router: listingsRoutes },
+  { prefix: "/listings", router: priceHistoryRoutes },
+  { prefix: "/orders", router: ordersRoutes },
+  { prefix: "/payments", router: paymentsRoutes },
+  { prefix: "/commissions", router: commissionsRoutes },
+  { prefix: "/reviews", router: reviewsRoutes },
+  { prefix: "/favorites", router: favoritesRoutes },
+  { prefix: "/admin", router: adminRoutes },
+];
 
 // X-Forwarded-For is caller-controlled on some proxy chains. Client identity is
 // resolved explicitly at the rate-limit/audit boundary (ADR 0023).
@@ -68,18 +92,13 @@ app.use(healthRoutes);
 app.use(docsRoutes);
 
 const publicApi = express.Router();
-publicApi.use("/auth", authLimiter, authRoutes);
-publicApi.use("/users", usersRoutes);
-publicApi.use("/sellers", sellersRoutes);
-publicApi.use("/products", productsRoutes);
-publicApi.use("/listings", listingsRoutes);
-publicApi.use("/listings", priceHistoryRoutes);
-publicApi.use("/orders", ordersRoutes);
-publicApi.use("/payments", paymentsRoutes);
-publicApi.use("/commissions", commissionsRoutes);
-publicApi.use("/reviews", reviewsRoutes);
-publicApi.use("/favorites", favoritesRoutes);
-publicApi.use("/admin", adminRoutes);
+// authLimiter is scoped to /auth specifically; registered before the manifest
+// loop mounts authRoutes at the same prefix, preserving the original
+// authLimiter → authRoutes order for every /auth/* request.
+publicApi.use("/auth", authLimiter);
+for (const { prefix, router } of apiModules) {
+  publicApi.use(prefix, router);
+}
 
 app.use(publicApi);
 app.use(API_V1_PREFIX, publicApi);
@@ -87,4 +106,4 @@ app.use(API_V1_PREFIX, publicApi);
 app.use(notFound);
 app.use(errorHandler);
 
-export { app };
+export { app, apiModules };

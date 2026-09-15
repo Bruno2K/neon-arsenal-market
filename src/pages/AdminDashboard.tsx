@@ -1,8 +1,11 @@
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { adminApproveSeller, listAdminOrders } from "@/api/admin";
+import {
+  adminApproveSeller,
+  listAdminOrders,
+  listAdminSellers,
+} from "@/api/admin";
 import { listProducts } from "@/api/products";
-import { listSellers } from "@/api/sellers";
 import { Cs2ShCatalogImportCard } from "@/components/admin/Cs2ShCatalogImportCard";
 import { EmptyState, ErrorState } from "@/components/page-state";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +41,7 @@ export default function AdminDashboard() {
   });
   const sellersQuery = useQuery({
     queryKey: ["admin-sellers"],
-    queryFn: () => listSellers(),
+    queryFn: () => listAdminSellers(),
   });
   const productsQuery = useQuery({
     queryKey: ["admin-products"],

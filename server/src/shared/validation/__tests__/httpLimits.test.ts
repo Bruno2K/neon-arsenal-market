@@ -22,7 +22,8 @@ describe("HTTP input limits", () => {
     ).toBe(false);
   });
 
-  it("strips client listing status from the generic update DTO", () => {
-    expect(updateListingDto.parse({ price: 12.5, status: "SOLD" })).toEqual({ price: 12.5 });
+  it("AUD-015: rejects a client price/status on the generic update DTO instead of silently stripping it", () => {
+    expect(() => updateListingDto.parse({ price: 12.5, status: "SOLD" })).toThrow();
+    expect(updateListingDto.parse({ tradeLockUntil: null })).toEqual({ tradeLockUntil: null });
   });
 });
