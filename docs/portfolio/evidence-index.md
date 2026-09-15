@@ -22,7 +22,7 @@ This map connects reviewer-facing claims to current rules, implementation, and p
 
 - [PR11 — Final Senior Backend Audit](../verification/final-senior-backend-audit-2026-09-14.md): 34 findings across 28 dimensions, all seven P0 findings corrected and re-verified; unresolved P0 = 0.
 - [PR12 — Production & Operational Proof](../verification/production-operational-proof-2026-09-15.md): topology, probes, signals, SLI/SLO targets, recovery, runbooks, game days, operational security, backup posture, and explicit provider-level unknowns.
-- [PR13 — Portfolio Release](release-checklist.md): navigation, case study, claim-to-proof map, known limits, closure, and freeze policy. It changes documentation only and remains subject to human merge.
+- [PR13 — Portfolio Release](release-checklist.md): merged/current evidence for reviewer navigation, the case study, claim-to-proof map, known limits, closure, and freeze policy. The release changed documentation only.
 
 ## Evidence boundaries
 
