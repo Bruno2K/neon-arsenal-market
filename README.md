@@ -2,7 +2,7 @@
 
 Neon Arsenal Market is a marketplace for individually owned Counter-Strike 2 skin listings. Its engineering core is a Node/Express modular monolith backed by PostgreSQL, designed around concurrency-sensitive unique inventory, trustworthy payment and refund state, partial failure at the PayPal boundary, and operational recovery. The React/Vite client is the product surface; the repository's strongest evidence is in the backend invariants, transactions, failure handling, tests, and operations.
 
-**Portfolio status:** release candidate for **PORTFOLIO COMPLETE / MAINTENANCE** after PR13 receives human review and is merged. Start with the [10–15 minute reviewer guide](docs/portfolio/reviewer-guide.md) or the [backend engineering case study](docs/portfolio/case-study.md).
+**Portfolio status:** **PORTFOLIO COMPLETE / MAINTENANCE MODE**. PR13 is merged, the PR10–PR13 exit roadmap is complete, and active feature development is frozen. Start with the [10–15 minute reviewer guide](docs/portfolio/reviewer-guide.md) or the [backend engineering case study](docs/portfolio/case-study.md).
 
 ## Why this project exists
 
@@ -139,4 +139,4 @@ docs/plans/ and docs/tasks/  bounded implementation history and state
 
 ## Project status
 
-PR10 closed the convergence phase, PR11 merged the final adversarial audit and seven P0 corrections, PR12 merged bounded production/operational proof, and PR13 is the final portfolio release. No PR14 is planned. After human merge of PR13, the project enters maintenance/freeze mode under the [project status policy](docs/portfolio/project-status.md).
+PR10 closed the convergence phase, PR11 merged the final adversarial audit and seven P0 corrections, PR12 merged bounded production/operational proof, and PR13 merged the final portfolio release. The exit roadmap is complete, active feature development is frozen, and the project is maintained as a portfolio project under the [project status policy](docs/portfolio/project-status.md). No PR14 or new functional roadmap is planned by default.

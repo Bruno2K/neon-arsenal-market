@@ -1,12 +1,18 @@
-# Project status — portfolio complete / maintenance
+# Project status — portfolio complete / maintenance mode
 
 ## Status
 
-**Current:** PR13 portfolio release candidate, awaiting human review and merge.
+**Status: PORTFOLIO COMPLETE / MAINTENANCE MODE.**
 
-**After PR13 merge:** **PORTFOLIO COMPLETE / MAINTENANCE**.
+- PR10: complete / merged.
+- PR11: complete / merged.
+- PR12: complete / merged.
+- PR13: complete / merged.
+- Functional roadmap: closed.
+- Unresolved P0: 0.
+- Functional development: frozen.
 
-PR10 closed portfolio convergence. PR11 merged the final adversarial Senior Backend audit and seven P0 corrections. PR12 merged production/operational proof with explicit provider-level evidence boundaries. PR13 packages the final reviewer path and freeze policy. No PR14 is planned.
+PR10 closed portfolio convergence. PR11 merged the final adversarial Senior Backend audit and seven P0 corrections. PR12 merged production/operational proof with explicit provider-level evidence boundaries. PR13 merged the final reviewer path and freeze policy. The repository is now maintained as a portfolio project.
 
 ## What maintenance allows
 
@@ -15,13 +21,14 @@ PR10 closed portfolio convergence. PR11 merged the final adversarial Senior Back
 - broken deployment fixes;
 - regression fixes;
 - documentation corrections;
-- explicitly justified future product iteration.
+- explicitly justified future product work.
 
 ## What is not allowed by default
 
-- architecture expansion without a measured constraint;
-- speculative infrastructure;
-- “one more roadmap” or hardening wave;
+- PR14 or a new functional roadmap;
+- speculative architecture expansion or infrastructure added for portfolio points;
+- Kafka, Kubernetes, microservices, CQRS, event sourcing, a service mesh, or Redis without measured need;
+- another generic hardening roadmap;
 - implementation whose main purpose is increasing technology count;
 - silently reopening frozen behavior or changing payment, refund, money, concurrency, or security semantics.
 
@@ -36,7 +43,7 @@ A material change still requires the repository's Specification → Plan → Tas
 
 ## Frozen backlog
 
-These PR11 P1 findings are valid future improvements, but none is required for the current portfolio evidence and PR13 does not implement them:
+These PR11 P1 findings remain valid known limitations, but they are frozen rather than unfinished roadmap obligations:
 
 | Finding | Frozen improvement | Why it remains frozen |
 |---|---|---|
@@ -61,8 +68,13 @@ These boundaries describe where evidence stops; they are not invitations to add 
 
 ## Manual repository administration
 
-**MANUAL FOLLOW-UP:** Enable a `main` branch ruleset/protection after GitHub account authentication is available. Protection is not currently claimed as active, and PR13 does not block on this provider/account task.
+- Enable a GitHub `main` ruleset / branch protection when account authentication is available. Branch protection is not currently active.
+- Configure the repository description and topics.
+- Decide and document the repository license.
+- Triage open Dependabot PRs without automatically merging them.
+
+These are repository-maintenance follow-ups, not development blockers or a new engineering roadmap.
 
 ## Release gate
 
-The final status checklist is [release-checklist.md](release-checklist.md). PR13 must remain unmerged until a human reviews it. After merge, maintenance changes should be rare, scoped, and evidence-driven.
+The historical PR13 release checklist is [release-checklist.md](release-checklist.md). PR13 has merged; maintenance changes should be rare, scoped, evidence-driven, and subject to human review.
