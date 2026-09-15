@@ -255,3 +255,22 @@ Do **not** interview as if these exist:
 Use it to explain, in an interview, **where trust stops**, **why the webhook is unauthenticated at Express**, **why the client cannot confirm payment**, and **which controls are real versus aspirational**. Update this file when a listed control is added or removed in code — do not add a control in this document first.
 
 Automated abuse coverage for T3–T7, T10, and listing/order IDOR is in `server/src/__tests__/api.security.integration.test.ts` (#72), plus the existing PayPal webhook and listing ownership unit tests.
+
+## PR12 operational-security pass (2026-09-15)
+
+This pass reviewed the operational path rather than redesigning security. No new serious vulnerability was identified.
+
+| Surface | Current control/evidence | Residual operational boundary |
+|---|---|---|
+| Secrets and deployment credentials | Production refuses fallback JWT secrets; Render variables are generated or `sync: false`; secrets are absent from committed config | Dashboard access, secret rotation history, and least-privilege membership require provider-account review and were not publicly verifiable |
+| Auth and admin actions | Short-lived access JWT, refresh families, role middleware, ownership tests, ADMIN route tests | Stolen access JWT remains valid until expiry; operator identity depends on protected admin credentials |
+| PayPal webhook trust | RSA-SHA256 verification, cert-host allowlist, timestamp window, required production webhook id, duplicate event identity | Public non-production deployment with missing webhook id remains unsafe and explicitly unsupported |
+| Payment/refund operator action | Provider state is authoritative; stable refund identity; append-only compensation; runbook forbids manual completion and duplicate provider mutation | Exceptional DB repair needs explicit human approval and before/after evidence; no generic repair endpoint exists |
+| Rate-limit identity | Render edge identity cannot be caller-rotated; IPv6 grouping; tests | Counters are in-process and not replica-safe; no repository WAF; scaling must revisit this control |
+| Seller/customer data | Public seller projection excludes email/balance/rate; sensitive routes authenticate/authorize | Render logs and database access remain privileged data surfaces; do not search incidents by email when durable ids exist |
+| Logs and telemetry | Structured safe fields, `safeAttributes()` redaction, no raw SQL/binds or full webhook payloads | A future ad-hoc log can still leak data; production collector destination/retention/access are not proven |
+| CI and artifacts | npm/Trivy gates; test/load artifacts contain controlled data and image/resource evidence | CI artifacts must never contain `.env`, database dumps, provider payloads, or production logs; repository settings/retention need account-level review |
+| Backups | Database state is separate from ephemeral web filesystem | Blueprint declares Free Postgres, which has no managed backup/PITR; actual live plan and backup schedule are not proven. Backup credentials/dumps require encryption and restricted storage |
+| Dependencies | Dependabot plus npm/Trivy policy gates | A passing scan is point-in-time evidence, not immunity; exceptions must remain explicit and time-bounded |
+
+Operational release gates are: production-mode secret assertions remain enabled; PayPal webhook verification is never bypassed on a public host; deployment and backup credentials are not copied into logs/tickets; CI artifacts contain controlled test data only; and any exceptional financial repair is approved and audited. Provider dashboard permissions, telemetry retention, and backup access cannot be proven from repository/public evidence and remain `NOT PROVEN` in PR12.

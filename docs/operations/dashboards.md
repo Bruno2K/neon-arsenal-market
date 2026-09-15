@@ -6,6 +6,8 @@ Importable definition: [`dashboards/neon-arsenal-api.json`](./dashboards/neon-ar
 
 Contract: `SPEC-0008`. SLOs that use these panels: [`slos.md`](./slos.md). Instrument source: `server/src/shared/observability/`.
 
+Canonical signal-by-signal operator map: [`signal-inventory.md`](./signal-inventory.md). It records emission sites, labels, diagnostic purpose, and whether production observation was verified.
+
 ## How to use this file
 
 1. Enable `OTEL_ENABLED=true` and an exporter (`console` locally, `otlp` if you already have an endpoint).
