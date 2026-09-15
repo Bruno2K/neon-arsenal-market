@@ -13,7 +13,7 @@ Status values describe the PR13 head and must be updated truthfully before human
 | Known limitations explicit | PASS | [Project status](project-status.md#known-evidence-limits) and README |
 | PR11 artifact linked | PASS | [Final Senior Backend Audit](../verification/final-senior-backend-audit-2026-09-14.md) |
 | PR12 artifact linked | PASS | [Production & Operational Proof](../verification/production-operational-proof-2026-09-15.md) |
-| CI green | PARTIAL | Local contract verification passed; remote PR CI must be green before completion handoff |
+| CI green | PASS | PR13 remote `Repository verification` and `CI` workflows completed successfully; exact final-head runs are recorded in the PR body |
 | Vercel/Render links checked | PASS | Single remote check recorded in PR13 handoff/PR body; point-in-time reachability only |
 | No unresolved P0 | PASS | PR11 closed and re-verified all seven P0 findings; unresolved P0 = 0 |
 | Frozen backlog documented | PASS | AUD-002, AUD-020, AUD-021, AUD-030, AUD-032, AUD-033 and rejected AUD-034 are in [project status](project-status.md#frozen-backlog) |
