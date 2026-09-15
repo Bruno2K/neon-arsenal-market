@@ -55,8 +55,13 @@ Relevant files:
 Canonical service identity:
 
 ```text
-neon-arsenal-api
+Blueprint resource name: neon-arsenal-api
+Observed public host:    neon-arsenal-market-api.onrender.com
 ```
+
+The names are intentionally distinguished. `render.yaml` is the desired Blueprint resource name; the already-existing live service uses the longer public hostname. Renaming or recreating a Render service merely to make those strings equal would risk a needless topology change. Active runbooks use the observed host for URLs and `neon-arsenal-api` when referring to the Blueprint/OTel service resource.
+
+PR12 public observation on 2026-09-15 UTC proved `GET /health` and `GET /ready` returned 200 from the observed Render host. The public response does not expose the Render deploy commit or Dashboard resource id. Without authenticated Render access, the exact deployed SHA and whether the Dashboard display name equals either string remain **not proven**.
 
 Render readiness probe:
 
@@ -81,6 +86,19 @@ neon-arsenal-db
 ```
 
 `DATABASE_URL` is injected into the API from the Render database resource. Schema evolution is performed with forward Prisma migrations; applied migrations are not rewritten.
+
+`render.yaml` declares `plan: free`. That repository declaration is not proof of the Dashboard's current plan, but it is the only configuration-backed plan evidence available to this repository. Render documents that Free Postgres has no managed backup, logical-export, or point-in-time-recovery capability. See the backup and restore section of the runbook before treating this demo deployment as durable production storage.
+
+## Observed production evidence
+
+At 2026-09-15 01:18-01:19 UTC:
+
+- Render `https://neon-arsenal-market-api.onrender.com/health` returned 200 `{"status":"ok"}` with `x-render-origin-server: Render`.
+- Render `https://neon-arsenal-market-api.onrender.com/ready` returned 200 `{"status":"ready"}`.
+- GitHub deployment `6449424456` reported Vercel Production success for exact commit `a298d61c2bf185534c93fdafa21e868a3b66a1d5`.
+- the stable frontend alias `https://neon-arsenal-market.vercel.app/` returned 200 with `Server: Vercel`.
+
+These are point-in-time remote-deployment observations, not uptime, load-capacity, backup, or production-telemetry claims. The durable evidence record is [`production-operational-proof-2026-09-15.md`](../verification/production-operational-proof-2026-09-15.md).
 
 ## Configuration ownership
 

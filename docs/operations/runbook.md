@@ -20,6 +20,20 @@ Secrets (`PAYPAL_*`, `RESEND_API_KEY`, `EMAIL_FROM`, `JWT_*`, `CS2SH_API_KEY`) s
 
 Rollback: Render Dashboard → previous deploy. Schema rollback is a new Prisma migration, not `migrate down`.
 
+### Deployment and migration gate
+
+Before deploying:
+
+1. Verify the candidate SHA and required CI checks; record the exact SHA, not only the branch name.
+2. Review new Prisma migrations for destructive operations, long locks, and compatibility with both the old and new application image. Applied migrations are immutable.
+3. Confirm required Render/Vercel variables exist without printing their values. PayPal mode, webhook id, frontend/API origins, JWT secrets, and database binding are release gates.
+4. Prefer additive/backward-compatible schema changes: add nullable/defaulted structures, deploy code that tolerates both shapes, backfill separately, then enforce/remove in a later release.
+5. Confirm the previous Render deploy remains within the provider's rollback retention and identify the operator who can perform the rollback.
+
+Rollout order is database migration from `server/entrypoint.sh`, application start, `/ready` success, then traffic. After rollout, verify `/health`, `/ready`, one non-mutating API route, the Vercel frontend, and new error/log signals. A failed migration prevents the new container from starting; do not bypass it with `db push`.
+
+Rollback criteria include repeated 5xx, failed readiness, security regression, invariant violation, or a migration/app incompatibility. Application rollback is safe only when the already-applied schema is backward-compatible with the older image. Render rollback reuses a prior build but does not undo PostgreSQL migrations or current platform state. If the schema is not backward-compatible, stop: ship a reviewed forward repair or restore to a separate database according to the recovery plan. This project does not claim automated rollback.
+
 CI jobs, dependency updates, and residual main-protection / staging items: [`ci-protection.md`](./ci-protection.md).
 
 ## Sandbox checkout (PayPal login)
@@ -175,6 +189,21 @@ Logs (no secrets): `paypal webhook received`, `paypal capture webhook processed`
 
 Capture after the reservation TTL creates a durable full technical-refund obligation. Procedure: **Refund reconciliation** below.
 
+## For order X, what happened?
+
+Use evidence in this order. Do not begin with a write.
+
+1. Query `Order` and `OrderItem` by the local order id; record `status`, `paymentStatus`, total/currency, `paypalOrderId`, and timestamps. Confirm the requester/operator is authorized to see the data.
+2. Query the referenced listings and verify status, `reservedByOrderId`, reservation expiry, and seller ownership. A paid order with a canceled listing or a sold listing without a paid order is an incident.
+3. If `paypalOrderId` exists, inspect that exact sandbox/live order in the matching PayPal account. Record state and capture id; never infer capture from browser return alone.
+4. Query `PaymentWebhookEvent` for the order and safe event ids. Distinguish `PROCESSED`, duplicate/idempotent delivery, ignored approval, rejected signature, and unresolved failure. Correlate the response `X-Request-Id` through logs and traces when available.
+5. Query `Refund` by `orderId`. Record obligation status, capture identity, provider refund identity, failure reason, and age. A capture that cannot fulfill locally must have one durable full-refund obligation.
+6. Query `SellerTransaction` by order and refund. Verify one economic identity per credit/compensation and compare the PAID net sum with `Seller.balance`; never rewrite history to make it agree.
+7. Inspect reconciliation evidence: payment GET sweep, refund sweep, seller-ledger sweep, and outbox rows/logs. An old pending row can mean a sleeping instance, provider ambiguity, batch backlog, or AUD-021's known filter limitation.
+8. Classify the case: **healthy** (durable states agree), **retryable** (bounded automatic path exists), **refund pending**, **operator-required** (terminal/aged ambiguity or invariant mismatch), or **externally blocked** (provider/platform unavailable).
+
+Normal recovery is the existing idempotent webhook/reconciliation/outbox path. A database correction is exceptional: require explicit human approval, a reviewed one-off procedure, transaction boundaries, a backup or recoverable snapshot where available, and before/after queries retained as evidence. Never paste secrets or unnecessary customer data into an incident record.
+
 ---
 
 ## Refund reconciliation
@@ -256,3 +285,20 @@ ORDER BY st."createdAt";
 - classify timeout, throttling, 5xx, or request-in-progress as terminal economic failure.
 
 See also `docs/architecture/failure-modes.md`, `docs/adr/0002-paypal-webhook-reliability.md`, and ADR 0024.
+
+## Backup and restore posture
+
+The repository Blueprint declares `neon-arsenal-db` on Render's Free plan. Render's current documentation states Free Postgres has no provider-managed backups, logical exports, or point-in-time recovery. PR12 did not have authenticated Dashboard access to verify whether the live database plan differs, so managed backup availability is **not proven**. Do not describe this demo database as recoverable until the plan and a restore exercise prove it.
+
+Recovery mechanisms solve different failures:
+
+| Mechanism | Use | Current proof |
+|---|---|---|
+| Application rollback | Re-run a retained previous Render build when schema remains compatible | Provider capability documented; no PR12 live rollback performed |
+| Forward migration repair | Correct a bad but reachable schema with a reviewed new migration | Repository policy/code-static only |
+| Database restore | Recover broad data loss into a separate database, validate, then cut consumers over | Not available on declared Free plan; no destructive live exercise |
+| Logical repair/reconciliation | Repair bounded provider/local disagreement using durable ids and append-only semantics | Automated PostgreSQL game-day evidence for refund, ledger, webhook, and outbox paths |
+
+For the declared Free plan, the proportional option is a scheduled, encrypted `pg_dump` to storage outside the Render database, with restricted credentials, retention, integrity checks, and periodic restore into an empty isolated PostgreSQL instance. That automation and external storage are **not implemented by this repository**. Never place a dump, database URL, or customer data in Git or public CI artifacts.
+
+Proposed objectives, not achieved measurements: **RPO 24 hours** (daily successful logical backup) and **RTO 4 hours** (provision isolated Postgres, restore, validate invariant queries, update `DATABASE_URL`, redeploy, verify readiness). These objectives remain `NOT PROVEN` until a real backup schedule and timed isolated restore exist. A future paid Render database can use provider PITR, but the operator must verify the actual recovery window in the Dashboard and restore to a new instance before cutover.

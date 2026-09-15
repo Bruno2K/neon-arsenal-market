@@ -1,10 +1,12 @@
 # Service level objectives
 
-Portfolio / demo operating targets for Neon Arsenal Market. They are **not** a paid customer SLA. Every SLI names an instrument that exists today in `server/src/shared/observability/`, or is marked unmeasurable with an existing proxy.
+Portfolio / demo **proposed operational targets** for Neon Arsenal Market. They are **not** a paid customer SLA and are not claims that production has achieved these targets. Every SLI names an instrument that exists today in `server/src/shared/observability/`, or is marked unmeasurable with an existing proxy.
 
 Contract: `SPEC-0008`. Panels: [`dashboards.md`](./dashboards.md). Performance evidence: [`../performance.md`](../performance.md). Scaling triggers: [`../architecture/scaling-path.md`](../architecture/scaling-path.md).
 
 Window: **30 days of recorded samples**. If `OTEL_ENABLED` is false, these SLIs have no time series; use Render logs and SQL only.
+
+Evidence boundary at PR12: code/tests prove the instruments and controlled failure behavior; one point-in-time remote check proves only that the public endpoints answered. No sustained production OTLP series was available, so every numeric value below remains a target awaiting observation.
 
 ## What “availability” means here
 
@@ -87,6 +89,38 @@ Do **not** use `payments.failed` or `paypal.webhooks.failed` as this SLI. Both i
 | Dashboard | [Reconciliation](./dashboards.md#dashboard-5--reconciliation-and-ledger) |
 | SQL proxy | Count `Order` rows with `paymentStatus = PENDING`, non-null `paypalOrderId`, `updatedAt` older than 5 minutes (runbook). That query is the operator lag signal. |
 
+### SLO-CHECKOUT-CORRECTNESS — Consistent completed checkout
+
+| Field | Value |
+|---|---|
+| SLI | completed trusted payment workflows with consistent local terminal state / all trusted payment workflows inspected |
+| Proposed target | **100%**; any paid/canceled listing mismatch, duplicate economic effect, or missing required refund obligation is a correctness incident |
+| Measurement source | PostgreSQL invariant queries and reconciliation results; `payments.confirmed`, webhook outcomes, refund/outbox/ledger evidence are diagnostics, not a complete denominator |
+| Measurable today? | **Partially.** Integration and concurrency tests prove controlled cases. There is no production consistency scanner producing this ratio. |
+| Exclusions | buyer abandonment before trusted capture; rejected/expired reservations that correctly create the required refund obligation |
+
+Correctness is not traded as an availability error budget. One confirmed inconsistency stops feature work and triggers incident investigation.
+
+### SLO-REFUND-RECONCILE — Eligible refund terminal outcome
+
+| Field | Value |
+|---|---|
+| SLI | eligible refund obligations reaching `COMPLETED` or explicit operator-required terminal handling / eligible refund obligations attempted |
+| Proposed target | **99% within 24 hours**, with **100%** of unresolved obligations older than 24 hours emitting operator-required evidence |
+| Measurement source | refund reconciliation counters plus PostgreSQL `Refund` age/status query in the runbook |
+| Measurable today? | **Partially.** Counters have no age labels; SQL supplies the durable population. Production OTLP observation is not proven. |
+| Exclusions | obligations younger than their configured retry eligibility and provider incidents still inside the 24-hour operator threshold |
+
+### SLO-READY — Readiness success
+
+| Field | Value |
+|---|---|
+| SLI | successful `/ready` probe results / total `/ready` probe attempts while the service is expected to accept traffic |
+| Proposed target | **99.0% over 30 days**, excluding intentional deploy drain |
+| Measurement source | Render health-check history, if retained by the provider; direct checks are point-in-time samples only |
+| Measurable today? | **No repository time series.** Probe routes intentionally do not emit application HTTP metrics. Controlled tests prove 200/503 semantics. |
+| Exclusions | intentional SIGTERM/SIGINT drain; periods where a free instance is deliberately spun down are reported separately, not silently counted as success |
+
 ### Unmeasurable: buyer payment confirmation time
 
 Time from buyer approval to local `PAID` is not a histogram. Proxies when traces are exported:
@@ -127,3 +161,6 @@ Latency SLOs do not share this numeric budget. A catalog p95 breach is the scali
 | SLO-LAT-PAYPAL-HTTP | `paypal.client.request.duration` | Payments |
 | SLO-ERR-PAYPAL | `paypal.client.errors`, `paypal.client.timeouts`, `paypal.client.request.count` | Payments |
 | SLO-RECONCILE | *(unmeasurable)* proxy: `payments.reconcile` + SQL | Reconciliation |
+| SLO-CHECKOUT-CORRECTNESS | PostgreSQL invariant review + reconciliation evidence | Runbook |
+| SLO-REFUND-RECONCILE | `refund.reconciliation.*` + SQL age/status query | Reconciliation |
+| SLO-READY | Render probe history (not app telemetry) | Render + runbook |
