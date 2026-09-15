@@ -271,40 +271,83 @@ not additional Senior Backend evidence.
 
 ## Local verification
 
+Verified at head `fef441c6fbd2589ee329d8e4a892afb2db7b6972` (post-review-correction
+commit; see "Post-merge-review corrections" below).
+
 - `python scripts/verify.py`: **PASS** (documentation contract validation + 19 validator
   tests).
 - Backend (`server/`):
   - `npm run lint`: **PASS**, 0 errors.
   - `npx tsc --noEmit`: **PASS**.
-  - `npm run test:unit`: **PASS** — 73 files, 440 tests.
-  - `npm run test:contract`: **PASS** — 1 file, 19 tests, including the new AUD-016 exact
+  - `npm run test:unit`: **PASS** — 74 files, 445 tests, including the new
+    `routeInventory.nested-router.test.ts` fail-closed regression.
+  - `npm run test:contract`: **PASS** — 1 file, 19 tests, including the AUD-016 exact
     route-inventory-vs-OpenAPI assertion.
   - `npm run test:integration` (real PostgreSQL, `postgres:16-alpine`): **PASS** — 28
-    files, 176 tests, including the new AUD-001 concurrent cancel-vs-confirm race,
-    AUD-005/008 public-seller-surface suite, and AUD-015 price-mutation-path suite.
+    files, 176 tests, including the corrected AUD-001 concurrent cancel-vs-confirm race
+    (six independent trials asserting both legal outcomes), the AUD-005/008
+    public-seller-surface suite, and the AUD-015 price-mutation-path suite.
+  - `npm run build`: **PASS**.
 - Frontend (repo root):
   - `npm run lint`: **PASS**, 0 errors (12 pre-existing `react-refresh` warnings,
     unrelated to this change).
   - `npx tsc --noEmit -p tsconfig.app.json`: **PASS**.
-  - `npx vitest run`: **PASS** — 76 files, 449 tests.
+  - `npx vitest run --run`: **PASS** — 76 files, 449 tests.
+  - `npm run build` (with the required production `API_URL`): **PASS**.
+  - `git diff --check`: no whitespace errors.
 
 ## Remote CI
 
-[PR #260](https://github.com/Bruno2K/neon-arsenal-market/pull/260), head
-`252d9c6049323869c42502385dd35462ef9c1c1e`. All checks **PASS**:
+[PR #260](https://github.com/Bruno2K/neon-arsenal-market/pull/260), final head
+`fef441c6fbd2589ee329d8e4a892afb2db7b6972`. All 10 checks **PASS**:
 
 - Agent harness and documentation contracts
-- Backend (lint · typecheck · unit · integration) — 1m48s
+- Backend (lint · typecheck · unit · integration) — 2m0s
 - Contract (OpenAPI)
 - Documentation contracts
-- Frontend (lint · typecheck · test)
+- Frontend (lint · typecheck · test) — 1m12s
 - Security (Trivy High/Critical gate)
 - Security (npm audit)
 - Build check
-- Vercel preview deployment
+- Vercel — deployment completed
+- Vercel Preview Comments
+
+`gh pr view 260` reports `mergeStateStatus: CLEAN`, `mergeable: MERGEABLE`, `state: OPEN`.
 
 Baseline `main` CI and repository-verification runs are linked above under
-Authorization and scope.
+Authorization and scope. The prior head (`252d9c6`, superseded by the corrections below)
+also passed CI in full before this correction; that run is not cited as final-head evidence.
+
+## Post-merge-review corrections
+
+Before a merge recommendation, review of the P0 implementations at head `3b1d42e`
+identified two credibility gaps in the fixes themselves (not new P0 findings against the
+baseline) and required them closed prior to merge:
+
+1. **AUD-001 regression test overstated the invariant.** The original concurrent
+   cancel-vs-confirm test asserted that payment confirmation always wins the race
+   regardless of scheduling order. The actual domain invariant is narrower: a listing that
+   has committed `SOLD` must never be overwritten to `CANCELED`, but the reverse ordering
+   (cancel commits first) is also legal, provided it never leaves a `PAID` order paired
+   with a `CANCELED` listing. The test now runs the genuine race across six independent
+   trials and asserts both legal outcomes — see the corrected test in
+   `server/src/__tests__/reservation.lifecycle.integration.test.ts` and the updated
+   `docs/domain/invariants.md` entry — instead of a single hard-coded winner.
+2. **`routeInventory.ts` did not fail closed on a nested router.** The helper treated
+   every non-route layer as ignorable middleware, so a future nested Express router mounted
+   via `router.use(path, subRouter)` would have been silently skipped rather than causing
+   the exact-match OpenAPI gate to fail — contradicting the stated "no route can drift
+   silently undocumented" guarantee. `listRouterOperations` now explicitly detects a nested
+   router (the mounted handle carries its own `.stack` array, verified against the
+   installed Express 5.2.1 shape) and throws `NestedRouterNotSupportedError` instead of
+   continuing. `server/src/shared/docs/__tests__/routeInventory.nested-router.test.ts`
+   proves all three required behaviors: a flat router is inventoried, middleware is
+   ignored, and a nested router fails closed. No real module in `apiModules` is nested
+   today, so the exact-match contract test's pass is unaffected.
+
+Neither correction reopened any of the seven P0 implementation decisions; no commission
+policy, seller projection, seller approval, price-mutation policy, refund semantics, or
+deployment architecture changed.
 
 ## Residual risks
 
