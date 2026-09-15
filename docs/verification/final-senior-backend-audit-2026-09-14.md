@@ -298,25 +298,28 @@ commit; see "Post-merge-review corrections" below).
 
 ## Remote CI
 
-[PR #260](https://github.com/Bruno2K/neon-arsenal-market/pull/260), final head
-`fef441c6fbd2589ee329d8e4a892afb2db7b6972`. All 10 checks **PASS**:
+[PR #260](https://github.com/Bruno2K/neon-arsenal-market/pull/260). Two heads on this
+review-correction pass, both with full CI evidence (not reusing the pre-correction head's
+run as final-head evidence):
 
-- Agent harness and documentation contracts
-- Backend (lint · typecheck · unit · integration) — 2m0s
-- Contract (OpenAPI)
-- Documentation contracts
-- Frontend (lint · typecheck · test) — 1m12s
-- Security (Trivy High/Critical gate)
-- Security (npm audit)
-- Build check
-- Vercel — deployment completed
-- Vercel Preview Comments
+- `fef441c6fbd2589ee329d8e4a892afb2db7b6972` (the code-and-test correction commit, verified
+  above under Local verification) — all 10 checks **PASS** (Backend 2m0s, Frontend 1m12s).
+- `425017fe99e88c0ab75d14aa66ad2c227c9fac5c` (this documentation-only follow-up, current PR
+  head) — re-ran and all 10 checks **PASS** again (Backend 1m49s, Frontend 1m1s), confirming
+  the docs-only diff did not change verification outcomes.
 
-`gh pr view 260` reports `mergeStateStatus: CLEAN`, `mergeable: MERGEABLE`, `state: OPEN`.
+Checks on both heads: Agent harness and documentation contracts · Backend
+(lint · typecheck · unit · integration) · Contract (OpenAPI) · Documentation contracts ·
+Frontend (lint · typecheck · test) · Security (Trivy High/Critical gate) · Security (npm
+audit) · Build check · Vercel (deployment completed) · Vercel Preview Comments.
+
+`gh pr view 260` at head `425017f` reports `mergeStateStatus: CLEAN`,
+`mergeable: MERGEABLE`, `state: OPEN`.
 
 Baseline `main` CI and repository-verification runs are linked above under
-Authorization and scope. The prior head (`252d9c6`, superseded by the corrections below)
-also passed CI in full before this correction; that run is not cited as final-head evidence.
+Authorization and scope. The pre-correction head (`252d9c6`/`3b1d42e`, superseded by the
+corrections below) also passed CI in full before this correction; those runs are not cited
+as final-head evidence.
 
 ## Post-merge-review corrections
 
