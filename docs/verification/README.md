@@ -14,6 +14,8 @@ These records remain useful maps from important engineering claims to implementa
 - [`refund-reconciliation-operations.md`](refund-reconciliation-operations.md) — refund recovery, idempotency, ledger compensation, and operations evidence.
 - [`single-checkout-currency.md`](single-checkout-currency.md) — BRL checkout invariant and migration evidence.
 
+The reviewer-facing claim-to-proof map is [`docs/portfolio/evidence-index.md`](../portfolio/evidence-index.md). PR13 release state and remaining manual gates are tracked in [`docs/portfolio/release-checklist.md`](../portfolio/release-checklist.md); those current navigation documents do not rewrite the point-in-time records below.
+
 Treat their executed results as historical snapshots while using their evidence links as durable navigation.
 
 ## Historical execution records

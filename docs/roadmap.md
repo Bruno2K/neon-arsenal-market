@@ -2,6 +2,16 @@
 
 This document records product and engineering direction: the capabilities already established, the evidence themes worth strengthening, and the current deployment direction. It is not an execution queue and does not authorize work.
 
+## Portfolio roadmap closure
+
+- **PR10 — closed:** final portfolio convergence.
+- **PR11 — merged:** final Senior Backend credibility audit; seven P0 findings corrected; unresolved P0 = 0.
+- **PR12 — merged:** production and operational proof with explicit provider-level evidence limits.
+- **PR13 — final release:** reviewer navigation, case study, evidence map, limitations, and freeze policy.
+- **After PR13:** **PORTFOLIO COMPLETE / MAINTENANCE**. No PR14 is planned.
+
+The active closure and frozen-backlog policy is [`docs/portfolio/project-status.md`](portfolio/project-status.md). Historical Plans and Tasks retain their contract-defined lifecycle and point-in-time traceability; roadmap closure does not rewrite them as Done.
+
 Specifications own material behavior and acceptance, Plans own implementation decomposition, Tasks own bounded execution, and `docs/agents/harness.md` defines how eligible work is selected. Roadmap priority informs those artifacts but never substitutes for them.
 
 ## P0 — Correctness first

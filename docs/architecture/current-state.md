@@ -6,6 +6,8 @@
 
 Neon Arsenal Market is a full-stack application with a **modular-monolith backend**.
 
+This is the canonical short architecture overview. `docs/architecture/c4.md` expands the same current state into C4 diagrams; neither document describes a future AWS or distributed-services target.
+
 ```text
 React/Vite client
        |
@@ -34,6 +36,37 @@ Express API --> PayPal
 Express API --> Resend
 Express API --> cs2.sh (optional catalog import; ADR 0014)
 ```
+
+### Consistency, recovery, and observability map
+
+```text
+untrusted browser
+      |
+      v
+HTTP edge: validation, authn/authz, rate limits, request ID
+      |
+      v
+domain service ---- provider I/O outside DB transaction ----> PayPal / Resend / cs2.sh
+      |
+      v
+PostgreSQL transaction
+  - conditional lifecycle transitions
+  - unique/check constraints
+  - order/payment/refund state
+  - append-only seller ledger + balance projection
+  - outbox intent committed with business state
+      ^
+      |
+in-process idempotent jobs
+  - reservation expiry
+  - PayPal capture/refund reconciliation
+  - seller-ledger reconciliation
+  - outbox claim/retry/stale-work recovery
+
+cross-cutting: structured logs + request/trace IDs + spans + low-cardinality metrics
+```
+
+PostgreSQL is the transactional source of truth. PayPal is a separate economic system and trust boundary: network success is not assumed to equal a committed local result. External calls do not run inside critical database transactions; durable identities and reconciliation bridge remote/local partial failure. Background work currently runs inside the API process and coordinates through PostgreSQL. No separate worker, broker, Redis, Kafka, or service mesh is part of the current system.
 
 The backend entrypoint is `server/src/index.ts`, which optionally starts OpenTelemetry, then loads `server/src/app.ts` and `startApiProcess`. The app applies request IDs, security headers, HTTP server spans, CORS, JSON parsing (`100kb` limit + webhook `rawBody`), rate limiting, health/docs routes, domain routes at both unversioned paths and `/api/v1` (SPEC-0007 / ADR 0017), 404 handling and centralized error handling. Express does not trust caller-provided `X-Forwarded-For`; limiter and audit identity use Render's overwritten `CF-Connecting-IP` only when the platform sets `RENDER=true`, otherwise the socket peer (ADR 0023). `/health`, `/ready`, and `/docs` stay host-rooted. Policy: `docs/architecture/api-versioning.md`. `startApiProcess` refuses default JWT secrets when `NODE_ENV=production`, binds `0.0.0.0:$PORT`, starts the in-process reservation-expiry, PayPal-reconciliation, seller-ledger-reconciliation, and outbox-dispatcher jobs, and registers SIGTERM/SIGINT graceful shutdown (drain HTTP, stop jobs, disconnect Prisma, shut down telemetry). `GET /ready` returns 503 `shutting_down` after shutdown begins. Security checklist: `docs/security/api-hardening-checklist.md`.
 
