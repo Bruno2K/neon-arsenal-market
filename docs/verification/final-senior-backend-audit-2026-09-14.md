@@ -97,12 +97,35 @@ pre-transaction ownership/existence read remains authorization-only; it is never
 correctness mechanism.
 
 Regression evidence:
-- `server/src/__tests__/reservation.lifecycle.integration.test.ts` — `AUD-001: cancel never
-  overwrites a listing that a concurrent payment already sold` races
+- `server/src/__tests__/reservation.lifecycle.integration.test.ts` — `AUD-001: racing cancel
+  against a concurrent payment confirmation never produces a paid order with a canceled
+  listing, or a sold listing whose order never reached PAID` races
   `paymentsService.confirmPayment` against `listingsService.cancel` on the same reservation
-  over real PostgreSQL via `Promise.allSettled`, and asserts the listing is `SOLD`/order is
-  `PAID` regardless of scheduling order; plus a sequential
-  `rejects cancelling a listing that a payment confirmed moments earlier`.
+  over real PostgreSQL via `Promise.allSettled`, across six independent trials (fresh
+  listing/order each time), without forcing a winner. The actual safety invariant is: a
+  listing that has successfully transitioned to `SOLD` must never subsequently be overwritten
+  to `CANCELED` by cancellation. Both transactions guard the same row with mutually exclusive
+  conditional updates (payment: `status=RESERVED → SOLD`; cancel: `status≠SOLD → CANCELED`),
+  so real PostgreSQL row-level locking admits exactly two legal outcomes depending on which
+  transaction's `UPDATE` commits first, and the test asserts both:
+  - **Payment commits first** — the listing ends `SOLD`, its order is `PAID`/`CONFIRMED` in the
+    same transaction, and cancel's guarded `updateMany` then observes `status=SOLD` and
+    rejects with the existing `400 "Cannot cancel a SOLD listing"`.
+  - **Cancel commits first** — the listing ends `CANCELED`; payment's conditional
+    `status=RESERVED` listing update then matches nothing, so that mismatch throws *inside*
+    payment's own transaction, rolling back its own order claim (the order stays
+    `PENDING`/`PENDING`) with the same `409 "Reservation expired or listing is no longer
+    reserved"` failure already proven for the expiry-vs-payment race above — the compensation
+    semantics for this outcome are not re-derived here.
+
+  In both outcomes the test additionally asserts the forbidden state never occurs: no trial
+  may end with `listing.status === "CANCELED" && order.paymentStatus === "PAID"`, and no trial
+  may end with `listing.status === "SOLD" && order.paymentStatus !== "PAID"`. This replaces an
+  earlier version of this test/artifact that incorrectly asserted payment must always win
+  regardless of scheduling order — that assertion was stronger than the actual domain
+  invariant and was corrected during PR11 review before merge. A sequential
+  `rejects cancelling a listing that a payment confirmed moments earlier` regression remains
+  unchanged.
 - `server/src/modules/listings/__tests__/listings.invariants.test.ts` and
   `listings.audit.test.ts` updated to assert the conditional `updateMany` call, not the
   removed unconditional `update`.
